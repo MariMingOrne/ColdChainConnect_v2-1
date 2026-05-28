@@ -19,7 +19,7 @@ export function SearchFilterBar({
   filters = [],
 }: SearchFilterBarProps) {
   return (
-    <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+    <div className="flex-1 flex flex-col sm:flex-row gap-3 items-stretch">
       <div className="flex-1 flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
         <span className="text-muted">🔍</span>
         <input
