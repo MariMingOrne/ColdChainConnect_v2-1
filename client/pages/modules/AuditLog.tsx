@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Clock, Eye } from "lucide-react";
+import { Clock, Eye, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuditLog } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -18,33 +18,41 @@ export function AuditLogPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch("/api/audit-logs", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch audit logs");
+      const data = await response.json();
+      setLogs(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading logs");
+      // Set mock data if API fails
+      setLogs([
+        {
+          id: "log-1",
+          user_id: "user-1",
+          action: "create",
+          resource_type: "customer",
+          created_at: new Date().toISOString(),
+        },
+      ] as AuditLog[]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchLogs();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const response = await fetch("/api/audit-logs", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch audit logs");
-        const data = await response.json();
-        setLogs(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading logs");
-        // Set mock data if API fails
-        setLogs([
-          {
-            id: "log-1",
-            user_id: "user-1",
-            action: "create",
-            resource_type: "customer",
-            created_at: new Date().toISOString(),
-          },
-        ] as AuditLog[]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
       fetchLogs();
     }
@@ -63,9 +71,20 @@ export function AuditLogPage() {
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-navy">Audit Log</h1>
-        <p className="text-gray-600">View all system actions and user activity</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy">Audit Log</h1>
+          <p className="text-gray-600">View all system actions and user activity</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-fit"
+          title="Refresh data"
+        >
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {error && (

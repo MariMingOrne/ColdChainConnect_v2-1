@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { RefreshCw } from "lucide-react";
 import { Customer, Truck, Invoice } from "@shared/api";
 
 interface Receipt {
@@ -32,6 +33,7 @@ export function DeliveryHistory() {
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [search,     setSearch]     = useState("");
   const [page,       setPage]       = useState(1);
@@ -77,6 +79,12 @@ export function DeliveryHistory() {
     }
   }, [token]);
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAll();
+    setIsRefreshing(false);
+  };
+
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const filtered = receipts.filter((r) => {
@@ -112,10 +120,13 @@ export function DeliveryHistory() {
           </p>
         </div>
         <button
-          onClick={fetchAll}
-          className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white self-start"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-fit"
+          title="Refresh data"
         >
-          ↺ Refresh
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          Refresh
         </button>
       </div>
 

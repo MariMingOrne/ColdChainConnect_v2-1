@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye } from "lucide-react";
+import { Eye, RefreshCw } from "lucide-react";
 import { Booking } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -18,32 +18,40 @@ export function BookingSummary() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchBookings = async () => {
+    try {
+      const response = await fetch("/api/bookings", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch bookings");
+      const data = await response.json();
+      setBookings(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading bookings");
+      // Set mock data if API fails
+      setBookings([
+        {
+          id: "1",
+          customer_id: "cust-1",
+          status: "pending",
+          created_at: new Date().toISOString(),
+        },
+      ] as Booking[]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchBookings();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const response = await fetch("/api/bookings", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch bookings");
-        const data = await response.json();
-        setBookings(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading bookings");
-        // Set mock data if API fails
-        setBookings([
-          {
-            id: "1",
-            customer_id: "cust-1",
-            status: "pending",
-            created_at: new Date().toISOString(),
-          },
-        ] as Booking[]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
       fetchBookings();
     }
@@ -63,9 +71,20 @@ export function BookingSummary() {
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-navy">Order Summary</h1>
-        <p className="text-gray-600">View and manage customer bookings</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy">Order Summary</h1>
+          <p className="text-gray-600">View and manage customer bookings</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-fit"
+          title="Refresh data"
+        >
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {error && (

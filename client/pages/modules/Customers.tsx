@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Customer } from "@shared/api";
+import { RefreshCw } from "lucide-react";
 
 interface CustomersProps {
   onBack?: () => void;
@@ -191,25 +192,33 @@ export function Customers({ onBack }: CustomersProps) {
     tax_rate: "",
   });
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch("/api/customers", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch customers");
-        const data = (await response.json()) as Customer[];
-        setCustomers(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading customers");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch("/api/customers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch customers");
+      const data = (await response.json()) as Customer[];
+      setCustomers(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading customers");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchCustomers();
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
     if (token) {
       fetchCustomers();
     }
@@ -353,6 +362,15 @@ export function Customers({ onBack }: CustomersProps) {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <button className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white">
             ⬇ Import Excel
           </button>

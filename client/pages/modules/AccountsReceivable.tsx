@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Send } from "lucide-react";
+import { Eye, Send, RefreshCw } from "lucide-react";
 import { Invoice } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -18,32 +18,40 @@ export function AccountsReceivable() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchUnpaid = async () => {
+    try {
+      const response = await fetch("/api/invoices?unpaid=true", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch unpaid invoices");
+      const data = await response.json();
+      setUnpaidInvoices(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading invoices");
+      // Set mock data if API fails
+      setUnpaidInvoices([
+        {
+          id: "INV-001",
+          booking_id: "booking-1",
+          status: "issued",
+          payment_status: "unpaid",
+        },
+      ] as Invoice[]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchUnpaid();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
-    const fetchUnpaid = async () => {
-      try {
-        const response = await fetch("/api/invoices?unpaid=true", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch unpaid invoices");
-        const data = await response.json();
-        setUnpaidInvoices(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading invoices");
-        // Set mock data if API fails
-        setUnpaidInvoices([
-          {
-            id: "INV-001",
-            booking_id: "booking-1",
-            status: "issued",
-            payment_status: "unpaid",
-          },
-        ] as Invoice[]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
       fetchUnpaid();
     }
@@ -72,9 +80,20 @@ export function AccountsReceivable() {
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-navy">Accounts Receivable</h1>
-        <p className="text-gray-600">Track unpaid invoices and customer balances</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy">Accounts Receivable</h1>
+          <p className="text-gray-600">Track unpaid invoices and customer balances</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-fit"
+          title="Refresh data"
+        >
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {error && (

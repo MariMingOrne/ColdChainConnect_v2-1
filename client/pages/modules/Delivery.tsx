@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { RefreshCw } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
@@ -49,6 +49,7 @@ export function DeliveryDispatch() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [selectedTruck,    setSelectedTruck]    = useState<Truck | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryExt | null>(null);
@@ -109,6 +110,12 @@ export function DeliveryDispatch() {
       setLoading(false);
     }
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAll();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -181,12 +188,23 @@ export function DeliveryDispatch() {
             Assign invoices to trucks and track deliveries stop-by-stop
           </p>
         </div>
-        <button
-          onClick={() => { setSelectedTruck(null); setSelectedDelivery(null); setShowDispatchModal(true); }}
-          className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity self-start"
-        >
-          ＋ Dispatch New Truck
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 self-start">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <button
+            onClick={() => { setSelectedTruck(null); setSelectedDelivery(null); setShowDispatchModal(true); }}
+            className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+          >
+            ＋ Dispatch New Truck
+          </button>
+        </div>
       </div>
 
       {error && (

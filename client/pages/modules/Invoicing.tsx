@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Download } from "lucide-react";
+import { Plus, Eye, Download, RefreshCw } from "lucide-react";
 import { Invoice } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -18,32 +18,40 @@ export function Invoicing() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchInvoices = async () => {
+    try {
+      const response = await fetch("/api/invoices", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch invoices");
+      const data = await response.json();
+      setInvoices(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading invoices");
+      // Set mock data if API fails
+      setInvoices([
+        {
+          id: "INV-001",
+          booking_id: "booking-1",
+          status: "draft",
+          payment_status: "unpaid",
+        },
+      ] as Invoice[]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchInvoices();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        const response = await fetch("/api/invoices", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch invoices");
-        const data = await response.json();
-        setInvoices(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading invoices");
-        // Set mock data if API fails
-        setInvoices([
-          {
-            id: "INV-001",
-            booking_id: "booking-1",
-            status: "draft",
-            payment_status: "unpaid",
-          },
-        ] as Invoice[]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
       fetchInvoices();
     }
@@ -58,19 +66,30 @@ export function Invoicing() {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
-  if (isLoading) return <div className="p-6">Loading...</div>;
+  if (isLoading && !isRefreshing) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy">Invoicing</h1>
           <p className="text-gray-600">Create and manage sales invoices</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Create Invoice
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-fit">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Button className="gap-2">
+            <Plus className="w-4 h-4" />
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       {error && (

@@ -665,29 +665,21 @@ export function Inventory() {
                           className="border-b border-border hover:bg-off-white/50 transition-colors"
                         >
                           <td className="px-3 py-3 whitespace-nowrap">
-                            <div className="flex flex-col gap-1">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded text-xs font-bold badge-${
-                                  stockStatus.status === "critical"
-                                    ? "red"
-                                    : stockStatus.status === "warning"
-                                      ? "gold"
-                                      : "green"
-                                }`}
-                              >
-                                {stockStatus.label}
-                              </span>
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded text-xs font-bold badge-${
-                                  expiryStatus.status === "expired" ||
-                                  expiryStatus.status === "expiring"
-                                    ? "red"
-                                    : "blue"
-                                }`}
-                              >
-                                {expiryStatus.label}
-                              </span>
-                            </div>
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-xs font-bold badge-${
+                                expiryStatus.status === "expired"
+                                  ? "red"
+                                  : expiryStatus.status === "expiring"
+                                    ? "gold"
+                                    : "green"
+                              }`}
+                            >
+                              {expiryStatus.status === "expired"
+                                ? "Expired"
+                                : expiryStatus.status === "expiring"
+                                  ? "Almost Expiry"
+                                  : "Not"}
+                            </span>
                           </td>
                           <td className="px-3 py-3 text-navy font-semibold whitespace-nowrap">
                             {product.sku}
@@ -696,17 +688,26 @@ export function Inventory() {
                             {product.description}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-bold text-white ${
-                                product.batchQuantity < product.reorderPoint
-                                  ? "bg-red"
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-bold text-white ${
+                                  product.batchQuantity < product.reorderPoint
+                                    ? "bg-red"
+                                    : product.batchQuantity < product.reorderPoint * 0.8
+                                      ? "bg-gold"
+                                      : "bg-green"
+                                }`}
+                              >
+                                {product.batchQuantity}
+                              </span>
+                              <span className="text-xs text-muted">
+                                {product.batchQuantity < product.reorderPoint
+                                  ? "Critical"
                                   : product.batchQuantity < product.reorderPoint * 0.8
-                                    ? "bg-gold"
-                                    : "bg-green"
-                              }`}
-                            >
-                              {product.batchQuantity}
-                            </span>
+                                    ? "Low Stock"
+                                    : "Adequate"}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-3 py-3 text-navy hidden lg:table-cell whitespace-nowrap">
                             {product.batchExpiryDate}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useInventoryContext } from "../../context/InventoryContext";
 import { Product } from "@shared/api";
-import { Upload } from "lucide-react";
+import { Upload, RefreshCw } from "lucide-react";
 
 interface PricingProps {
   onBack?: () => void;
@@ -186,25 +186,33 @@ export function Pricing({ onBack }: PricingProps) {
     batch_tracking_enabled: true,
   });
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch products");
-        const data = await response.json();
-        setProducts(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading products");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("/api/products", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch products");
+      const data = await response.json();
+      setProducts(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading products");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchProducts();
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
     if (token) {
       fetchProducts();
     }
@@ -304,6 +312,15 @@ export function Pricing({ onBack }: PricingProps) {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
             ⬇ Import Excel
           </button>

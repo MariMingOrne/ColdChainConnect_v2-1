@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { RefreshCw } from "lucide-react";
 import { Driver } from "@shared/api";
 
 interface DriversProps {
@@ -122,25 +123,33 @@ export function Drivers({ onBack }: DriversProps) {
     is_active: true,
   });
   const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    const fetchDrivers = async () => {
-      try {
-        const response = await fetch("/api/drivers", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error("Failed to fetch drivers");
-        const data = await response.json();
-        setDrivers(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error loading drivers");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchDrivers = async () => {
+    try {
+      const response = await fetch("/api/drivers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch drivers");
+      const data = await response.json();
+      setDrivers(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading drivers");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchDrivers();
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
     if (token) {
       fetchDrivers();
     }
@@ -215,7 +224,7 @@ export function Drivers({ onBack }: DriversProps) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !isRefreshing) {
     return (
       <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6">
         <div className="text-muted text-sm">Loading drivers...</div>
@@ -236,6 +245,15 @@ export function Drivers({ onBack }: DriversProps) {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            title="Refresh data"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
           <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
             ⬇ Import Excel
           </button>
