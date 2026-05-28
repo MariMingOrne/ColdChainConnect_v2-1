@@ -688,17 +688,26 @@ export function Inventory() {
                             {product.description}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-bold text-white ${
-                                product.batchQuantity < product.reorderPoint
-                                  ? "bg-red"
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-bold text-white ${
+                                  product.batchQuantity < product.reorderPoint
+                                    ? "bg-red"
+                                    : product.batchQuantity < product.reorderPoint * 0.8
+                                      ? "bg-gold"
+                                      : "bg-green"
+                                }`}
+                              >
+                                {product.batchQuantity}
+                              </span>
+                              <span className="text-xs text-muted">
+                                {product.batchQuantity < product.reorderPoint
+                                  ? "Critical"
                                   : product.batchQuantity < product.reorderPoint * 0.8
-                                    ? "bg-gold"
-                                    : "bg-green"
-                              }`}
-                            >
-                              {product.batchQuantity}
-                            </span>
+                                    ? "Low Stock"
+                                    : "Adequate"}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-3 py-3 text-navy hidden lg:table-cell whitespace-nowrap">
                             {product.batchExpiryDate}
