@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Download, RefreshCw } from "lucide-react";
+import { Plus, Eye, Download, RefreshCw, Search, X } from "lucide-react";
 import { Invoice } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -19,6 +19,9 @@ export function Invoicing() {
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "issued" | "paid">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
 
   const fetchInvoices = async () => {
     try {
@@ -68,6 +71,17 @@ export function Invoicing() {
 
   if (isLoading && !isRefreshing) return <div className="p-6">Loading...</div>;
 
+  const filtered = invoices.filter((invoice) => {
+    const matchesSearch =
+      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.booking_id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (statusFilter !== "all" && invoice.status !== statusFilter) return false;
+    if (paymentFilter !== "all" && invoice.payment_status !== paymentFilter) return false;
+    return true;
+  });
+
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -98,6 +112,47 @@ export function Invoicing() {
         </Card>
       )}
 
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by invoice ID or booking ID…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:ring-opacity-50"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="px-3 py-2 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:ring-opacity-50"
+        >
+          <option value="all">All Status</option>
+          <option value="draft">Draft</option>
+          <option value="issued">Issued</option>
+          <option value="paid">Paid</option>
+        </select>
+        <select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value as any)}
+          className="px-3 py-2 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:ring-opacity-50"
+        >
+          <option value="all">All Payments</option>
+          <option value="paid">Paid</option>
+          <option value="unpaid">Unpaid</option>
+        </select>
+      </div>
+
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
@@ -111,14 +166,14 @@ export function Invoicing() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  No invoices found
+                  {invoices.length === 0 ? "No invoices found" : "No invoices match your search"}
                 </TableCell>
               </TableRow>
             ) : (
-              invoices.map((invoice) => (
+              filtered.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-mono text-sm">{invoice.id.slice(0, 8)}</TableCell>
                   <TableCell className="font-mono text-sm">{invoice.booking_id.slice(0, 8)}</TableCell>

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Send, RefreshCw } from "lucide-react";
+import { Eye, Send, RefreshCw, Search, X } from "lucide-react";
 import { Invoice } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -19,6 +19,8 @@ export function AccountsReceivable() {
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [ageFilter, setAgeFilter] = useState<"all" | "0-7" | "8-30" | "31-60" | "60+">("all");
 
   const fetchUnpaid = async () => {
     try {
@@ -78,6 +80,22 @@ export function AccountsReceivable() {
     (inv) => daysOverdue(inv.created_at) > 30
   ).length;
 
+  const filtered = unpaidInvoices.filter((invoice) => {
+    const matchesSearch =
+      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.booking_id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (ageFilter === "all") return true;
+    const days = daysOverdue(invoice.created_at);
+    if (ageFilter === "0-7") return days <= 7;
+    if (ageFilter === "8-30") return days > 7 && days <= 30;
+    if (ageFilter === "31-60") return days > 30 && days <= 60;
+    if (ageFilter === "60+") return days > 60;
+    return true;
+  });
+
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -118,6 +136,39 @@ export function AccountsReceivable() {
         </Card>
       </div>
 
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by invoice ID or booking ID…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:ring-opacity-50"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <select
+          value={ageFilter}
+          onChange={(e) => setAgeFilter(e.target.value as any)}
+          className="px-3 py-2 border border-border rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:ring-opacity-50"
+        >
+          <option value="all">All Ages</option>
+          <option value="0-7">Current (0-7 days)</option>
+          <option value="8-30">8-30 Days</option>
+          <option value="31-60">31-60 Days</option>
+          <option value="60+">60+ Days Overdue</option>
+        </select>
+      </div>
+
       {/* Unpaid Invoices Table */}
       <Card className="overflow-hidden">
         <Table>
@@ -132,14 +183,14 @@ export function AccountsReceivable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {unpaidInvoices.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  No unpaid invoices - Great job!
+                  {unpaidInvoices.length === 0 ? "No unpaid invoices - Great job!" : "No invoices match your search"}
                 </TableCell>
               </TableRow>
             ) : (
-              unpaidInvoices.map((invoice) => {
+              filtered.map((invoice) => {
                 const days = daysOverdue(invoice.created_at);
                 return (
                   <TableRow key={invoice.id}>
