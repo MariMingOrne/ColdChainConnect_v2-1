@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw } from "lucide-react";
-import { Delivery, DeliveryItem, Truck, Invoice, Customer } from "@shared/api";
+import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export function DeliveryDispatch() {
   const { token } = useAuth();
 
   const [trucks,    setTrucks]    = useState<Truck[]>([]);
+  const [drivers,   setDrivers]   = useState<Driver[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryExt[]>([]);
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -62,21 +63,24 @@ export function DeliveryDispatch() {
     if (!token) return;
     setLoading(true);
     try {
-      const [truckRes, deliveryRes, invoiceRes, customerRes] = await Promise.all([
+      const [truckRes, driverRes, deliveryRes, invoiceRes, customerRes] = await Promise.all([
         fetch("/api/trucks",    { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/drivers",   { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/deliveries",{ headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/invoices",  { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      const [trucksData, deliveriesData, invoicesData, customersData] = await Promise.all([
+      const [trucksData, driversData, deliveriesData, invoicesData, customersData] = await Promise.all([
         truckRes.ok    ? truckRes.json()    : [],
+        driverRes.ok   ? driverRes.json()   : [],
         deliveryRes.ok ? deliveryRes.json() : [],
         invoiceRes.ok  ? invoiceRes.json()  : [],
         customerRes.ok ? customerRes.json() : [],
       ]);
 
       setTrucks(trucksData);
+      setDrivers(driversData);
       setInvoices(invoicesData);
       setCustomers(customersData);
 
@@ -260,10 +264,20 @@ export function DeliveryDispatch() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Deliveries for {selectedTruck.name}
-                </p>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">
+                    Deliveries for {selectedTruck.name}
+                  </p>
+                  {selectedTruck.driver_id && (
+                    <p className="text-xs text-muted mt-1">
+                      Driver: <span className="font-semibold text-navy">{drivers.find((d) => d.id === selectedTruck.driver_id)?.id.slice(0, 8) || "—"}</span>
+                      {drivers.find((d) => d.id === selectedTruck.driver_id)?.contact_info && (
+                        <span className="text-muted"> ({drivers.find((d) => d.id === selectedTruck.driver_id)?.contact_info})</span>
+                      )}
+                    </p>
+                  )}
+                </div>
                 <button
                   onClick={() => setShowAddDeliveryModal(true)}
                   className="px-3 py-1.5 bg-navy text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity"
@@ -389,17 +403,18 @@ export function DeliveryDispatch() {
       {showDispatchModal && (
         <DispatchTruckModal
           trucks={trucks}
+          drivers={drivers}
           eligibleInvoices={eligibleInvoices}
           customers={customers}
           token={token!}
           onClose={() => setShowDispatchModal(false)}
-          onCreated={async (truckId, destinations) => {
+          onCreated={async (truckId, driverId, destinations) => {
             if (!token) return;
             try {
               const res = await fetch("/api/deliveries", {
                 method: "POST",
                 headers: authHeaders(token),
-                body: JSON.stringify({ truck_id: truckId, destinations }),
+                body: JSON.stringify({ truck_id: truckId, driver_id: driverId, destinations }),
               });
               if (!res.ok) throw new Error(await res.text());
               await fetchAll();
@@ -428,16 +443,18 @@ export function DeliveryDispatch() {
 // ─── Dispatch New Truck Modal ──────────────────────────────────────────────────
 
 function DispatchTruckModal({
-  trucks, eligibleInvoices, customers, token, onClose, onCreated,
+  trucks, drivers, eligibleInvoices, customers, token, onClose, onCreated,
 }: {
   trucks: Truck[];
+  drivers: Driver[];
   eligibleInvoices: Invoice[];
   customers: Customer[];
   token: string;
   onClose: () => void;
-  onCreated: (truckId: string, destinations: { invoice_id: string; destination_customer_id: string }[]) => Promise<void>;
+  onCreated: (truckId: string, driverId: string, destinations: { invoice_id: string; destination_customer_id: string }[]) => Promise<void>;
 }) {
   const [selectedTruckId, setSelectedTruckId] = useState("");
+  const [selectedDriverId, setSelectedDriverId] = useState("");
   const [stops, setStops] = useState<{ invoice_id: string; destination_customer_id: string }[]>([
     { invoice_id: "", destination_customer_id: "" },
   ]);
@@ -454,13 +471,13 @@ function DispatchTruckModal({
     updateStop(i, "invoice_id", invoiceId);
   };
 
-  const valid = selectedTruckId;
+  const valid = selectedTruckId && selectedDriverId;
 
   const handleSave = async () => {
-    if (!valid) { alert("Please select a truck."); return; }
+    if (!valid) { alert("Please select a truck and driver."); return; }
     const filledStops = stops.filter((s) => s.invoice_id && s.destination_customer_id);
     setSaving(true);
-    try { await onCreated(selectedTruckId, filledStops); }
+    try { await onCreated(selectedTruckId, selectedDriverId, filledStops); }
     finally { setSaving(false); }
   };
 
@@ -479,6 +496,25 @@ function DispatchTruckModal({
             {trucks.map((t) => (
               <option key={t.id} value={t.id}>{t.name} — {t.district} ({t.status})</option>
             ))}
+          </select>
+        </div>
+
+        {/* Driver picker */}
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Driver *</label>
+          <select
+            value={selectedDriverId}
+            onChange={(e) => setSelectedDriverId(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+          >
+            <option value="">Select a driver…</option>
+            {drivers
+              .filter((d) => d.is_active)
+              .map((driver) => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.id.slice(0, 8)} {driver.contact_info && `— ${driver.contact_info}`}
+                </option>
+              ))}
           </select>
         </div>
 
