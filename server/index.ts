@@ -56,6 +56,7 @@ import {
   updateDeliveryStatus,
   updateDeliveryItemStatus,
 } from "./routes/deliveries";
+import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
@@ -136,6 +137,10 @@ export function createServer() {
   app.post("/api/deliveries", authMiddleware, requireRole("admin"), createDelivery);
   app.patch("/api/deliveries/:id/status", authMiddleware, requireRole("admin"), updateDeliveryStatus);
   app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, requireRole("admin"), updateDeliveryItemStatus);
+
+  // Receipts routes
+  app.get("/api/receipts", authMiddleware, listReceipts);
+  app.post("/api/deliveries/:id/items/:itemId/confirm", authMiddleware, requireRole("admin"), confirmDeliveryItem);
 
   // Audit logs routes
   app.get("/api/audit-logs", authMiddleware, requireRole("admin"), listAuditLogs);
