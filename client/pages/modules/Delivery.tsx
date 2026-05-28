@@ -454,12 +454,13 @@ function DispatchTruckModal({
     updateStop(i, "invoice_id", invoiceId);
   };
 
-  const valid = selectedTruckId && stops.every((s) => s.invoice_id && s.destination_customer_id);
+  const valid = selectedTruckId;
 
   const handleSave = async () => {
-    if (!valid) { alert("Please select a truck and fill in all stops."); return; }
+    if (!valid) { alert("Please select a truck."); return; }
+    const filledStops = stops.filter((s) => s.invoice_id && s.destination_customer_id);
     setSaving(true);
-    try { await onCreated(selectedTruckId, stops); }
+    try { await onCreated(selectedTruckId, filledStops); }
     finally { setSaving(false); }
   };
 
@@ -484,7 +485,7 @@ function DispatchTruckModal({
         {/* Stops */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-semibold text-navy">Delivery Stops *</label>
+            <label className="text-xs font-semibold text-navy">Delivery Stops</label>
             <button onClick={addStop} className="text-xs text-accent-2 font-semibold hover:opacity-80">＋ Add Stop</button>
           </div>
           <div className="space-y-3">
