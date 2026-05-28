@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useInventoryContext } from "../../context/InventoryContext";
+import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Product } from "@shared/api";
 import { Upload, RefreshCw } from "lucide-react";
 
@@ -354,20 +355,15 @@ export function Pricing({ onBack }: PricingProps) {
       </div>
 
       {/* Search + Add */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1 flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
-          <span className="text-muted">🔍</span>
-          <input
-            type="text"
-            placeholder="Search by product name…"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="flex-1 bg-transparent border-none text-white placeholder-muted py-2 outline-none text-sm"
-          />
-        </div>
+      <div className="flex flex-col md:flex-row gap-3 items-stretch">
+        <SearchFilterBar
+          searchTerm={searchQuery}
+          onSearchChange={(value) => {
+            setSearchQuery(value);
+            setCurrentPage(1);
+          }}
+          placeholder="Search by product name…"
+        />
         <button
           onClick={openAddModal}
           className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center gap-2 w-fit"
