@@ -2,13 +2,25 @@ import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { inventory_batches } from "../db/schema";
+import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 
 export const listBatches: RequestHandler = async (_req, res) => {
   try {
-    const allBatches = await db.query.inventory_batches.findMany();
+    const allBatches = await db.query.inventory_batches.findMany({
+      with: {
+        pallets: {
+          with: {
+            items: {
+              with: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
     res.json(allBatches);
   } catch (error) {
     console.error("Error fetching batches:", error);
@@ -17,62 +29,101 @@ export const listBatches: RequestHandler = async (_req, res) => {
 };
 
 export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
-  const {
-    product_id, pallet_id, qty_units,
-    expiration_date_note, placement_location,
-    batch_name, supplier_name, received_date, temperature_log, storage_zone,
-  } = req.body;
+  const { batch_name, pallets } = req.body;
 
-  if (!product_id || !pallet_id || !qty_units) {
-    return res.status(400).json({ error: "Product ID, pallet ID, and quantity are required" });
+  if (!batch_name || !pallets || !Array.isArray(pallets) || pallets.length === 0) {
+    return res.status(400).json({ error: "Batch name and pallets are required" });
   }
 
   try {
-    const id = randomUUID();
+    const batchId = randomUUID();
     await db.insert(inventory_batches).values({
-      id, product_id, pallet_id, qty_units,
-      expiration_date_note: expiration_date_note || null,
-      placement_location: placement_location || null,
-      batch_name: batch_name || null,
-      supplier_name: supplier_name || null,
-      received_date: received_date || null,
-      temperature_log: temperature_log || null,
-      storage_zone: storage_zone || null,
+      id: batchId,
+      batch_name,
     });
 
-    const newBatch = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
-    if (req.user) await logAction(req.user.userId, "create", "batch", id, undefined, newBatch);
+    for (const pallet of pallets) {
+      const { pallet_id, supplier_name, received_date, temperature_log, storage_zone, placement_location, items } = pallet;
+
+      if (!pallet_id || !items || !Array.isArray(items) || items.length === 0) {
+        throw new Error("Each pallet must have an ID and items");
+      }
+
+      const palletDbId = randomUUID();
+      await db.insert(batch_pallets).values({
+        id: palletDbId,
+        batch_id: batchId,
+        pallet_id,
+        supplier_name: supplier_name || null,
+        received_date: received_date || null,
+        temperature_log: temperature_log || null,
+        storage_zone: storage_zone || null,
+        placement_location: placement_location || null,
+      });
+
+      for (const item of items) {
+        const { product_id, qty_units, expiration_date_note } = item;
+        if (!product_id || !qty_units) {
+          throw new Error("Each item must have product_id and qty_units");
+        }
+
+        const itemId = randomUUID();
+        await db.insert(pallet_items).values({
+          id: itemId,
+          pallet_id: palletDbId,
+          product_id,
+          qty_units,
+          expiration_date_note: expiration_date_note || null,
+        });
+      }
+    }
+
+    const newBatch = await db.query.inventory_batches.findFirst({
+      where: eq(inventory_batches.id, batchId),
+      with: {
+        pallets: {
+          with: {
+            items: {
+              with: { product: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (req.user) await logAction(req.user.userId, "create", "batch", batchId, undefined, newBatch);
     res.status(201).json(newBatch);
   } catch (error) {
     console.error("Error creating batch:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
   }
 };
 
 export const updateBatch: RequestHandler = async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const {
-    qty_units, expiration_date_note, placement_location,
-    batch_name, supplier_name, received_date, temperature_log, storage_zone,
-  } = req.body;
+  const { batch_name } = req.body;
 
   try {
     const existing = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
     if (!existing) return res.status(404).json({ error: "Batch not found" });
 
-    await db.update(inventory_batches).set({
-      qty_units: qty_units ?? existing.qty_units,
-      expiration_date_note: expiration_date_note ?? existing.expiration_date_note,
-      placement_location: placement_location ?? existing.placement_location,
-      batch_name: batch_name ?? existing.batch_name,
-      supplier_name: supplier_name ?? existing.supplier_name,
-      received_date: received_date ?? existing.received_date,
-      temperature_log: temperature_log ?? existing.temperature_log,
-      storage_zone: storage_zone ?? existing.storage_zone,
-      updated_at: new Date(),
-    }).where(eq(inventory_batches.id, id));
+    if (batch_name) {
+      await db.update(inventory_batches).set({
+        batch_name,
+        updated_at: new Date(),
+      }).where(eq(inventory_batches.id, id));
+    }
 
-    const updated = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
+    const updated = await db.query.inventory_batches.findFirst({
+      where: eq(inventory_batches.id, id),
+      with: {
+        pallets: {
+          with: {
+            items: { with: { product: true } },
+          },
+        },
+      },
+    });
     if (req.user) await logAction(req.user.userId, "update", "batch", id, existing, updated);
     res.json(updated);
   } catch (error) {

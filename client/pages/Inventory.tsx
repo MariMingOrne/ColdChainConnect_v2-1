@@ -21,36 +21,17 @@ interface InventoryProduct {
   isDiscontinued: boolean;
 }
 
-interface BatchItem {
-  productId: string;
-  quantity: number;
-  expiryDate: string;
-}
-
-interface Batch {
+interface PalletDisplay {
   id: string;
-  name: string;
-  items: BatchItem[];
-  createdAt: string;
-}
-
-interface PalletBatch {
-  id: string;
-  pallet_id: string;
-  qty_units: number;
-  expiration_date_note?: string;
-  placement_location?: string;
-  supplier_name?: string;
-  received_date?: string;
-  temperature_log?: string;
-  storage_zone?: string;
+  palletId: string;
+  itemCount: number;
+  totalQty: number;
 }
 
 export function Inventory() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
-  const [palletBatchMap, setPalletBatchMap] = useState<Record<string, PalletBatch[]>>({});
-  const { batches, setBatches, selectedBatchId, setSelectedBatchId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
+  const { batches, setBatches, selectedBatchId, setSelectedBatchId, selectedPalletId, setSelectedPalletId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryProduct | null>(null);
@@ -74,22 +55,17 @@ export function Inventory() {
       const token = localStorage.getItem("auth_token") || "";
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [productsRes, batchesRes] = await Promise.all([
-        fetch("/api/products", { headers }),
-        fetch("/api/batches", { headers }),
-      ]);
-
+      const productsRes = await fetch("/api/products", { headers });
       const productsData = productsRes.ok ? await productsRes.json() : [];
-      const batchesData: PalletBatch[] = batchesRes.ok ? await batchesRes.json() : [];
 
       const qtyMap: Record<string, number> = {};
-      const palletMap: Record<string, PalletBatch[]> = {};
-      for (const b of (batchesData as any[])) {
-        qtyMap[b.product_id] = (qtyMap[b.product_id] || 0) + (b.qty_units || 0);
-        if (!palletMap[b.product_id]) palletMap[b.product_id] = [];
-        palletMap[b.product_id].push(b);
+      for (const batch of batches) {
+        for (const pallet of batch.pallets) {
+          for (const item of pallet.items) {
+            qtyMap[item.productId] = (qtyMap[item.productId] || 0) + item.quantity;
+          }
+        }
       }
-      setPalletBatchMap(palletMap);
 
       const mapped: InventoryProduct[] = productsData.map((p: any) => ({
         id: p.id,
@@ -122,11 +98,25 @@ export function Inventory() {
     if (!currentBatch || currentBatch.id === "batch-all") {
       return products.map((p) => ({ ...p, batchQuantity: p.quantity, batchExpiryDate: p.expiryDate }));
     }
-    return currentBatch.items
+
+    if (selectedPalletId) {
+      const pallet = currentBatch.pallets.find((p) => p.id === selectedPalletId);
+      if (!pallet) return [];
+      return pallet.items
+        .map((item) => {
+          const product = products.find((p) => p.id === item.productId);
+          if (!product) return null;
+          return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate };
+        })
+        .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string })[];
+    }
+
+    const allItems = currentBatch.pallets.flatMap((p) => p.items);
+    return allItems
       .map((item) => {
         const product = products.find((p) => p.id === item.productId);
         if (!product) return null;
-        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expiryDate };
+        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate };
       })
       .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string })[];
   };
@@ -146,7 +136,7 @@ export function Inventory() {
 
   const getReorderStatus = (qty: number, reorderPoint: number) => qty <= reorderPoint ? "RE-ORDER" : "OK";
 
-  const createNewBatch = async (batchItems: BatchItem[], batchName: string) => {
+  const createNewBatch = async (pallets: any[], batchName: string) => {
     // After pallet rows are saved to DB, refresh batches from DB so the
     // new named batch appears with the correct DB-derived id.
     await refreshBatchesFromDB();
@@ -208,7 +198,13 @@ export function Inventory() {
       const response = await fetch(`/api/products/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error("Failed to delete");
       setProducts(products.filter((p) => p.id !== id));
-      setBatches(batches.map((b) => ({ ...b, items: b.items.filter((i) => i.productId !== id) })));
+      setBatches(batches.map((b) => ({
+        ...b,
+        pallets: b.pallets.map((p: any) => ({
+          ...p,
+          items: p.items.filter((i: any) => i.productId !== id),
+        })),
+      })));
       await fetchProductsFromApi();
     } catch (err) {
       alert("Failed to delete product. Please try again.");
@@ -242,7 +238,7 @@ export function Inventory() {
       </div>
 
       {/* Batch Selector */}
-      <div className="bg-white rounded-2xl border border-border p-6">
+      <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-navy">Current Batch</label>
@@ -254,6 +250,42 @@ export function Inventory() {
             ➕ Create New Batch
           </button>
         </div>
+
+        {/* Pallet Selector */}
+        {currentBatch && currentBatch.id !== "batch-all" && currentBatch.pallets.length > 0 && (
+          <div className="border-t border-border pt-4">
+            <label className="text-xs font-semibold text-navy mb-2 block">Select Pallet</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedPalletId(null)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  !selectedPalletId
+                    ? "bg-accent-2 text-white"
+                    : "bg-off-white border border-border text-navy hover:bg-off-white/70"
+                }`}
+              >
+                All Pallets ({currentBatch.pallets.length})
+              </button>
+              {currentBatch.pallets.map((pallet) => {
+                const itemCount = pallet.items.length;
+                const totalQty = pallet.items.reduce((sum, item) => sum + item.quantity, 0);
+                return (
+                  <button
+                    key={pallet.id}
+                    onClick={() => setSelectedPalletId(pallet.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${
+                      selectedPalletId === pallet.id
+                        ? "bg-accent-2 text-white"
+                        : "bg-off-white border border-border text-navy hover:bg-off-white/70"
+                    }`}
+                  >
+                    {pallet.palletId} ({itemCount} items, {totalQty} qty)
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search */}
@@ -363,7 +395,6 @@ export function Inventory() {
       {extraInfoProduct && (
         <ExtraInfoModal
           product={extraInfoProduct}
-          palletBatches={palletBatchMap[extraInfoProduct.id] || []}
           onClose={() => setExtraInfoProduct(null)}
         />
       )}
@@ -387,7 +418,7 @@ export function Inventory() {
           onSelectBatch={(id) => { setSelectedBatchId(id); setIsBatchModalOpen(false); }}
           onDeleteBatch={deleteBatch}
           onCreateBatch={createNewBatch}
-          onEditBatch={(batchId, items) => { setBatches(batches.map((b) => b.id === batchId ? { ...b, items } : b)); setIsBatchModalOpen(false); }}
+          onEditBatch={() => {}}
           onClose={() => { setIsBatchModalOpen(false); setStartBatchCreation(false); }}
           newBatchName={newBatchName} setNewBatchName={setNewBatchName}
           products={products} startCreating={startBatchCreation}
@@ -410,7 +441,7 @@ function StatsBox({ label, value, icon, color }: { label: string; value: string;
 }
 
 // ─── Extra Info Modal ─────────────────────────────────────────────────────────
-function ExtraInfoModal({ product, palletBatches, onClose }: { product: InventoryProduct & { batchQuantity: number }; palletBatches: PalletBatch[]; onClose: () => void }) {
+function ExtraInfoModal({ product, onClose }: { product: InventoryProduct & { batchQuantity: number }; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[85vh] overflow-y-auto">
@@ -429,7 +460,7 @@ function ExtraInfoModal({ product, palletBatches, onClose }: { product: Inventor
             <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Product Details</h3>
             <div className="grid grid-cols-2 gap-3">
               {[
-                ["Manufacturer", "Frabelle Food Corp."],
+                ["Manufacturer", product.manufacturer || "N/A"],
                 ["Unit Price", `₱${product.unitPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`],
                 ["Stock Quantity", product.batchQuantity.toLocaleString()],
                 ["Inventory Value", `₱${(product.unitPrice * product.batchQuantity).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`],
@@ -443,42 +474,6 @@ function ExtraInfoModal({ product, palletBatches, onClose }: { product: Inventor
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Pallet Batches */}
-          <div>
-            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">
-              Pallet Batches ({palletBatches.length})
-            </h3>
-            {palletBatches.length === 0 ? (
-              <div className="text-center text-muted text-sm py-6 bg-off-white rounded-lg">No pallet batches recorded for this product</div>
-            ) : (
-              <div className="space-y-3">
-                {palletBatches.map((pallet) => (
-                  <div key={pallet.id} className="border border-border rounded-lg p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-navy text-sm">Pallet: {pallet.pallet_id}</span>
-                      <span className="px-2 py-0.5 bg-accent-2/10 text-accent-2 rounded text-xs font-bold">{pallet.qty_units} units</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {([
-                        ["Supplier", pallet.supplier_name],
-                        ["Received Date", pallet.received_date],
-                        ["Expiry Note", pallet.expiration_date_note],
-                        ["Placement", pallet.placement_location],
-                        ["Storage Zone", pallet.storage_zone],
-                        ["Temp Log", pallet.temperature_log],
-                      ] as [string, string | undefined][]).map(([label, val]) => val ? (
-                        <div key={label}>
-                          <span className="text-muted font-semibold">{label}: </span>
-                          <span className="text-navy">{val}</span>
-                        </div>
-                      ) : null)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -545,56 +540,61 @@ function ProductModal({ title, onClose, onSave, suppliers, formData, setFormData
 }
 
 // ─── BatchModal ────────────────────────────────────────────────────────────────
-function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, onCreateBatch, onEditBatch, onClose, newBatchName, setNewBatchName, products, startCreating = false, onRefresh }: { batches: Batch[]; selectedBatchId: string; onSelectBatch: (id: string) => void; onDeleteBatch: (id: string) => void; onCreateBatch: (items: BatchItem[], batchName: string) => void; onEditBatch: (id: string, items: BatchItem[]) => void; onClose: () => void; newBatchName: string; setNewBatchName: (n: string) => void; products: InventoryProduct[]; startCreating?: boolean; onRefresh: () => void }) {
+function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, onCreateBatch, onEditBatch, onClose, newBatchName, setNewBatchName, products, startCreating = false, onRefresh }: { batches: any[]; selectedBatchId: string; onSelectBatch: (id: string) => void; onDeleteBatch: (id: string) => void; onCreateBatch: (items: any[], batchName: string) => void; onEditBatch: (id: string, items: any[]) => void; onClose: () => void; newBatchName: string; setNewBatchName: (n: string) => void; products: InventoryProduct[]; startCreating?: boolean; onRefresh: () => void }) {
   const [isCreatingBatch, setIsCreatingBatch] = useState(startCreating);
-  const [isEditingBatch, setIsEditingBatch] = useState(false);
-  const [editingBatchId, setEditingBatchId] = useState("");
-  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [pallets, setPallets] = useState<any[]>([]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-screen overflow-y-auto">
+      <div className="bg-white rounded-2xl border border-border max-w-3xl w-full max-h-screen overflow-y-auto">
         <div className="sticky top-0 bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border">
           <h2 className="font-rajdhani text-lg font-bold text-white">
-            {isCreatingBatch ? "Create New Pallet Batch" : isEditingBatch ? "Edit Batch" : "Manage Batches"}
+            {isCreatingBatch ? "Create New Batch" : "Manage Batches"}
           </h2>
-          <button onClick={() => { setIsCreatingBatch(false); setIsEditingBatch(false); setBatchItems([]); onClose(); }} className="text-white hover:opacity-70 text-2xl leading-none">×</button>
+          <button onClick={() => { setIsCreatingBatch(false); setPallets([]); onClose(); }} className="text-white hover:opacity-70 text-2xl leading-none">×</button>
         </div>
         <div className="p-6">
-          {!isCreatingBatch && !isEditingBatch ? (
+          {!isCreatingBatch ? (
             <>
               <div className="space-y-2 mb-6">
                 <h3 className="text-xs font-semibold text-muted uppercase mb-3">Available Batches</h3>
-                {batches.map((batch) => (
-                  <div key={batch.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBatchId === batch.id ? "border-accent-2 bg-accent-2/10" : "border-border hover:bg-off-white"}`} onClick={() => onSelectBatch(batch.id)}>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-navy">{batch.name}</div>
-                      <div className="text-xs text-muted">{batch.items.length} product{batch.items.length !== 1 ? "s" : ""}</div>
-                    </div>
-                    {batch.id !== "batch-all" && (
-                      <div className="flex gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); setEditingBatchId(batch.id); setIsEditingBatch(true); setBatchItems(batch.items); }} className="px-2 py-1 bg-gold text-white rounded text-xs font-semibold hover:opacity-90">✏</button>
-                        <button onClick={(e) => { e.stopPropagation(); onDeleteBatch(batch.id); }} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">🗑</button>
+                {batches.map((batch) => {
+                  const totalPallets = batch.pallets?.length || 0;
+                  const totalItems = batch.pallets?.reduce((sum: number, p: any) => sum + (p.items?.length || 0), 0) || 0;
+                  return (
+                    <div key={batch.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBatchId === batch.id ? "border-accent-2 bg-accent-2/10" : "border-border hover:bg-off-white"}`} onClick={() => onSelectBatch(batch.id)}>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-navy">{batch.name}</div>
+                        <div className="text-xs text-muted">{totalPallets} pallet{totalPallets !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {batch.id !== "batch-all" && (
+                        <div className="flex gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); onDeleteBatch(batch.id); }} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">🗑</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex justify-end">
-                <button onClick={() => { setIsCreatingBatch(true); setBatchItems([]); setNewBatchName(""); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90">➕ Create New Pallet Batch</button>
+                <button onClick={() => { setIsCreatingBatch(true); setPallets([]); setNewBatchName(""); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90">➕ Create New Batch</button>
               </div>
             </>
           ) : (
             <CreateBatchForm
-              newBatchName={newBatchName} setNewBatchName={setNewBatchName}
-              batchItems={batchItems} setBatchItems={setBatchItems} isEditing={isEditingBatch}
-              onCreateBatch={() => {
-                if (isEditingBatch) { onEditBatch(editingBatchId, batchItems); setIsEditingBatch(false); }
-                else { onCreateBatch(batchItems, newBatchName); setIsCreatingBatch(false); }
-                setBatchItems([]);
-                onRefresh();
+              newBatchName={newBatchName}
+              setNewBatchName={setNewBatchName}
+              pallets={pallets}
+              setPallets={setPallets}
+              onCreateBatch={async () => {
+                if (newBatchName.trim() && pallets.length > 0) {
+                  await onCreateBatch(pallets, newBatchName);
+                  setIsCreatingBatch(false);
+                  setPallets([]);
+                  onRefresh();
+                }
               }}
-              onCancel={() => { setIsCreatingBatch(false); setIsEditingBatch(false); setBatchItems([]); }}
+              onCancel={() => { setIsCreatingBatch(false); setPallets([]); }}
               products={products}
             />
           )}
@@ -605,9 +605,8 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
 }
 
 // ─── CreateBatchForm ──────────────────────────────────────────────────────────
-function CreateBatchForm({ newBatchName, setNewBatchName, batchItems, setBatchItems, onCreateBatch, onCancel, isEditing, products }: { newBatchName: string; setNewBatchName: (n: string) => void; batchItems: BatchItem[]; setBatchItems: (items: BatchItem[]) => void; onCreateBatch: () => void; onCancel: () => void; isEditing?: boolean; products: InventoryProduct[] }) {
+function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, onCreateBatch, onCancel, products }: { newBatchName: string; setNewBatchName: (n: string) => void; pallets: any[]; setPallets: (p: any[]) => void; onCreateBatch: () => void; onCancel: () => void; products: InventoryProduct[] }) {
   const [dbProducts, setDbProducts] = useState<any[]>([]);
-  const [palletData, setPalletData] = useState<Record<string, { pallet_id: string; expiration_date_note: string; placement_location: string; supplier_name: string; received_date: string; temperature_log: string; storage_zone: string }>>({});
 
   useEffect(() => {
     fetch("/api/products", { headers: { Authorization: `Bearer ${localStorage.getItem("auth_token") || ""}` } })
@@ -615,140 +614,141 @@ function CreateBatchForm({ newBatchName, setNewBatchName, batchItems, setBatchIt
   }, []);
 
   const allProducts = dbProducts.length > 0 ? dbProducts : products.map((p) => ({ id: p.id, name: p.description, sku: p.sku }));
-
-  const addItem = (productId: string) => {
-    if (!productId || batchItems.some((i) => i.productId === productId)) { alert("Already added"); return; }
-    const p = products.find((x) => x.id === productId);
-    setBatchItems([...batchItems, { productId, quantity: p?.quantity ?? 0, expiryDate: p?.expiryDate ?? new Date().toISOString().split("T")[0] }]);
-    setPalletData((prev) => ({ ...prev, [productId]: { pallet_id: "", expiration_date_note: "", placement_location: "", supplier_name: "", received_date: "", temperature_log: "", storage_zone: "" } }));
-  };
-
-  const removeItem = (productId: string) => {
-    setBatchItems(batchItems.filter((i) => i.productId !== productId));
-    setPalletData((prev) => { const d = { ...prev }; delete d[productId]; return d; });
-  };
-
-  const updateItem = (productId: string, field: "quantity" | "expiryDate", value: any) =>
-    setBatchItems(batchItems.map((i) => i.productId === productId ? { ...i, [field]: value } : i));
-
-  const updatePallet = (productId: string, field: string, value: string) =>
-    setPalletData((prev) => ({ ...prev, [productId]: { ...prev[productId], [field]: value } }));
-
   const getName = (id: string) => dbProducts.find((p) => p.id === id)?.name || products.find((p) => p.id === id)?.description || "";
   const getSku = (id: string) => dbProducts.find((p) => p.id === id)?.sku || products.find((p) => p.id === id)?.sku || "";
 
+  const addPallet = () => {
+    setPallets([...pallets, { pallet_id: "", supplier_name: "", received_date: "", temperature_log: "", storage_zone: "", placement_location: "", items: [] }]);
+  };
+
+  const removePallet = (idx: number) => {
+    setPallets(pallets.filter((_, i) => i !== idx));
+  };
+
+  const addItemToPallet = (palletIdx: number, productId: string) => {
+    if (!productId || pallets[palletIdx].items.some((i: any) => i.product_id === productId)) { alert("Product already in this pallet"); return; }
+    const p = products.find((x) => x.id === productId);
+    const newPallets = [...pallets];
+    newPallets[palletIdx].items.push({ product_id: productId, qty_units: p?.quantity ?? 0, expiration_date_note: "" });
+    setPallets(newPallets);
+  };
+
+  const removeItemFromPallet = (palletIdx: number, itemIdx: number) => {
+    const newPallets = [...pallets];
+    newPallets[palletIdx].items.splice(itemIdx, 1);
+    setPallets(newPallets);
+  };
+
+  const updatePallet = (idx: number, field: string, value: any) => {
+    const newPallets = [...pallets];
+    newPallets[idx][field] = value;
+    setPallets(newPallets);
+  };
+
+  const updatePalletItem = (palletIdx: number, itemIdx: number, field: string, value: any) => {
+    const newPallets = [...pallets];
+    newPallets[palletIdx].items[itemIdx][field] = value;
+    setPallets(newPallets);
+  };
+
   const handleCreate = async () => {
-    if (!newBatchName.trim() || batchItems.length === 0) return;
-    const token = localStorage.getItem("auth_token") || "";
-    for (const item of batchItems) {
-      const pd = palletData[item.productId];
-      if (!pd?.pallet_id) { alert(`Please enter a Pallet ID for ${getName(item.productId)}`); return; }
-      try {
-        await fetch("/api/batches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            product_id: item.productId,
-            pallet_id: pd.pallet_id,
-            qty_units: item.quantity,
-            batch_name: newBatchName,          // ← persists the group name in DB
-            expiration_date_note: pd.expiration_date_note || null,
-            placement_location: pd.placement_location || null,
-            supplier_name: pd.supplier_name || null,
-            received_date: pd.received_date || null,
-            temperature_log: pd.temperature_log || null,
-            storage_zone: pd.storage_zone || null,
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to save pallet batch:", err);
-      }
+    if (!newBatchName.trim() || pallets.length === 0 || pallets.some((p) => !p.pallet_id || p.items.length === 0)) {
+      alert("Ensure batch name is set, all pallets have IDs, and each pallet has at least one item");
+      return;
     }
-    onCreateBatch();
+    const token = localStorage.getItem("auth_token") || "";
+    try {
+      await fetch("/api/batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ batch_name: newBatchName, pallets }),
+      });
+      onCreateBatch();
+    } catch (err) {
+      console.error("Failed to create batch:", err);
+      alert("Failed to create batch");
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Batch Name */}
       <div>
         <label className="block text-xs font-semibold text-navy mb-2">Batch Name *</label>
         <input type="text" value={newBatchName} onChange={(e) => setNewBatchName(e.target.value)} placeholder="e.g., Morning Delivery, Q1 Restock" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
       </div>
 
-      {/* Product selector */}
-      <div>
-        <label className="block text-xs font-semibold text-navy mb-2">Add Products *</label>
-        <select onChange={(e) => { if (e.target.value) { addItem(e.target.value); e.target.value = ""; } }} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-          <option value="">Choose a product to add...</option>
-          {allProducts.filter((p) => !batchItems.some((i) => i.productId === p.id)).map((p) => (
-            <option key={p.id} value={p.id}>{p.sku ? `${p.sku} - ` : ""}{p.name}</option>
-          ))}
-        </select>
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-navy">Pallets *</h3>
+        {pallets.map((pallet, palletIdx) => {
+          const usedProducts = pallet.items.map((i: any) => i.product_id);
+          const availableProducts = allProducts.filter((p) => !usedProducts.includes(p.id));
+          return (
+            <div key={palletIdx} className="border border-border rounded-xl overflow-hidden">
+              <div className="bg-navy-mid px-4 py-2 flex items-center justify-between">
+                <span className="text-white font-semibold text-sm">Pallet {palletIdx + 1}</span>
+                <button onClick={() => removePallet(palletIdx)} className="px-2 py-0.5 bg-red text-white rounded text-xs font-semibold hover:opacity-90">Remove</button>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-navy mb-1">Pallet ID *</label>
+                    <input type="text" value={pallet.pallet_id} onChange={(e) => updatePallet(palletIdx, "pallet_id", e.target.value)} placeholder="e.g., PLT-001" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-navy mb-1">Supplier</label>
+                    <input type="text" value={pallet.supplier_name || ""} onChange={(e) => updatePallet(palletIdx, "supplier_name", e.target.value)} placeholder="Supplier name" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-navy mb-1">Received Date</label>
+                    <input type="date" value={pallet.received_date || ""} onChange={(e) => updatePallet(palletIdx, "received_date", e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-navy mb-1">Storage Zone</label>
+                    <input type="text" value={pallet.storage_zone || ""} onChange={(e) => updatePallet(palletIdx, "storage_zone", e.target.value)} placeholder="e.g., Zone A" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-2">Add Products to Pallet *</label>
+                  <select onChange={(e) => { if (e.target.value) { addItemToPallet(palletIdx, e.target.value); e.target.value = ""; } }} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
+                    <option value="">Choose a product...</option>
+                    {availableProducts.map((p) => (
+                      <option key={p.id} value={p.id}>{p.sku ? `${p.sku} - ` : ""}{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {pallet.items.length > 0 && (
+                  <div className="bg-off-white rounded-lg p-3 space-y-2">
+                    <label className="text-xs font-semibold text-navy">Items in Pallet ({pallet.items.length})</label>
+                    {pallet.items.map((item: any, itemIdx: number) => {
+                      const product = products.find((p) => p.id === item.product_id);
+                      return (
+                        <div key={itemIdx} className="bg-white border border-border rounded p-2 flex items-end gap-2">
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
+                            <div className="text-xs text-muted">{getSku(item.product_id)}</div>
+                          </div>
+                          <input type="number" min="1" value={item.qty_units} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                          <button onClick={() => removeItemFromPallet(palletIdx, itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        <button onClick={addPallet} className="w-full px-4 py-2 border border-accent-2 text-accent-2 rounded-lg font-semibold text-sm hover:bg-accent-2/5">➕ Add Pallet</button>
       </div>
-
-      {/* Per-product pallet form — card layout, fields matching table columns */}
-      {batchItems.map((item) => {
-        const pd = palletData[item.productId] || {};
-        const product = products.find((p) => p.id === item.productId);
-        const isReorder = (item.quantity <= (product?.reorderPoint ?? 300));
-        return (
-          <div key={item.productId} className="border border-border rounded-xl overflow-hidden">
-            <div className="bg-navy-mid px-4 py-2 flex items-center justify-between">
-              <div>
-                <span className="text-white font-semibold text-sm">{getName(item.productId)}</span>
-                {getSku(item.productId) && <span className="text-muted text-xs ml-2">SKU: {getSku(item.productId)}</span>}
-              </div>
-              <button onClick={() => removeItem(item.productId)} className="px-2 py-0.5 bg-red text-white rounded text-xs font-semibold hover:opacity-90">Remove</button>
-            </div>
-
-            <div className="p-4 grid grid-cols-2 gap-3">
-              {/* Pallet ID — required DB identifier */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Pallet ID *</label>
-                <input type="text" value={pd.pallet_id || ""} onChange={(e) => updatePallet(item.productId, "pallet_id", e.target.value)} placeholder="e.g., PLT-001" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-              </div>
-              {/* Stock Qty — matches "Stock Qty" column, editable */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Stock Qty *</label>
-                <input type="number" min="1" value={item.quantity} onChange={(e) => updateItem(item.productId, "quantity", parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-              </div>
-              {/* Cost Per Item — matches "Cost Per Item" column, read-only */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Cost Per Item (₱)</label>
-                <div className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-off-white text-muted">
-                  ₱{(product?.unitPrice ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-              {/* Reorder Level — matches "Reorder Level" column, read-only */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Reorder Level</label>
-                <div className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-off-white text-muted">
-                  {product?.reorderPoint ?? 300}
-                </div>
-              </div>
-              {/* Reorder Status — matches "Reorder" column, auto-computed */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Reorder Status</label>
-                <span className={`inline-block px-3 py-1 rounded text-xs font-bold ${isReorder ? "bg-orange-400 text-white" : "bg-green/20 text-green"}`}>
-                  {isReorder ? "RE-ORDER" : "OK"}
-                </span>
-              </div>
-              {/* Item Discontinued — matches "Item Discontinued?" column, read-only */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Item Discontinued?</label>
-                <span className={`inline-block px-3 py-1 rounded text-xs font-bold text-white ${product?.isDiscontinued ? "bg-red" : "bg-green"}`}>
-                  {product?.isDiscontinued ? "YES" : "NO"}
-                </span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
 
       <div className="flex gap-2 justify-end pt-4 border-t border-border">
         <button onClick={onCancel} className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-off-white">Cancel</button>
-        <button onClick={handleCreate} disabled={!newBatchName.trim() || batchItems.length === 0} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
-          ✓ {isEditing ? "Save Changes" : "Create Pallet Batch"}
+        <button onClick={handleCreate} disabled={!newBatchName.trim() || pallets.length === 0} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+          ✓ Create Batch
         </button>
       </div>
     </div>

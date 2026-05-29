@@ -8,6 +8,8 @@ import {
   drivers,
   trucks,
   inventory_batches,
+  batch_pallets,
+  pallet_items,
   agents,
 } from "./db/schema";
 import { hashPassword } from "./auth";
@@ -223,38 +225,63 @@ async function seed() {
 
     // Create inventory batches
     console.log("📝 Creating inventory batches...");
-    await db.insert(inventory_batches).values([
+    const batchId1 = randomUUID();
+    await db.insert(inventory_batches).values({
+      id: batchId1,
+      batch_name: "Morning Delivery",
+    });
+
+    const pallet1Id = randomUUID();
+    const pallet2Id = randomUUID();
+    await db.insert(batch_pallets).values([
       {
-        id: randomUUID(),
-        product_id: product1,
+        id: pallet1Id,
+        batch_id: batchId1,
         pallet_id: "P-2024-001",
-        qty_units: 100,
-        expiration_date_note: "2024-02-15",
+        supplier_name: "Frabelle Food Corp",
+        received_date: "2024-01-15",
+        storage_zone: "Zone A",
         placement_location: "Freezer A",
       },
       {
-        id: randomUUID(),
-        product_id: product2,
+        id: pallet2Id,
+        batch_id: batchId1,
         pallet_id: "P-2024-002",
-        qty_units: 80,
-        expiration_date_note: "2024-02-20",
+        supplier_name: "Polar Foods",
+        received_date: "2024-01-16",
+        storage_zone: "Zone B",
         placement_location: "Freezer B",
       },
+    ]);
+
+    await db.insert(pallet_items).values([
       {
         id: randomUUID(),
-        product_id: product3,
-        pallet_id: "P-2024-003",
-        qty_units: 120,
-        expiration_date_note: "2024-02-10",
-        placement_location: "Freezer C",
+        pallet_id: pallet1Id,
+        product_id: product1,
+        qty_units: 100,
+        expiration_date_note: "2024-02-15",
       },
       {
         id: randomUUID(),
+        pallet_id: pallet1Id,
+        product_id: product2,
+        qty_units: 80,
+        expiration_date_note: "2024-02-20",
+      },
+      {
+        id: randomUUID(),
+        pallet_id: pallet2Id,
+        product_id: product3,
+        qty_units: 120,
+        expiration_date_note: "2024-02-10",
+      },
+      {
+        id: randomUUID(),
+        pallet_id: pallet2Id,
         product_id: product4,
-        pallet_id: "P-2024-004",
         qty_units: 60,
         expiration_date_note: "2024-02-25",
-        placement_location: "Freezer A",
       },
     ]);
 
