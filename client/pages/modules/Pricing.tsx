@@ -438,6 +438,9 @@ export function Pricing({ onBack }: PricingProps) {
                   Status
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                  Image
+                </th>
+                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Product Name
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
@@ -454,7 +457,7 @@ export function Pricing({ onBack }: PricingProps) {
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
                     {products.length === 0 ? "No products found" : "No results matching your search"}
                   </td>
                 </tr>
@@ -471,6 +474,17 @@ export function Pricing({ onBack }: PricingProps) {
                       >
                         {product.batch_tracking_enabled ? "Tracked" : "Untracked"}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      {product.image_filename ? (
+                        <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center">
+                          <img src={`/uploads/${product.image_filename}`} alt={product.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-off-white rounded-lg border border-border flex items-center justify-center text-muted text-xs">
+                          —
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-navy font-semibold">
                       {product.name}
