@@ -26,7 +26,7 @@ export function ActionButtons({
   };
 
   return (
-    <div className="flex gap-2 items-center justify-end">
+    <div className="flex gap-2 items-center justify-center">
       {/* View Button */}
       {onView && (
         <button
