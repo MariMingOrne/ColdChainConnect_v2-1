@@ -378,15 +378,29 @@ export function Inventory() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border">
-          <div className="text-xs text-muted">Page {currentPage} of {Math.max(1, totalPages)} · {filteredBatchProducts.length} items</div>
-          <div className="flex gap-2">
-            <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className="px-3 py-1 border border-border rounded text-xs font-semibold disabled:opacity-50">← Prev</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 2), currentPage + 1).map((page) => (
-              <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded text-xs font-semibold ${page === currentPage ? "bg-accent-2 text-white" : "border border-border hover:bg-off-white"}`}>{page}</button>
-            ))}
-            <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className="px-3 py-1 border border-border rounded text-xs font-semibold disabled:opacity-50">Next →</button>
+        {/* Pagination - Always Display */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-off-white/50">
+          <div className="text-xs text-muted">
+            Page {currentPage} of {Math.max(1, totalPages)} · {filteredBatchProducts.length} items
+          </div>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-border rounded text-xs font-semibold hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <span className="px-3 py-1 text-xs font-semibold text-navy bg-white rounded border border-border">
+              {currentPage}
+            </span>
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border border-border rounded text-xs font-semibold hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
           </div>
         </div>
       </div>
