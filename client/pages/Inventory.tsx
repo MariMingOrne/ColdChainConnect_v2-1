@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useInventoryContext } from "../context/InventoryContext";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Eye } from "lucide-react";
+import { ActionButtons } from "@/components/ActionButtons";
 
 interface InventoryProduct {
   id: string;
@@ -64,6 +65,7 @@ export function Inventory() {
     reorderPoint: 300, lastUpdated: new Date().toISOString().split("T")[0],
     manufacturer: "", daysPerReorder: 90, isDiscontinued: false,
   });
+  const [showDeleteButtons, setShowDeleteButtons] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -317,18 +319,12 @@ export function Inventory() {
                       </td>
                       {/* Actions */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <div className="flex gap-1">
-                          {/* Eye — View Extra Info */}
-                          <button
-                            onClick={() => setExtraInfoProduct(product)}
-                            className="p-1.5 bg-white border border-border text-navy rounded hover:bg-off-white"
-                            title="View extra info"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleEdit(product)} className="px-2 py-1 bg-gold text-white rounded text-xs font-semibold hover:opacity-90" title="Edit">✏</button>
-                          <button onClick={() => handleDelete(product.id)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90" title="Delete">🗑</button>
-                        </div>
+                        <ActionButtons
+                          onView={() => setExtraInfoProduct(product)}
+                          onEdit={() => handleEdit(product)}
+                          onDelete={() => handleDelete(product.id)}
+                          showDelete={showDeleteButtons}
+                        />
                       </td>
                     </tr>
                   );
@@ -348,6 +344,18 @@ export function Inventory() {
             ))}
             <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className="px-3 py-1 border border-border rounded text-xs font-semibold disabled:opacity-50">Next →</button>
           </div>
+        </div>
+        <div className="flex justify-end pt-4 border-t border-border">
+          <button
+            onClick={() => setShowDeleteButtons(!showDeleteButtons)}
+            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+              showDeleteButtons
+                ? "bg-red text-white hover:opacity-90"
+                : "bg-white border border-border text-navy hover:bg-off-white"
+            }`}
+          >
+            {showDeleteButtons ? "🔓 Delete Enabled" : "🔒 Enable Delete"}
+          </button>
         </div>
       </div>
 

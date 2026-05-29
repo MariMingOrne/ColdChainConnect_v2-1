@@ -2,16 +2,12 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
-import { ActionButtons } from "@/components/ActionButtons";
-import { Driver } from "@shared/api";
+import { Agent } from "@shared/api";
 
-interface DriversProps {
-  onBack?: () => void;
-}
-
-interface DriverForm {
-  address: string;
-  contact_info: string;
+interface AgentForm {
+  name: string;
+  email: string;
+  phone: string;
   is_active: boolean;
 }
 
@@ -36,7 +32,7 @@ function StatsBox({
   );
 }
 
-function DriverModal({
+function AgentModal({
   title,
   formData,
   setFormData,
@@ -44,8 +40,8 @@ function DriverModal({
   onSave,
 }: {
   title: string;
-  formData: DriverForm;
-  setFormData: (data: DriverForm) => void;
+  formData: AgentForm;
+  setFormData: (data: AgentForm) => void;
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -59,36 +55,34 @@ function DriverModal({
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Address</label>
+            <label className="block text-xs font-semibold text-navy mb-1">Name</label>
             <input
               type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-              placeholder="e.g., 123 Main St, Makati"
+              placeholder="e.g., John Doe"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Contact Info</label>
+            <label className="block text-xs font-semibold text-navy mb-1">Email</label>
             <input
-              type="text"
-              value={formData.contact_info}
-              onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })}
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., john@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
               placeholder="e.g., 09171234567"
             />
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="w-4 h-4 accent-navy"
-            />
-            <label htmlFor="is_active" className="text-sm font-semibold text-navy">
-              Active Driver
-            </label>
           </div>
         </div>
 
@@ -103,7 +97,7 @@ function DriverModal({
             onClick={onSave}
             className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90"
           >
-            Save Driver
+            Save Agent
           </button>
         </div>
       </div>
@@ -111,36 +105,36 @@ function DriverModal({
   );
 }
 
-export function Drivers({ onBack }: DriversProps) {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+export function Agents() {
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [formData, setFormData] = useState<DriverForm>({
-    address: "",
-    contact_info: "",
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [formData, setFormData] = useState<AgentForm>({
+    name: "",
+    email: "",
+    phone: "",
     is_active: true,
   });
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showDeleteButtons, setShowDeleteButtons] = useState(false);
 
   const itemsPerPage = 10;
 
-  const fetchDrivers = async () => {
+  const fetchAgents = async () => {
     try {
-      const response = await fetch("/api/drivers", {
+      const response = await fetch("/api/agents", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Failed to fetch drivers");
+      if (!response.ok) throw new Error("Failed to fetch agents");
       const data = await response.json();
-      setDrivers(data);
+      setAgents(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error loading drivers");
+      setError(err instanceof Error ? err.message : "Error loading agents");
     } finally {
       setIsLoading(false);
     }
@@ -148,51 +142,53 @@ export function Drivers({ onBack }: DriversProps) {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchDrivers();
+    await fetchAgents();
     setIsRefreshing(false);
   };
 
   useEffect(() => {
     if (token) {
-      fetchDrivers();
+      fetchAgents();
     }
   }, [token]);
 
-  const filteredDrivers = drivers.filter(
-    (d) =>
-      d.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.contact_info?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAgents = agents.filter(
+    (a) =>
+      a.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.phone?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
-  const paginatedDrivers = filteredDrivers.slice(
+  const totalPages = Math.ceil(filteredAgents.length / itemsPerPage);
+  const paginatedAgents = filteredAgents.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const activeCount = drivers.filter((d) => d.is_active).length;
-  const inactiveCount = drivers.length - activeCount;
+  const activeCount = agents.filter((a) => a.is_active).length;
+  const inactiveCount = agents.length - activeCount;
 
   const openAddModal = () => {
-    setEditingDriver(null);
-    setFormData({ address: "", contact_info: "", is_active: true });
+    setEditingAgent(null);
+    setFormData({ name: "", email: "", phone: "", is_active: true });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (driver: Driver) => {
-    setEditingDriver(driver);
+  const openEditModal = (agent: Agent) => {
+    setEditingAgent(agent);
     setFormData({
-      address: driver.address ?? "",
-      contact_info: driver.contact_info ?? "",
-      is_active: driver.is_active ?? true,
+      name: agent.name ?? "",
+      email: agent.email ?? "",
+      phone: agent.phone ?? "",
+      is_active: agent.is_active ?? true,
     });
     setIsModalOpen(true);
   };
 
   const handleSave = async () => {
     try {
-      const url = editingDriver ? `/api/drivers/${editingDriver.id}` : "/api/drivers";
-      const method = editingDriver ? "PATCH" : "POST";
+      const url = editingAgent ? `/api/agents/${editingAgent.id}` : "/api/agents";
+      const method = editingAgent ? "PATCH" : "POST";
       const response = await fetch(url, {
         method,
         headers: {
@@ -201,36 +197,54 @@ export function Drivers({ onBack }: DriversProps) {
         },
         body: JSON.stringify(formData),
       });
-      if (!response.ok) throw new Error("Failed to save driver");
+      if (!response.ok) throw new Error("Failed to save agent");
       const saved = await response.json();
-      if (editingDriver) {
-        setDrivers(drivers.map((d) => (d.id === saved.id ? saved : d)));
+      if (editingAgent) {
+        setAgents(agents.map((a) => (a.id === saved.id ? saved : a)));
       } else {
-        setDrivers([...drivers, saved]);
+        setAgents([...agents, saved]);
       }
       setIsModalOpen(false);
     } catch {
-      alert("Failed to save driver");
+      alert("Failed to save agent");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this driver?")) return;
+    if (!confirm("Delete this agent?")) return;
     try {
-      await fetch(`/api/drivers/${id}`, {
+      await fetch(`/api/agents/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      setDrivers(drivers.filter((d) => d.id !== id));
+      setAgents(agents.filter((a) => a.id !== id));
     } catch {
-      alert("Failed to delete driver");
+      alert("Failed to delete agent");
+    }
+  };
+
+  const handleToggleActive = async (agent: Agent) => {
+    try {
+      const response = await fetch(`/api/agents/${agent.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ is_active: !agent.is_active }),
+      });
+      if (!response.ok) throw new Error("Failed to update agent");
+      const updated = await response.json();
+      setAgents(agents.map((a) => (a.id === updated.id ? updated : a)));
+    } catch {
+      alert("Failed to update agent");
     }
   };
 
   if (isLoading && !isRefreshing) {
     return (
       <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6">
-        <div className="text-muted text-sm">Loading drivers...</div>
+        <div className="text-muted text-sm">Loading agents...</div>
       </div>
     );
   }
@@ -241,10 +255,10 @@ export function Drivers({ onBack }: DriversProps) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="font-rajdhani text-3xl font-bold text-navy letter-spacing-tight">
-            Driver Management
+            Agent Management
           </h1>
           <p className="text-xs text-muted mt-1">
-            Manage drivers and field agents
+            Manage agents and field staff
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -274,13 +288,13 @@ export function Drivers({ onBack }: DriversProps) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatsBox label="Total Drivers" value={drivers.length.toString()} icon="🚛" />
+        <StatsBox label="Total Agents" value={agents.length.toString()} icon="👥" />
         <StatsBox label="Active" value={activeCount.toString()} icon="✅" />
         <StatsBox label="Inactive" value={inactiveCount.toString()} icon="⛔" color="red" />
         <StatsBox
-          label="With Contact"
-          value={drivers.filter((d) => d.contact_info).length.toString()}
-          icon="📞"
+          label="With Email"
+          value={agents.filter((a) => a.email).length.toString()}
+          icon="📧"
         />
       </div>
 
@@ -292,13 +306,13 @@ export function Drivers({ onBack }: DriversProps) {
             setSearchQuery(value);
             setCurrentPage(1);
           }}
-          placeholder="Search by address or contact…"
+          placeholder="Search by name, email, or phone…"
         />
         <button
           onClick={openAddModal}
           className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity flex items-center gap-2 w-fit"
         >
-          ➕ Add Driver
+          ➕ Add Agent
         </button>
       </div>
 
@@ -309,16 +323,16 @@ export function Drivers({ onBack }: DriversProps) {
             <thead>
               <tr>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Status
-                </th>
-                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Driver ID
+                  Name
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap hidden md:table-cell">
-                  Address
+                  Email
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Contact
+                  Phone
+                </th>
+                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                  Status
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Actions
@@ -326,43 +340,53 @@ export function Drivers({ onBack }: DriversProps) {
               </tr>
             </thead>
             <tbody>
-              {paginatedDrivers.length === 0 ? (
+              {paginatedAgents.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-6 text-center text-muted">
-                    {drivers.length === 0 ? "No drivers found" : "No results matching your search"}
+                    {agents.length === 0 ? "No agents found" : "No results matching your search"}
                   </td>
                 </tr>
               ) : (
-                paginatedDrivers.map((driver) => (
+                paginatedAgents.map((agent) => (
                   <tr
-                    key={driver.id}
+                    key={agent.id}
                     className="border-b border-border hover:bg-off-white/50 transition-colors"
                   >
+                    <td className="px-3 py-3 text-navy font-semibold">
+                      {agent.name || <span className="text-muted">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-navy hidden md:table-cell text-xs">
+                      {agent.email || <span className="text-muted">—</span>}
+                    </td>
+                    <td className="px-3 py-3 text-navy text-xs">
+                      {agent.phone || <span className="text-muted">—</span>}
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${driver.is_active ? "badge-green" : "badge-red"
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${agent.is_active ? "badge-green" : "badge-red"
                         }`}>
-                        {driver.is_active ? "Active" : "Inactive"}
+                        {agent.is_active ? "Active" : "Inactive"}
                       </span>
-                    </td>
-                    <td className="px-3 py-3 text-navy font-semibold font-mono text-xs">
-                      {driver.id.slice(0, 8).toUpperCase()}
-                    </td>
-                    <td className="px-3 py-3 text-navy hidden md:table-cell">
-                      {driver.address || <span className="text-muted">—</span>}
-                    </td>
-                    <td className="px-3 py-3 text-navy">
-                      {driver.contact_info || <span className="text-muted">—</span>}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => openEditModal(driver)}
+                          onClick={() => handleToggleActive(agent)}
+                          className={`px-3 py-1 border rounded-lg text-xs font-semibold transition-colors ${
+                            agent.is_active
+                              ? "border-red/30 text-red hover:bg-red/10"
+                              : "border-green/30 text-green hover:bg-green/10"
+                          }`}
+                        >
+                          {agent.is_active ? "🔒 Disable" : "🔓 Enable"}
+                        </button>
+                        <button
+                          onClick={() => openEditModal(agent)}
                           className="px-3 py-1 border border-border rounded-lg text-xs font-semibold text-navy hover:bg-off-white transition-colors"
                         >
                           ✏️ Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(driver.id)}
+                          onClick={() => handleDelete(agent.id)}
                           className="px-3 py-1 border border-red/30 rounded-lg text-xs font-semibold text-red hover:bg-red/10 transition-colors"
                         >
                           🗑️ Delete
@@ -380,8 +404,8 @@ export function Drivers({ onBack }: DriversProps) {
           <div className="px-4 py-3 border-t border-border flex items-center justify-between bg-off-white/50">
             <span className="text-xs text-muted">
               Showing {(currentPage - 1) * itemsPerPage + 1}–
-              {Math.min(currentPage * itemsPerPage, filteredDrivers.length)} of{" "}
-              {filteredDrivers.length} drivers
+              {Math.min(currentPage * itemsPerPage, filteredAgents.length)} of{" "}
+              {filteredAgents.length} agents
             </span>
             <div className="flex gap-2">
               <button
@@ -406,11 +430,11 @@ export function Drivers({ onBack }: DriversProps) {
         )}
       </div>
 
-      <div className="text-xs text-muted">Total drivers: {filteredDrivers.length}</div>
+      <div className="text-xs text-muted">Total agents: {filteredAgents.length}</div>
 
       {isModalOpen && (
-        <DriverModal
-          title={editingDriver ? "Edit Driver" : "Add New Driver"}
+        <AgentModal
+          title={editingAgent ? "Edit Agent" : "Add New Agent"}
           formData={formData}
           setFormData={setFormData}
           onClose={() => setIsModalOpen(false)}

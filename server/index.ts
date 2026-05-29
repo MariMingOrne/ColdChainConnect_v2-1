@@ -34,6 +34,12 @@ import {
   deleteDriver,
 } from "./routes/drivers";
 import {
+  listAgents,
+  createAgent,
+  updateAgent,
+  deleteAgent,
+} from "./routes/agents";
+import {
   listTrucks,
   createTruck,
   updateTruck,
@@ -114,6 +120,12 @@ export function createServer() {
   app.post("/api/drivers", authMiddleware, requireRole("admin"), createDriver);
   app.patch("/api/drivers/:id", authMiddleware, requireRole("admin"), updateDriver);
   app.delete("/api/drivers/:id", authMiddleware, requireRole("admin"), deleteDriver);
+
+  // Agents routes
+  app.get("/api/agents", authMiddleware, listAgents);
+  app.post("/api/agents", authMiddleware, requireRole("admin"), createAgent);
+  app.patch("/api/agents/:id", authMiddleware, requireRole("admin"), updateAgent);
+  app.delete("/api/agents/:id", authMiddleware, requireRole("admin"), deleteAgent);
 
   // Trucks routes
   app.get("/api/trucks", authMiddleware, listTrucks);

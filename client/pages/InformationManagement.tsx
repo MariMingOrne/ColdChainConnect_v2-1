@@ -4,6 +4,7 @@ import { Pricing } from "./modules/Pricing";
 import { Inventory } from "./Inventory";
 import { Customers } from "./modules/Customers";
 import { Drivers } from "./modules/Drivers";
+import { Agents } from "./modules/Agents";
 import { InventoryProvider } from "../context/InventoryContext";
 
 const modules = [
@@ -11,6 +12,7 @@ const modules = [
   { label: "Inventory", path: "/inventory" },
   { label: "Customers", path: "/customers" },
   { label: "Drivers", path: "/drivers" },
+  { label: "Agents", path: "/agents" },
 ];
 
 export function InformationManagement() {
@@ -24,6 +26,7 @@ export function InformationManagement() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/drivers" element={<Drivers />} />
+            <Route path="/agents" element={<Agents />} />
             <Route path="/" element={<PricingDefault />} />
           </Routes>
         </div>
