@@ -97,8 +97,13 @@ export const drivers = pgTable("drivers", {
   user_id: text("user_id")
     .notNull()
     .references(() => users.id),
+  full_name: text("full_name"),
   address: text("address"),
   contact_info: text("contact_info"),
+  emergency_contact: text("emergency_contact"),
+  license: text("license"),
+  hire_date: text("hire_date"),
+  employment_type: text("employment_type"), // "full_time" or "part_time"
   is_active: boolean("is_active").default(true),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),

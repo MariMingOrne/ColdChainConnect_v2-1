@@ -21,7 +21,7 @@ export const listDrivers: RequestHandler = async (_req, res) => {
 };
 
 export const createDriver: RequestHandler = async (req: AuthRequest, res) => {
-  const { user_id, address, contact_info } = req.body;
+  const { user_id, full_name, address, contact_info, emergency_contact, license, hire_date, employment_type } = req.body;
 
   if (!user_id) {
     return res.status(400).json({ error: "User ID is required" });
@@ -32,13 +32,21 @@ export const createDriver: RequestHandler = async (req: AuthRequest, res) => {
     await db.insert(drivers).values({
       id,
       user_id,
+      full_name,
       address,
       contact_info,
+      emergency_contact,
+      license,
+      hire_date,
+      employment_type,
       is_active: true,
     });
 
     const newDriver = await db.query.drivers.findFirst({
       where: eq(drivers.id, id),
+      with: {
+        user: true,
+      },
     });
 
     if (req.user) {
@@ -61,11 +69,14 @@ export const createDriver: RequestHandler = async (req: AuthRequest, res) => {
 
 export const updateDriver: RequestHandler = async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const { address, contact_info, is_active } = req.body;
+  const { full_name, address, contact_info, emergency_contact, license, hire_date, employment_type, is_active } = req.body;
 
   try {
     const existing = await db.query.drivers.findFirst({
       where: eq(drivers.id, id),
+      with: {
+        user: true,
+      },
     });
 
     if (!existing) {
@@ -75,8 +86,13 @@ export const updateDriver: RequestHandler = async (req: AuthRequest, res) => {
     await db
       .update(drivers)
       .set({
+        full_name: full_name ?? existing.full_name,
         address: address ?? existing.address,
         contact_info: contact_info ?? existing.contact_info,
+        emergency_contact: emergency_contact ?? existing.emergency_contact,
+        license: license ?? existing.license,
+        hire_date: hire_date ?? existing.hire_date,
+        employment_type: employment_type ?? existing.employment_type,
         is_active: is_active ?? existing.is_active,
         updated_at: new Date(),
       })
@@ -84,6 +100,9 @@ export const updateDriver: RequestHandler = async (req: AuthRequest, res) => {
 
     const updated = await db.query.drivers.findFirst({
       where: eq(drivers.id, id),
+      with: {
+        user: true,
+      },
     });
 
     if (req.user) {

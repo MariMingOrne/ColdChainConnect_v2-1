@@ -114,8 +114,13 @@ export const UpdateBatchSchema = CreateBatchSchema.partial();
 export interface Driver {
   id: string;
   user_id: string;
+  full_name?: string;
   address?: string;
   contact_info?: string;
+  emergency_contact?: string;
+  license?: string;
+  hire_date?: string;
+  employment_type?: "full_time" | "part_time";
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -144,8 +149,13 @@ export const UpdateAgentSchema = CreateAgentSchema.partial();
 
 export const CreateDriverSchema = z.object({
   user_id: z.string().min(1, "User ID is required"),
+  full_name: z.string().optional(),
   address: z.string().optional(),
   contact_info: z.string().optional(),
+  emergency_contact: z.string().optional(),
+  license: z.string().optional(),
+  hire_date: z.string().optional(),
+  employment_type: z.enum(["full_time", "part_time"]).optional(),
   is_active: z.boolean().default(true),
 });
 
