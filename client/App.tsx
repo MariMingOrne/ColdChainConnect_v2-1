@@ -6,7 +6,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -42,26 +41,15 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppContent = () => {
-  const { isAuthenticated, user, setUser } = useAuth();
-
-  // Demo mode: Auto-login if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated && !user) {
-      setUser({
-        id: "demo-user",
-        username: "Demo User",
-        role: "admin",
-      });
-    }
-  }, [isAuthenticated, user, setUser]);
+  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-      <Route path="/information-management/*" element={<AppLayout><InformationManagement /></AppLayout>} />
-      <Route path="/booking-dispatch/*" element={<AppLayout><BookingDispatch /></AppLayout>} />
-      <Route path="/audit" element={<AppLayout><AuditLogPage /></AppLayout>} />
+      <Route path="/" element={isAuthenticated ? <AppLayout><Dashboard /></AppLayout> : <Login />} />
+      <Route path="/information-management/*" element={isAuthenticated ? <AppLayout><InformationManagement /></AppLayout> : <Login />} />
+      <Route path="/booking-dispatch/*" element={isAuthenticated ? <AppLayout><BookingDispatch /></AppLayout> : <Login />} />
+      <Route path="/audit" element={isAuthenticated ? <AppLayout><AuditLogPage /></AppLayout> : <Login />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
