@@ -2,16 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
-
-interface Agent {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  is_active: boolean;
-  created_at?: string;
-}
+import { Agent } from "@shared/api";
 
 interface AgentForm {
   name: string;

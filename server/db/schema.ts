@@ -104,6 +104,18 @@ export const drivers = pgTable("drivers", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Agents table
+export const agents = pgTable("agents", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone"),
+  role: text("role").notNull(),
+  is_active: boolean("is_active").default(true),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Trucks table
 export const trucks = pgTable("trucks", {
   id: text("id").primaryKey(),
@@ -253,6 +265,10 @@ export const driversRelations = relations(drivers, ({ one, many }) => ({
   user: one(users, { fields: [drivers.user_id], references: [users.id] }),
   trucks: many(trucks),
   bookings: many(bookings),
+}));
+
+export const agentsRelations = relations(agents, ({ many }) => ({
+  // Add relations to agents as needed
 }));
 
 export const trucksRelations = relations(trucks, ({ one, many }) => ({
