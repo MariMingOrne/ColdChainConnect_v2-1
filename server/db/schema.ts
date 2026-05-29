@@ -71,22 +71,41 @@ export const products = pgTable("products", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Inventory batches table (Pallets)
+// Inventory batches table (named groups that contain multiple pallets)
 export const inventory_batches = pgTable("inventory_batches", {
   id: text("id").primaryKey(),
-  product_id: text("product_id")
+  batch_name: text("batch_name").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Batch pallets table (individual pallets within a batch)
+export const batch_pallets = pgTable("batch_pallets", {
+  id: text("id").primaryKey(),
+  batch_id: text("batch_id")
     .notNull()
-    .references(() => products.id),
-  pallet_id: text("pallet_id").notNull().unique(),
-  qty_units: integer("qty_units").notNull(),
-  expiration_date_note: text("expiration_date_note"),
-  placement_location: text("placement_location"),
-  // Cold-chain & batch grouping fields
-  batch_name: text("batch_name"),
+    .references(() => inventory_batches.id, { onDelete: "cascade" }),
+  pallet_id: text("pallet_id").notNull(),
   supplier_name: text("supplier_name"),
   received_date: text("received_date"),
   temperature_log: text("temperature_log"),
   storage_zone: text("storage_zone"),
+  placement_location: text("placement_location"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Pallet items table (products within a pallet)
+export const pallet_items = pgTable("pallet_items", {
+  id: text("id").primaryKey(),
+  pallet_id: text("pallet_id")
+    .notNull()
+    .references(() => batch_pallets.id, { onDelete: "cascade" }),
+  product_id: text("product_id")
+    .notNull()
+    .references(() => products.id),
+  qty_units: integer("qty_units").notNull(),
+  expiration_date_note: text("expiration_date_note"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -257,12 +276,22 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({
-  inventory_batches: many(inventory_batches),
+  pallet_items: many(pallet_items),
   booking_items: many(booking_items),
 }));
 
-export const inventoryBatchesRelations = relations(inventory_batches, ({ one }) => ({
-  product: one(products, { fields: [inventory_batches.product_id], references: [products.id] }),
+export const inventoryBatchesRelations = relations(inventory_batches, ({ many }) => ({
+  pallets: many(batch_pallets),
+}));
+
+export const batchPalletsRelations = relations(batch_pallets, ({ one, many }) => ({
+  batch: one(inventory_batches, { fields: [batch_pallets.batch_id], references: [inventory_batches.id] }),
+  items: many(pallet_items),
+}));
+
+export const palletItemsRelations = relations(pallet_items, ({ one }) => ({
+  pallet: one(batch_pallets, { fields: [pallet_items.pallet_id], references: [batch_pallets.id] }),
+  product: one(products, { fields: [pallet_items.product_id], references: [products.id] }),
 }));
 
 export const driversRelations = relations(drivers, ({ one, many }) => ({
