@@ -322,7 +322,7 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?"].map((col) => (
+                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?", "Expiry Date"].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
@@ -334,7 +334,7 @@ export function Inventory() {
             </thead>
             <tbody>
               {paginatedBatchProducts.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
+                <tr><td colSpan={7} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const isReorder = getReorderStatus(product.batchQuantity, product.reorderPoint) === "RE-ORDER";
@@ -363,6 +363,10 @@ export function Inventory() {
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.isDiscontinued ? "bg-red text-white" : "bg-green text-white"}`}>
                           {product.isDiscontinued ? "YES" : "NO"}
                         </span>
+                      </td>
+                      {/* Expiry Date */}
+                      <td className="px-3 py-3 text-navy whitespace-nowrap">
+                        {product.expiryDate ? new Date(product.expiryDate).toLocaleDateString("en-PH") : "—"}
                       </td>
                       {/* Actions */}
                       <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 whitespace-nowrap bg-white border-l border-border shadow-left">
