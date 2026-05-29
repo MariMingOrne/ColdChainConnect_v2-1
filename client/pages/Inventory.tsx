@@ -94,7 +94,7 @@ export function Inventory() {
 
   const currentBatch = batches.find((b) => b.id === selectedBatchId);
 
-  const getBatchProducts = (): (InventoryProduct & { batchQuantity: number; batchExpiryDate: string })[] => {
+  const getBatchProducts = (): (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[] => {
     if (!currentBatch || currentBatch.id === "batch-all") {
       return products.map((p) => ({ ...p, batchQuantity: p.quantity, batchExpiryDate: p.expiryDate }));
     }
@@ -106,9 +106,9 @@ export function Inventory() {
         .map((item) => {
           const product = products.find((p) => p.id === item.productId);
           if (!product) return null;
-          return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate };
+          return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate, itemId: item.id };
         })
-        .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string })[];
+        .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
     }
 
     const allItems = currentBatch.pallets.flatMap((p) => p.items);
@@ -116,9 +116,9 @@ export function Inventory() {
       .map((item) => {
         const product = products.find((p) => p.id === item.productId);
         if (!product) return null;
-        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate };
+        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate, itemId: item.id };
       })
-      .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string })[];
+      .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
   };
 
   const batchProducts = getBatchProducts();
@@ -347,8 +347,9 @@ export function Inventory() {
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const isReorder = getReorderStatus(product.batchQuantity, product.reorderPoint) === "RE-ORDER";
+                  const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
                   return (
-                    <tr key={product.id} className={`border-b border-border transition-colors ${isReorder ? "bg-orange-50 hover:bg-orange-100/60" : "hover:bg-off-white/50"}`}>
+                    <tr key={uniqueKey} className={`border-b border-border transition-colors ${isReorder ? "bg-orange-50 hover:bg-orange-100/60" : "hover:bg-off-white/50"}`}>
                       {/* Reorder Status */}
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${isReorder ? "bg-orange-400 text-white" : "bg-green/20 text-green"}`}>
