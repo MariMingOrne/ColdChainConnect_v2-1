@@ -10,8 +10,13 @@ interface DriversProps {
 }
 
 interface DriverForm {
+  full_name: string;
   address: string;
   contact_info: string;
+  emergency_contact: string;
+  license: string;
+  hire_date: string;
+  employment_type: "full_time" | "part_time" | "";
   is_active: boolean;
 }
 
@@ -39,7 +44,7 @@ function StatsBox({
 function ViewDriverModal({ driver, onClose }: { driver: Driver; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
+      <div className="bg-white rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
           <h2 className="font-rajdhani text-lg font-bold text-white">Driver Details</h2>
           <button onClick={onClose} className="text-white hover:opacity-70 text-2xl">×</button>
@@ -47,8 +52,12 @@ function ViewDriverModal({ driver, onClose }: { driver: Driver; onClose: () => v
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">User ID</label>
-            <div className="text-sm text-navy font-semibold">{driver.user_id}</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Full Name</label>
+            <div className="text-sm text-navy font-semibold">{driver.full_name || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Username</label>
+            <div className="text-sm text-navy">{driver.user?.username || "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Address</label>
@@ -57,6 +66,22 @@ function ViewDriverModal({ driver, onClose }: { driver: Driver; onClose: () => v
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Info</label>
             <div className="text-sm text-navy">{driver.contact_info || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Emergency Contact</label>
+            <div className="text-sm text-navy">{driver.emergency_contact || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">License</label>
+            <div className="text-sm text-navy">{driver.license || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Hire Date</label>
+            <div className="text-sm text-navy">{driver.hire_date || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Employment Type</label>
+            <div className="text-sm text-navy capitalize">{driver.employment_type ? driver.employment_type.replace("_", " ") : "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Status</label>
@@ -89,13 +114,23 @@ function DriverModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
+      <div className="bg-white rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
           <h2 className="font-rajdhani text-lg font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-white hover:opacity-70 text-2xl">×</button>
         </div>
 
         <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Full Name</label>
+            <input
+              type="text"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., Juan Dela Cruz"
+            />
+          </div>
           <div>
             <label className="block text-xs font-semibold text-navy mb-1">Address</label>
             <input
@@ -115,6 +150,47 @@ function DriverModal({
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
               placeholder="e.g., 09171234567"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Emergency Contact</label>
+            <input
+              type="text"
+              value={formData.emergency_contact}
+              onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., Name & phone number"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">License</label>
+            <input
+              type="text"
+              value={formData.license}
+              onChange={(e) => setFormData({ ...formData, license: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., Driver's license number"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Hire Date</label>
+            <input
+              type="date"
+              value={formData.hire_date}
+              onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Employment Type</label>
+            <select
+              value={formData.employment_type}
+              onChange={(e) => setFormData({ ...formData, employment_type: e.target.value as any })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+            >
+              <option value="">Select employment type...</option>
+              <option value="full_time">Full Time</option>
+              <option value="part_time">Part Time</option>
+            </select>
           </div>
           <div className="flex items-center gap-3">
             <input
@@ -159,8 +235,13 @@ export function Drivers({ onBack }: DriversProps) {
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
   const [formData, setFormData] = useState<DriverForm>({
+    full_name: "",
     address: "",
     contact_info: "",
+    emergency_contact: "",
+    license: "",
+    hire_date: "",
+    employment_type: "",
     is_active: true,
   });
   const { token } = useAuth();
@@ -214,15 +295,29 @@ export function Drivers({ onBack }: DriversProps) {
 
   const openAddModal = () => {
     setEditingDriver(null);
-    setFormData({ address: "", contact_info: "", is_active: true });
+    setFormData({
+      full_name: "",
+      address: "",
+      contact_info: "",
+      emergency_contact: "",
+      license: "",
+      hire_date: "",
+      employment_type: "",
+      is_active: true,
+    });
     setIsModalOpen(true);
   };
 
   const openEditModal = (driver: Driver) => {
     setEditingDriver(driver);
     setFormData({
+      full_name: driver.full_name ?? "",
       address: driver.address ?? "",
       contact_info: driver.contact_info ?? "",
+      emergency_contact: driver.emergency_contact ?? "",
+      license: driver.license ?? "",
+      hire_date: driver.hire_date ?? "",
+      employment_type: (driver.employment_type as any) ?? "",
       is_active: driver.is_active ?? true,
     });
     setIsModalOpen(true);
@@ -361,7 +456,7 @@ export function Drivers({ onBack }: DriversProps) {
                   Status
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Driver ID
+                  Name
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap hidden md:table-cell">
                   Address
@@ -393,8 +488,8 @@ export function Drivers({ onBack }: DriversProps) {
                         {driver.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-navy font-semibold font-mono text-xs">
-                      {driver.id.slice(0, 8).toUpperCase()}
+                    <td className="px-3 py-3 text-navy font-semibold">
+                      {driver.full_name || driver.user?.username || "—"}
                     </td>
                     <td className="px-3 py-3 text-navy hidden md:table-cell">
                       {driver.address || <span className="text-muted">—</span>}

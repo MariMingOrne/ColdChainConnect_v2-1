@@ -21,6 +21,12 @@ export const listBookings: RequestHandler = async (req, res) => {
       where: whereClause,
       with: {
         booking_items: true,
+        customer: true,
+        driver: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
 
@@ -68,6 +74,12 @@ export const createBooking: RequestHandler = async (
       where: eq(bookings.id, bookingId),
       with: {
         booking_items: true,
+        customer: true,
+        driver: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
 
@@ -94,10 +106,10 @@ export const updateBookingStatus: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, driver_id } = req.body;
 
-  if (!status) {
-    return res.status(400).json({ error: "Status is required" });
+  if (!status && !driver_id) {
+    return res.status(400).json({ error: "Status or driver_id is required" });
   }
 
   try {
@@ -109,18 +121,25 @@ export const updateBookingStatus: RequestHandler = async (
       return res.status(404).json({ error: "Booking not found" });
     }
 
+    const updates: any = { updated_at: new Date() };
+    if (status) updates.status = status;
+    if (driver_id) updates.driver_id = driver_id;
+
     await db
       .update(bookings)
-      .set({
-        status,
-        updated_at: new Date(),
-      })
+      .set(updates)
       .where(eq(bookings.id, id));
 
     const updated = await db.query.bookings.findFirst({
       where: eq(bookings.id, id),
       with: {
         booking_items: true,
+        customer: true,
+        driver: {
+          with: {
+            user: true,
+          },
+        },
       },
     });
 
