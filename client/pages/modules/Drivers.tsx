@@ -464,7 +464,7 @@ export function Drivers({ onBack }: DriversProps) {
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Contact
                 </th>
-                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap">
+                <th className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
                   Actions
                 </th>
               </tr>
@@ -472,7 +472,7 @@ export function Drivers({ onBack }: DriversProps) {
             <tbody>
               {paginatedDrivers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={4} className="px-3 py-6 text-center text-muted">
                     {drivers.length === 0 ? "No drivers found" : "No results matching your search"}
                   </td>
                 </tr>
@@ -497,7 +497,7 @@ export function Drivers({ onBack }: DriversProps) {
                     <td className="px-3 py-3 text-navy">
                       {driver.contact_info || <span className="text-muted">—</span>}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="sticky right-0 z-10 px-3 py-3 bg-white border-l border-border shadow-left">
                       <ActionButtons
                         onView={() => setViewingDriver(driver)}
                         onEdit={() => openEditModal(driver)}

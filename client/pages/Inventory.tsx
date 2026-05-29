@@ -322,16 +322,19 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?", "Actions"].map((col) => (
+                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?"].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
                 ))}
+                <th className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {paginatedBatchProducts.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const isReorder = getReorderStatus(product.batchQuantity, product.reorderPoint) === "RE-ORDER";
@@ -362,7 +365,7 @@ export function Inventory() {
                         </span>
                       </td>
                       {/* Actions */}
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="sticky right-0 z-10 px-3 py-3 whitespace-nowrap bg-white border-l border-border shadow-left">
                         <ActionButtons
                           onView={() => setExtraInfoProduct(product)}
                           onEdit={() => handleEdit(product)}

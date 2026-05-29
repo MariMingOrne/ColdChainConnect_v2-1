@@ -497,7 +497,7 @@ export function Customers({ onBack }: CustomersProps) {
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
                   Tax Rate
                 </th>
-                <th className="border-b border-border bg-navy-mid px-3 py-3 text-center font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
+                <th className="sticky right-0 z-10 border-b border-border bg-navy-mid px-3 py-3 text-center font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap shadow-left">
                   Actions
                 </th>
               </tr>
@@ -505,7 +505,7 @@ export function Customers({ onBack }: CustomersProps) {
             <tbody>
               {paginatedCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
                     {customers.length === 0
                       ? "No customers found"
                       : "No results matching your search"}
@@ -542,7 +542,7 @@ export function Customers({ onBack }: CustomersProps) {
                         <span className="text-muted">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="sticky right-0 z-10 px-3 py-3 bg-white border-l border-border shadow-left">
                       <ActionButtons
                         onView={() => setViewingCustomer(customer)}
                         onEdit={() => openEditModal(customer)}
