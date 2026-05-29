@@ -137,12 +137,8 @@ export function Inventory() {
   const getReorderStatus = (qty: number, reorderPoint: number) => qty <= reorderPoint ? "RE-ORDER" : "OK";
 
   const createNewBatch = async (pallets: any[], batchName: string) => {
-    // After pallet rows are saved to DB, refresh batches from DB so the
-    // new named batch appears with the correct DB-derived id.
+    // Refresh batches from DB after successful creation
     await refreshBatchesFromDB();
-    // Select the newly created batch by its DB-derived id
-    const newId = `db-batch-${batchName.toLowerCase().replace(/\s+/g, "-")}`;
-    setSelectedBatchId(newId);
     setNewBatchName("");
     setIsBatchModalOpen(false);
   };
@@ -322,11 +318,14 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?", "Actions"].map((col) => (
+                {["Reorder", "Name", "Cost Per Item", "Stock Qty", "Reorder Level", "Item Discontinued?", "Expiry Date"].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
                 ))}
+                <th style={{ width: '120px' }} className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -361,8 +360,12 @@ export function Inventory() {
                           {product.isDiscontinued ? "YES" : "NO"}
                         </span>
                       </td>
+                      {/* Expiry Date */}
+                      <td className="px-3 py-3 text-navy whitespace-nowrap">
+                        {product.expiryDate ? new Date(product.expiryDate).toLocaleDateString("en-PH") : "—"}
+                      </td>
                       {/* Actions */}
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 whitespace-nowrap bg-white border-l border-border shadow-left">
                         <ActionButtons
                           onView={() => setExtraInfoProduct(product)}
                           onEdit={() => handleEdit(product)}
@@ -672,15 +675,20 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     }
     const token = localStorage.getItem("auth_token") || "";
     try {
-      await fetch("/api/batches", {
+      const res = await fetch("/api/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ batch_name: newBatchName, pallets }),
       });
-      onCreateBatch();
+      if (!res.ok) {
+        const error = await res.json();
+        alert("Failed to create batch: " + (error.error || "Unknown error"));
+        return;
+      }
+      onCreateBatch(newBatchName);
     } catch (err) {
       console.error("Failed to create batch:", err);
-      alert("Failed to create batch");
+      alert("Failed to create batch: " + String(err));
     }
   };
 
@@ -739,13 +747,19 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
                     {pallet.items.map((item: any, itemIdx: number) => {
                       const product = products.find((p) => p.id === item.product_id);
                       return (
-                        <div key={itemIdx} className="bg-white border border-border rounded p-2 flex items-end gap-2">
-                          <div className="flex-1">
-                            <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
-                            <div className="text-xs text-muted">{getSku(item.product_id)}</div>
+                        <div key={itemIdx} className="bg-white border border-border rounded p-2 space-y-2">
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
+                              <div className="text-xs text-muted">{getSku(item.product_id)}</div>
+                            </div>
+                            <input type="number" min="1" value={item.qty_units} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                            <button onClick={() => removeItemFromPallet(palletIdx, itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
                           </div>
-                          <input type="number" min="1" value={item.qty_units} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
-                          <button onClick={() => removeItemFromPallet(palletIdx, itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
+                          <div>
+                            <label className="block text-xs font-semibold text-navy mb-1">Expiry Date</label>
+                            <input type="date" value={item.expiration_date_note || ""} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "expiration_date_note", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                          </div>
                         </div>
                       );
                     })}
