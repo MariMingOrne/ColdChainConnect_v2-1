@@ -110,12 +110,28 @@ export function Inventory() {
         .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
     }
 
-    const allItems = currentBatch.pallets.flatMap((p) => p.items);
-    return allItems
-      .map((item) => {
-        const product = products.find((p) => p.id === item.productId);
+    const itemsByProduct: Record<string, { quantity: number; expiryDates: string[] }> = {};
+    for (const pallet of currentBatch.pallets) {
+      for (const item of pallet.items) {
+        if (!itemsByProduct[item.productId]) {
+          itemsByProduct[item.productId] = { quantity: 0, expiryDates: [] };
+        }
+        itemsByProduct[item.productId].quantity += item.quantity;
+        if (item.expirationNote) {
+          itemsByProduct[item.productId].expiryDates.push(item.expirationNote);
+        }
+      }
+    }
+    return Object.entries(itemsByProduct)
+      .map(([productId, { quantity, expiryDates }]) => {
+        const product = products.find((p) => p.id === productId);
         if (!product) return null;
-        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate, itemId: item.id };
+        const uniqueDates = [...new Set(expiryDates)];
+        return {
+          ...product,
+          batchQuantity: quantity,
+          batchExpiryDate: uniqueDates.length > 0 ? uniqueDates.join(", ") : product.expiryDate,
+        };
       })
       .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
   };
@@ -142,9 +158,29 @@ export function Inventory() {
     return { bg: "", hover: "hover:bg-off-white/50" };
   };
 
+  const getExpiryStatus = (expiryDate: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    const daysUntilExpiry = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilExpiry < 0) return { status: "expired", icon: "❌", color: { bg: "bg-red-50", hover: "hover:bg-red-100/60" } };
+    if (daysUntilExpiry <= 7) return { status: "almost-expired", icon: "⚠️", color: { bg: "bg-yellow-50", hover: "hover:bg-yellow-100/60" } };
+    return { status: "ok", icon: "✅", color: { bg: "", hover: "hover:bg-off-white/50" } };
+  };
+
+  const getRowHighlightColor = () => {
+    if (selectedBatchId === "batch-all" || !selectedPalletId) {
+      return (qty: number, reorderPoint: number) => getStockHighlightColor(qty, reorderPoint);
+    }
+    return (_qty: number, _reorderPoint: number, expiryDate: string) => getExpiryStatus(expiryDate).color;
+  };
+
   const createNewBatch = async (pallets: any[], batchName: string) => {
     await refreshBatchesFromDB();
     setNewBatchName("");
+    setStartBatchCreation(false);
     setIsBatchModalOpen(false);
   };
 
@@ -314,7 +350,7 @@ export function Inventory() {
                     Reorder Level
                   </th>
                 )}
-                {selectedBatchId !== "batch-all" && (
+                {selectedBatchId !== "batch-all" && selectedPalletId && (
                   <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     Expiry Date
                   </th>
@@ -353,8 +389,8 @@ export function Inventory() {
                           {product.reorderPoint.toLocaleString()}
                         </td>
                       )}
-                      {/* Expiry Date — display in batch/pallet view */}
-                      {selectedBatchId !== "batch-all" && (
+                      {/* Expiry Date — display only in single pallet view */}
+                      {selectedBatchId !== "batch-all" && selectedPalletId && (
                         <td className="px-3 py-3 text-navy whitespace-nowrap text-sm">
                           {product.batchExpiryDate ? new Date(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
                         </td>
@@ -588,6 +624,12 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
                 <>
                   <div className="space-y-2 mb-6">
                     <h3 className="text-xs font-semibold text-muted uppercase mb-3">Active Batches</h3>
+                    <div className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBatchId === "batch-all" ? "border-accent-2 bg-accent-2/10" : "border-border hover:bg-off-white"}`} onClick={() => onSelectBatch("batch-all")}>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-navy">📦 All Products</div>
+                        <div className="text-xs text-muted">View all products across all batches</div>
+                      </div>
+                    </div>
                     {activeBatches.length === 0 ? (
                       <p className="text-xs text-muted py-4">No active batches</p>
                     ) : (
