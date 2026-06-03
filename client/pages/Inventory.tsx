@@ -411,6 +411,11 @@ export function Inventory() {
           product={extraInfoProduct}
           batches={batches}
           onClose={() => setExtraInfoProduct(null)}
+          onSelectPallet={(batchId, palletId) => {
+            setSelectedBatchId(batchId);
+            setSelectedPalletId(palletId);
+            setExtraInfoProduct(null);
+          }}
         />
       )}
 
@@ -444,15 +449,17 @@ function StatsBox({ label, value, icon, color }: { label: string; value: string;
 }
 
 // ─── Extra Info Modal ─────────────────────────────────────────────────────────
-function ExtraInfoModal({ product, batches, onClose }: { product: InventoryProduct & { batchQuantity: number }; batches: any[]; onClose: () => void }) {
+function ExtraInfoModal({ product, batches, onClose, onSelectPallet }: { product: InventoryProduct & { batchQuantity: number }; batches: any[]; onClose: () => void; onSelectPallet: (batchId: string, palletId: string) => void }) {
   const palletsWithProduct = batches
     .filter((b) => b.id !== "batch-all")
     .flatMap((batch) =>
       batch.pallets
         .filter((pallet: any) => pallet.items.some((item: any) => item.productId === product.id))
         .map((pallet: any) => ({
+          batchId: batch.id,
           batchName: batch.name,
-          palletId: pallet.palletId,
+          palletId: pallet.id,
+          palletIdDisplay: pallet.palletId,
           quantity: pallet.items.find((item: any) => item.productId === product.id)?.quantity || 0,
         }))
     );
@@ -470,15 +477,11 @@ function ExtraInfoModal({ product, batches, onClose }: { product: InventoryProdu
 
         <div className="p-6 space-y-6">
           <div>
-            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Product Details</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Summary</h3>
+            <div className="grid grid-cols-3 gap-3">
               {[
-                ["Manufacturer", product.manufacturer || "N/A"],
-                ["Unit Price", `₱${product.unitPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`],
-                ["Stock Quantity", product.batchQuantity.toLocaleString()],
                 ["Inventory Value", `₱${(product.unitPrice * product.batchQuantity).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`],
                 ["Reorder Level", product.reorderPoint.toString()],
-                ["Discontinued", product.isDiscontinued ? "Yes" : "No"],
                 ["Last Updated", new Date(product.lastUpdated).toLocaleDateString("en-PH")],
               ].map(([label, value]) => (
                 <div key={label} className="bg-off-white rounded-lg p-3">
@@ -498,18 +501,22 @@ function ExtraInfoModal({ product, batches, onClose }: { product: InventoryProdu
             ) : (
               <div className="space-y-2">
                 {palletsWithProduct.map((pallet, idx) => (
-                  <div key={idx} className="bg-off-white rounded-lg p-3 border border-border">
+                  <button
+                    key={idx}
+                    onClick={() => onSelectPallet(pallet.batchId, pallet.palletId)}
+                    className="w-full text-left bg-off-white hover:bg-accent-2/10 rounded-lg p-3 border border-border hover:border-accent-2 transition-colors cursor-pointer"
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs text-muted font-semibold mb-0.5">Batch: {pallet.batchName}</div>
-                        <div className="text-sm font-semibold text-navy">Pallet: {pallet.palletId}</div>
+                        <div className="text-sm font-semibold text-navy">Pallet: {pallet.palletIdDisplay}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-muted font-semibold mb-0.5">Quantity</div>
                         <div className="text-lg font-bold text-accent-2">{pallet.quantity.toLocaleString()}</div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
