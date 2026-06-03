@@ -91,7 +91,6 @@ export const batch_pallets = pgTable("batch_pallets", {
   pallet_id: text("pallet_id").notNull(),
   supplier_name: text("supplier_name"),
   received_date: text("received_date"),
-  temperature_log: text("temperature_log"),
   storage_zone: text("storage_zone"),
   placement_location: text("placement_location"),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -220,8 +219,6 @@ export const delivery_items = pgTable("delivery_items", {
     .notNull()
     .references(() => customers.id),
   status: deliveryStatusEnum("status").default("pending").notNull(),
-  completed_at: timestamp("completed_at"),
-  receipt_number: text("receipt_number"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -233,15 +230,6 @@ export const receipts = pgTable("receipts", {
   delivery_item_id: text("delivery_item_id")
     .notNull()
     .references(() => delivery_items.id),
-  customer_id: text("customer_id")
-    .notNull()
-    .references(() => customers.id),
-  truck_id: text("truck_id")
-    .notNull()
-    .references(() => trucks.id),
-  invoice_id: text("invoice_id")
-    .notNull()
-    .references(() => invoices.id),
   confirmed_by: text("confirmed_by"),
   notes: text("notes"),
   confirmed_at: timestamp("confirmed_at").defaultNow().notNull(),
