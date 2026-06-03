@@ -83,7 +83,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           })),
         })),
       }));
-      setBatches([ALL_PRODUCTS_BATCH, ...converted]);
+      const seen = new Set<string>();
+      const deduplicated = converted.filter((batch) => {
+        if (seen.has(batch.id)) return false;
+        seen.add(batch.id);
+        return true;
+      });
+      setBatches([ALL_PRODUCTS_BATCH, ...deduplicated]);
       setSelectedPalletId(null);
     } catch (err) {
       console.error("Failed to refresh batches from DB:", err);
