@@ -170,11 +170,13 @@ export function Inventory() {
     return { status: "ok", icon: "✅", color: { bg: "", hover: "hover:bg-off-white/50" } };
   };
 
-  const getRowHighlightColor = () => {
-    if (selectedBatchId === "batch-all" || !selectedPalletId) {
-      return (qty: number, reorderPoint: number) => getStockHighlightColor(qty, reorderPoint);
+  const getRowHighlightColor = (qty: number, reorderPoint: number, expiryDate?: string) => {
+    // Only use expiry status for specific pallet view
+    if (selectedBatchId !== "batch-all" && selectedPalletId && expiryDate) {
+      return getExpiryStatus(expiryDate).color;
     }
-    return (_qty: number, _reorderPoint: number, expiryDate: string) => getExpiryStatus(expiryDate).color;
+    // Otherwise use stock quantity highlighting
+    return getStockHighlightColor(qty, reorderPoint);
   };
 
   const createNewBatch = async (pallets: any[], batchName: string) => {
@@ -366,11 +368,15 @@ export function Inventory() {
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
-                  const highlightColor = getStockHighlightColor(product.batchQuantity, product.reorderPoint);
+                  const highlightColor = getRowHighlightColor(product.batchQuantity, product.reorderPoint, product.batchExpiryDate);
+                  const expiryStatus = selectedBatchId !== "batch-all" && selectedPalletId ? getExpiryStatus(product.batchExpiryDate) : null;
                   return (
                     <tr key={uniqueKey} className={`border-b border-border transition-colors ${highlightColor.bg} ${highlightColor.hover}`}>
                       {/* Name */}
-                      <td className="px-3 py-3 text-navy font-semibold max-w-[200px] truncate">{product.description}</td>
+                      <td className="px-3 py-3 text-navy font-semibold max-w-[200px] truncate flex items-center gap-2">
+                        {expiryStatus && <span title={expiryStatus.status}>{expiryStatus.icon}</span>}
+                        {product.description}
+                      </td>
                       {/* Cost Per Item */}
                       <td className="px-3 py-3 text-navy whitespace-nowrap">₱{product.unitPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
                       {/* Stock Qty */}
