@@ -409,6 +409,7 @@ export function Inventory() {
       {extraInfoProduct && (
         <ExtraInfoModal
           product={extraInfoProduct}
+          batches={batches}
           onClose={() => setExtraInfoProduct(null)}
         />
       )}
@@ -443,7 +444,19 @@ function StatsBox({ label, value, icon, color }: { label: string; value: string;
 }
 
 // ─── Extra Info Modal ─────────────────────────────────────────────────────────
-function ExtraInfoModal({ product, onClose }: { product: InventoryProduct & { batchQuantity: number }; onClose: () => void }) {
+function ExtraInfoModal({ product, batches, onClose }: { product: InventoryProduct & { batchQuantity: number }; batches: any[]; onClose: () => void }) {
+  const palletsWithProduct = batches
+    .filter((b) => b.id !== "batch-all")
+    .flatMap((batch) =>
+      batch.pallets
+        .filter((pallet: any) => pallet.items.some((item: any) => item.productId === product.id))
+        .map((pallet: any) => ({
+          batchName: batch.name,
+          palletId: pallet.palletId,
+          quantity: pallet.items.find((item: any) => item.productId === product.id)?.quantity || 0,
+        }))
+    );
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[85vh] overflow-y-auto">
@@ -474,6 +487,32 @@ function ExtraInfoModal({ product, onClose }: { product: InventoryProduct & { ba
                 </div>
               ))}
             </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Pallets Containing This Product</h3>
+            {palletsWithProduct.length === 0 ? (
+              <div className="bg-off-white rounded-lg p-4 text-center">
+                <p className="text-xs text-muted">No pallets currently contain this product</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {palletsWithProduct.map((pallet, idx) => (
+                  <div key={idx} className="bg-off-white rounded-lg p-3 border border-border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-muted font-semibold mb-0.5">Batch: {pallet.batchName}</div>
+                        <div className="text-sm font-semibold text-navy">Pallet: {pallet.palletId}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-muted font-semibold mb-0.5">Quantity</div>
+                        <div className="text-lg font-bold text-accent-2">{pallet.quantity.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
