@@ -336,7 +336,7 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : [])].map((col) => (
+                {["Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : []), ...(selectedBatchId !== "batch-all" && !selectedPalletId ? [] : selectedBatchId !== "batch-all" ? ["Expiry Date"] : [])].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
@@ -348,7 +348,7 @@ export function Inventory() {
             </thead>
             <tbody>
               {paginatedBatchProducts.length === 0 ? (
-                <tr><td colSpan={selectedBatchId === "batch-all" ? 6 : 5} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
+                <tr><td colSpan={selectedBatchId === "batch-all" ? 6 : selectedBatchId !== "batch-all" ? 6 : 5} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
@@ -373,6 +373,12 @@ export function Inventory() {
                       {selectedBatchId === "batch-all" && (
                         <td className="px-3 py-3 text-navy whitespace-nowrap font-semibold">
                           {product.reorderPoint.toLocaleString()}
+                        </td>
+                      )}
+                      {/* Expiry Date — display in batch/pallet view */}
+                      {selectedBatchId !== "batch-all" && (
+                        <td className="px-3 py-3 text-navy whitespace-nowrap text-sm">
+                          {product.batchExpiryDate ? new Date(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
                         </td>
                       )}
                       {/* Actions */}
