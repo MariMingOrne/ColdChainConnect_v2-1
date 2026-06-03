@@ -492,9 +492,6 @@ export function Customers({ onBack }: CustomersProps) {
                   Contact Info
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-                  Payment Type
-                </th>
-                <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
                   Tax Rate
                 </th>
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 border-b border-border bg-navy-mid px-3 py-3 text-center font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap shadow-left">
@@ -523,15 +520,6 @@ export function Customers({ onBack }: CustomersProps) {
                     <td className="px-3 py-3 text-navy">{customer.location}</td>
                     <td className="hidden px-3 py-3 text-navy md:table-cell">
                       {customer.contact_info || <span className="text-muted">—</span>}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {customer.payment_type ? (
-                        <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
-                          {customer.payment_type.replace("_", " ").toUpperCase()}
-                        </span>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {customer.tax_rate !== undefined && customer.tax_rate !== null ? (
