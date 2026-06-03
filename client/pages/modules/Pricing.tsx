@@ -391,10 +391,10 @@ export function Pricing({ onBack }: PricingProps) {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="font-rajdhani text-3xl font-bold text-navy letter-spacing-tight">
-              Pricing Management
+              Products
             </h1>
             <p className="text-xs text-muted mt-1">
-              Manage product prices and batch tracking settings
+              Manage your products and batch tracking settings
             </p>
           </div>
         </div>

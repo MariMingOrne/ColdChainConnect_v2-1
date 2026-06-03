@@ -8,7 +8,7 @@ import { Agents } from "./modules/Agents";
 import { InventoryProvider } from "../context/InventoryContext";
 
 const modules = [
-  { label: "Pricing", path: "/pricing" },
+  { label: "Products", path: "/products" },
   { label: "Inventory", path: "/inventory" },
   { label: "Customers", path: "/customers" },
   { label: "Agents", path: "/agents" },
@@ -22,12 +22,12 @@ export function InformationManagement() {
         <HubSidebar modules={modules} basePath="/information-management" />
         <div className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/products" element={<Pricing />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/customers" element={<Customers />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/drivers" element={<Drivers />} />
-            <Route path="/" element={<PricingDefault />} />
+            <Route path="/" element={<ProductsDefault />} />
           </Routes>
         </div>
       </div>
@@ -35,6 +35,6 @@ export function InformationManagement() {
   );
 }
 
-function PricingDefault() {
+function ProductsDefault() {
   return <Pricing />;
 }
