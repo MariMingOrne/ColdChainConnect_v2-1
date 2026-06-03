@@ -23,6 +23,7 @@ export interface Batch {
   name: string;
   pallets: Pallet[];
   createdAt: string;
+  isArchived?: boolean;
 }
 
 interface InventoryContextType {
@@ -67,6 +68,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         id: batch.id,
         name: batch.batch_name,
         createdAt: batch.created_at,
+        isArchived: batch.is_archived || false,
         pallets: (batch.pallets || []).map((pallet: any) => ({
           id: pallet.id,
           palletId: pallet.pallet_id,
@@ -83,7 +85,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           })),
         })),
       }));
-      setBatches([ALL_PRODUCTS_BATCH, ...converted]);
+      const seen = new Set<string>();
+      const deduplicated = converted.filter((batch) => {
+        if (seen.has(batch.id)) return false;
+        seen.add(batch.id);
+        return true;
+      });
+      setBatches([ALL_PRODUCTS_BATCH, ...deduplicated]);
       setSelectedPalletId(null);
     } catch (err) {
       console.error("Failed to refresh batches from DB:", err);
