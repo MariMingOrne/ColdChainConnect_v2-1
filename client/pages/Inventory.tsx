@@ -336,11 +336,21 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : []), ...(selectedBatchId !== "batch-all" && !selectedPalletId ? [] : selectedBatchId !== "batch-all" ? ["Expiry Date"] : [])].map((col) => (
+                {["Name", "Cost Per Item", "Stock Qty"].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
                 ))}
+                {selectedBatchId === "batch-all" && (
+                  <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                    Reorder Level
+                  </th>
+                )}
+                {selectedBatchId !== "batch-all" && (
+                  <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                    Expiry Date
+                  </th>
+                )}
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
                   Actions
                 </th>
@@ -348,7 +358,7 @@ export function Inventory() {
             </thead>
             <tbody>
               {paginatedBatchProducts.length === 0 ? (
-                <tr><td colSpan={selectedBatchId === "batch-all" ? 6 : selectedBatchId !== "batch-all" ? 6 : 5} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
               ) : (
                 paginatedBatchProducts.map((product) => {
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
