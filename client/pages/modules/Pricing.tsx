@@ -372,7 +372,6 @@ export function Pricing({ onBack }: PricingProps) {
     }
   };
 
-  const trackedCount = products.filter((p) => p.batch_tracking_enabled).length;
   const totalValue = products.reduce((sum, p) => sum + parseFloat(p.price ?? "0"), 0);
   const avgPrice = products.length > 0 ? totalValue / products.length : 0;
 
@@ -424,19 +423,12 @@ export function Pricing({ onBack }: PricingProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
         <StatsBox label="Total Products" value={products.length.toString()} icon="🏷️" />
-        <StatsBox label="Batch Tracked" value={trackedCount.toString()} icon="📦" />
         <StatsBox
           label="Avg Price"
           value={`₱${avgPrice.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`}
           icon="💰"
-        />
-        <StatsBox
-          label="Untracked"
-          value={(products.length - trackedCount).toString()}
-          icon="⚠️"
-          color="gold"
         />
       </div>
 
@@ -475,9 +467,6 @@ export function Pricing({ onBack }: PricingProps) {
             <thead>
               <tr>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Status
-                </th>
-                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Image
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
@@ -485,9 +474,6 @@ export function Pricing({ onBack }: PricingProps) {
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Unit Price
-                </th>
-                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap hidden md:table-cell">
-                  Batch Tracking
                 </th>
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
                   Actions
@@ -497,7 +483,7 @@ export function Pricing({ onBack }: PricingProps) {
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={4} className="px-3 py-6 text-center text-muted">
                     {products.length === 0 ? "No products found" : "No results matching your search"}
                   </td>
                 </tr>
@@ -507,21 +493,6 @@ export function Pricing({ onBack }: PricingProps) {
                     key={product.id}
                     className="border-b border-border hover:bg-off-white/50 transition-colors"
                   >
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.batch_tracking_enabled ? "badge-green" : "badge-gold"
-                            }`}
-                        >
-                          {product.batch_tracking_enabled ? "Tracked" : "Discontinued"}
-                        </span>
-                        {(product as any).is_discontinued && (
-                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold badge-red">
-                            Discontinued
-                          </span>
-                        )}
-                      </div>
-                    </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {product.image_filename ? (
                         <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center">
@@ -541,12 +512,6 @@ export function Pricing({ onBack }: PricingProps) {
                         ₱{parseFloat(product.price ?? "0").toLocaleString("en-PH", {
                           minimumFractionDigits: 2,
                         })}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 hidden md:table-cell">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.batch_tracking_enabled ? "badge-green" : "badge-red"
-                        }`}>
-                        {product.batch_tracking_enabled ? "Yes" : "Discontinued"}
                       </span>
                     </td>
                     <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 bg-white border-l border-border shadow-left">
