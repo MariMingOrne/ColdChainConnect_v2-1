@@ -23,6 +23,7 @@ export interface Batch {
   name: string;
   pallets: Pallet[];
   createdAt: string;
+  isArchived?: boolean;
 }
 
 interface InventoryContextType {
@@ -67,6 +68,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         id: batch.id,
         name: batch.batch_name,
         createdAt: batch.created_at,
+        isArchived: batch.is_archived || false,
         pallets: (batch.pallets || []).map((pallet: any) => ({
           id: pallet.id,
           palletId: pallet.pallet_id,
