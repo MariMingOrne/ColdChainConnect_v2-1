@@ -331,7 +331,7 @@ export function Inventory() {
                     Reorder Level
                   </th>
                 )}
-                {selectedBatchId !== "batch-all" && (
+                {selectedBatchId !== "batch-all" && selectedPalletId && (
                   <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     Expiry Date
                   </th>
@@ -370,8 +370,8 @@ export function Inventory() {
                           {product.reorderPoint.toLocaleString()}
                         </td>
                       )}
-                      {/* Expiry Date — display in batch/pallet view */}
-                      {selectedBatchId !== "batch-all" && (
+                      {/* Expiry Date — display only in single pallet view */}
+                      {selectedBatchId !== "batch-all" && selectedPalletId && (
                         <td className="px-3 py-3 text-navy whitespace-nowrap text-sm">
                           {product.batchExpiryDate ? new Date(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
                         </td>
