@@ -329,7 +329,7 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Reorder", "Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : []), "Discontinued?", "Expiry Date"].map((col) => (
+                {["Reorder", "Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : []), "Expiry Date"].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
@@ -370,12 +370,6 @@ export function Inventory() {
                           {product.reorderPoint.toLocaleString()}
                         </td>
                       )}
-                      {/* Discontinued — read-only badge */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.isDiscontinued ? "bg-red text-white" : "bg-green text-white"}`}>
-                          {product.isDiscontinued ? "YES" : "NO"}
-                        </span>
-                      </td>
                       {/* Expiry Date */}
                       <td className="px-3 py-3 text-navy whitespace-nowrap">
                         {product.expiryDate ? new Date(product.expiryDate).toLocaleDateString("en-PH") : "—"}
