@@ -799,7 +799,10 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
         <h3 className="text-xs font-semibold text-navy">Pallets *</h3>
         {pallets.map((pallet, palletIdx) => {
           const usedProducts = pallet.items.map((i: any) => i.product_id);
-          const availableProducts = allProducts.filter((p) => !usedProducts.includes(p.id));
+          const availableProducts = allProducts.filter((p) => {
+            const product = products.find((prod) => prod.id === p.id);
+            return !usedProducts.includes(p.id) && !product?.isDiscontinued;
+          });
           return (
             <div key={palletIdx} className="border border-border rounded-xl overflow-hidden">
               <div className="bg-navy-mid px-4 py-2 flex items-center justify-between">
