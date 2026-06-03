@@ -15,7 +15,6 @@ interface ProductForm {
   sku?: string;
   price: string;
   image_filename?: string;
-  batch_tracking_enabled: boolean;
   manufacturer?: string;
   is_discontinued: boolean;
 }
@@ -138,19 +137,6 @@ function ProductModal({
             {formData.image_filename && (
               <div className="mt-2 text-xs text-success">✓ {formData.image_filename}</div>
             )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="batch_tracking"
-              checked={formData.batch_tracking_enabled}
-              onChange={(e) => setFormData({ ...formData, batch_tracking_enabled: e.target.checked })}
-              className="w-4 h-4 accent-navy"
-            />
-            <label htmlFor="batch_tracking" className="text-sm font-semibold text-navy">
-              Enable Batch Tracking
-            </label>
           </div>
 
           <div>
@@ -316,7 +302,7 @@ export function Pricing({ onBack }: PricingProps) {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData({ name: "", sku: "", price: "", image_filename: "", batch_tracking_enabled: true, manufacturer: "", is_discontinued: false });
+    setFormData({ name: "", sku: "", price: "", image_filename: "", manufacturer: "", is_discontinued: false });
     setIsModalOpen(true);
   };
 
@@ -327,7 +313,6 @@ export function Pricing({ onBack }: PricingProps) {
       sku: product.sku ?? "",
       price: product.price?.toString() ?? "",
       image_filename: product.image_filename ?? "",
-      batch_tracking_enabled: product.batch_tracking_enabled ?? true,
       manufacturer: (product as any).manufacturer ?? "",
       is_discontinued: (product as any).is_discontinued ?? false,
     });
@@ -394,7 +379,7 @@ export function Pricing({ onBack }: PricingProps) {
               Products
             </h1>
             <p className="text-xs text-muted mt-1">
-              Manage your products and batch tracking settings
+              Manage your products
             </p>
           </div>
         </div>
