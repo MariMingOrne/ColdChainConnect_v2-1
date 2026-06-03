@@ -271,7 +271,7 @@ export function TrucksInTransit() {
                 "in_transit",
                 "delivered",
               ] as const;
-              const currentIndex = statusCycle.indexOf(item.status);
+              const currentIndex = statusCycle.indexOf(item.status as any);
               const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
 
               return { ...item, status: nextStatus };
@@ -724,7 +724,7 @@ function QRScannerModal({
             onDecodeError: () => {}, // Suppress error logs
             preferredCamera: "environment",
             highlightCodeOutline: false,
-            maxScans: 1,
+            maxScansPerSecond: 1,
           }
         );
 
