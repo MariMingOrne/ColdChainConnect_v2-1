@@ -588,6 +588,12 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
                 <>
                   <div className="space-y-2 mb-6">
                     <h3 className="text-xs font-semibold text-muted uppercase mb-3">Active Batches</h3>
+                    <div className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBatchId === "batch-all" ? "border-accent-2 bg-accent-2/10" : "border-border hover:bg-off-white"}`} onClick={() => onSelectBatch("batch-all")}>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-navy">📦 All Products</div>
+                        <div className="text-xs text-muted">View all products across all batches</div>
+                      </div>
+                    </div>
                     {activeBatches.length === 0 ? (
                       <p className="text-xs text-muted py-4">No active batches</p>
                     ) : (
