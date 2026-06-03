@@ -110,12 +110,28 @@ export function Inventory() {
         .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
     }
 
-    const allItems = currentBatch.pallets.flatMap((p) => p.items);
-    return allItems
-      .map((item) => {
-        const product = products.find((p) => p.id === item.productId);
+    const itemsByProduct: Record<string, { quantity: number; expiryDates: string[] }> = {};
+    for (const pallet of currentBatch.pallets) {
+      for (const item of pallet.items) {
+        if (!itemsByProduct[item.productId]) {
+          itemsByProduct[item.productId] = { quantity: 0, expiryDates: [] };
+        }
+        itemsByProduct[item.productId].quantity += item.quantity;
+        if (item.expirationNote) {
+          itemsByProduct[item.productId].expiryDates.push(item.expirationNote);
+        }
+      }
+    }
+    return Object.entries(itemsByProduct)
+      .map(([productId, { quantity, expiryDates }]) => {
+        const product = products.find((p) => p.id === productId);
         if (!product) return null;
-        return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate, itemId: item.id };
+        const uniqueDates = [...new Set(expiryDates)];
+        return {
+          ...product,
+          batchQuantity: quantity,
+          batchExpiryDate: uniqueDates.length > 0 ? uniqueDates.join(", ") : product.expiryDate,
+        };
       })
       .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
   };
