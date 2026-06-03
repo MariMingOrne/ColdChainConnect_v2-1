@@ -138,6 +138,13 @@ export function Inventory() {
 
   const getReorderStatus = (qty: number, reorderPoint: number) => qty <= reorderPoint ? "RE-ORDER" : "OK";
 
+  const getStockHighlightColor = (qty: number, reorderPoint: number) => {
+    const percentage = (qty / reorderPoint) * 100;
+    if (percentage < 50) return { bg: "bg-red-50", hover: "hover:bg-red-100/60" };
+    if (percentage < 100) return { bg: "bg-yellow-50", hover: "hover:bg-yellow-100/60" };
+    return { bg: "", hover: "hover:bg-off-white/50" };
+  };
+
   const createNewBatch = async (pallets: any[], batchName: string) => {
     await refreshBatchesFromDB();
     setNewBatchName("");
@@ -329,7 +336,7 @@ export function Inventory() {
           <table className="w-full">
             <thead>
               <tr>
-                {["Reorder", "Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : [])].map((col) => (
+                {["Name", "Cost Per Item", "Stock Qty", ...(selectedBatchId === "batch-all" ? ["Reorder Level"] : [])].map((col) => (
                   <th key={col} className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     {col}
                   </th>
@@ -341,26 +348,24 @@ export function Inventory() {
             </thead>
             <tbody>
               {paginatedBatchProducts.length === 0 ? (
-                <tr><td colSpan={selectedBatchId === "batch-all" ? 7 : 6} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
+                <tr><td colSpan={selectedBatchId === "batch-all" ? 6 : 5} className="px-3 py-6 text-center text-muted">No products in this batch</td></tr>
               ) : (
                 paginatedBatchProducts.map((product) => {
-                  const isReorder = getReorderStatus(product.batchQuantity, product.reorderPoint) === "RE-ORDER";
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
+                  const highlightColor = getStockHighlightColor(product.batchQuantity, product.reorderPoint);
                   return (
-                    <tr key={uniqueKey} className={`border-b border-border transition-colors ${isReorder ? "bg-orange-50 hover:bg-orange-100/60" : "hover:bg-off-white/50"}`}>
-                      {/* Reorder Status */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${isReorder ? "bg-orange-400 text-white" : "bg-green/20 text-green"}`}>
-                          {isReorder ? "RE-ORDER" : "OK"}
-                        </span>
-                      </td>
+                    <tr key={uniqueKey} className={`border-b border-border transition-colors ${highlightColor.bg} ${highlightColor.hover}`}>
                       {/* Name */}
                       <td className="px-3 py-3 text-navy font-semibold max-w-[200px] truncate">{product.description}</td>
                       {/* Cost Per Item */}
                       <td className="px-3 py-3 text-navy whitespace-nowrap">₱{product.unitPrice.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
                       {/* Stock Qty */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded text-xs font-bold text-white ${isReorder ? "bg-red" : "bg-green"}`}>
+                        <span className={`px-2 py-1 rounded text-xs font-bold text-white ${
+                          product.batchQuantity / product.reorderPoint < 0.5 ? "bg-red" :
+                          product.batchQuantity / product.reorderPoint < 1 ? "bg-yellow-500" :
+                          "bg-green"
+                        }`}>
                           {product.batchQuantity.toLocaleString()}
                         </span>
                       </td>
@@ -372,12 +377,21 @@ export function Inventory() {
                       )}
                       {/* Actions */}
                       <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 whitespace-nowrap bg-white border-l border-border shadow-left">
-                        <ActionButtons
-                          onView={() => setExtraInfoProduct(product)}
-                          onEdit={() => handleEdit(product)}
-                          onDelete={() => handleDelete(product.id)}
-                          showDelete={showDeleteButtons}
-                        />
+                        <div className="flex items-center gap-1">
+                          <ActionButtons
+                            onView={() => setExtraInfoProduct(product)}
+                            onEdit={() => handleEdit(product)}
+                            onDelete={() => handleDelete(product.id)}
+                            showDelete={showDeleteButtons}
+                          />
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="px-2 py-1 bg-accent-2 text-white rounded text-xs font-semibold hover:opacity-90"
+                            title="Set reorder level"
+                          >
+                            📋
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
