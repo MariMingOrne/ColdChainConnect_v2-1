@@ -53,7 +53,6 @@ export const customers = pgTable("customers", {
   location: text("location").notNull(),
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
-  payment_type: text("payment_type"),
   tax_rate: decimal("tax_rate", { precision: 5, scale: 2 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),

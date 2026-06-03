@@ -8,6 +8,20 @@
       "when": 1780071035102,
       "tag": "0000_batch_pallet_refactor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780071035103,
+      "tag": "0001_add_batch_name_and_cold_chain_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780071035104,
+      "tag": "0002_drop_payment_type",
+      "breakpoints": true
     }
   ]
 }
