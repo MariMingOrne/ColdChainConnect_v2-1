@@ -69,6 +69,9 @@ export interface Product {
   price: string;
   image_filename?: string;
   batch_tracking_enabled: boolean;
+  reorder_point?: number;
+  manufacturer?: string;
+  is_discontinued?: boolean;
   created_at: string;
   updated_at: string;
 }

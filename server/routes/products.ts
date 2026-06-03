@@ -70,7 +70,7 @@ export const updateProduct: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { name, sku, price, image_filename, batch_tracking_enabled } = req.body;
+  const { name, sku, price, image_filename, batch_tracking_enabled, reorder_point, manufacturer, is_discontinued } = req.body;
 
   try {
     const existing = await db.query.products.findFirst({
@@ -90,6 +90,9 @@ export const updateProduct: RequestHandler = async (
         image_filename: image_filename !== undefined ? image_filename : existing.image_filename,
         batch_tracking_enabled:
           batch_tracking_enabled ?? existing.batch_tracking_enabled,
+        reorder_point: reorder_point !== undefined ? reorder_point : existing.reorder_point,
+        manufacturer: manufacturer !== undefined ? manufacturer : existing.manufacturer,
+        is_discontinued: is_discontinued !== undefined ? is_discontinued : existing.is_discontinued,
         updated_at: new Date(),
       })
       .where(eq(products.id, id));

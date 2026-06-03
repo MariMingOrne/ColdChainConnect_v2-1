@@ -17,6 +17,7 @@ interface ProductForm {
   image_filename?: string;
   manufacturer?: string;
   is_discontinued: boolean;
+  reorder_point?: number;
 }
 
 function StatsBox({
@@ -150,6 +151,19 @@ function ProductModal({
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Reorder Level</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.reorder_point || ""}
+              onChange={(e) => setFormData({ ...formData, reorder_point: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., 300"
+            />
+            <p className="text-xs text-muted mt-1">Stock level at which inventory shows as needing reorder.</p>
+          </div>
+
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -253,9 +267,9 @@ export function Pricing({ onBack }: PricingProps) {
     sku: "",
     price: "",
     image_filename: "",
-    batch_tracking_enabled: true,
     manufacturer: "",
     is_discontinued: false,
+    reorder_point: 0,
   });
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -302,7 +316,7 @@ export function Pricing({ onBack }: PricingProps) {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData({ name: "", sku: "", price: "", image_filename: "", manufacturer: "", is_discontinued: false });
+    setFormData({ name: "", sku: "", price: "", image_filename: "", manufacturer: "", is_discontinued: false, reorder_point: 0 });
     setIsModalOpen(true);
   };
 
@@ -315,6 +329,7 @@ export function Pricing({ onBack }: PricingProps) {
       image_filename: product.image_filename ?? "",
       manufacturer: (product as any).manufacturer ?? "",
       is_discontinued: (product as any).is_discontinued ?? false,
+      reorder_point: (product as any).reorder_point ?? 0,
     });
     setIsModalOpen(true);
   };
@@ -461,6 +476,9 @@ export function Pricing({ onBack }: PricingProps) {
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Unit Price
                 </th>
+                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                  Reorder Level
+                </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap hidden md:table-cell">
                   Status
                 </th>
@@ -472,7 +490,7 @@ export function Pricing({ onBack }: PricingProps) {
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
                     {products.length === 0 ? "No products found" : "No results matching your search"}
                   </td>
                 </tr>
@@ -502,6 +520,9 @@ export function Pricing({ onBack }: PricingProps) {
                           minimumFractionDigits: 2,
                         })}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap font-semibold text-navy">
+                      {product.reorder_point?.toLocaleString() || "—"}
                     </td>
                     <td className="px-3 py-3 hidden md:table-cell">
                       <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.is_discontinued ? "bg-red text-white" : "bg-green text-white"}`}>
