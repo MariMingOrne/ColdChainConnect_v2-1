@@ -139,9 +139,9 @@ export function Inventory() {
   const getReorderStatus = (qty: number, reorderPoint: number) => qty <= reorderPoint ? "RE-ORDER" : "OK";
 
   const getStockHighlightColor = (qty: number, reorderPoint: number) => {
+    if (qty <= reorderPoint) return { bg: "bg-orange-50", hover: "hover:bg-orange-100/60" };
     const percentage = (qty / reorderPoint) * 100;
-    if (percentage < 50) return { bg: "bg-red-50", hover: "hover:bg-red-100/60" };
-    if (percentage < 100) return { bg: "bg-yellow-50", hover: "hover:bg-yellow-100/60" };
+    if (percentage < 150) return { bg: "bg-yellow-50", hover: "hover:bg-yellow-100/60" };
     return { bg: "", hover: "hover:bg-off-white/50" };
   };
 
