@@ -261,6 +261,7 @@ export function Pricing({ onBack }: PricingProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [previewImageFilename, setPreviewImageFilename] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProductForm>({
     name: "",
     sku: "",
@@ -498,7 +499,7 @@ export function Pricing({ onBack }: PricingProps) {
                   >
                     <td className="px-3 py-3 whitespace-nowrap">
                       {product.image_filename ? (
-                        <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center">
+                        <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center cursor-pointer hover:border-accent-2 hover:shadow-md transition-all duration-200 hover:scale-110" onClick={() => setPreviewImageFilename(product.image_filename)}>
                           <img src={`/uploads/${product.image_filename}`} alt={product.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
@@ -578,6 +579,21 @@ export function Pricing({ onBack }: PricingProps) {
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
         />
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImageFilename && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setPreviewImageFilename(null)}>
+          <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 bg-navy-mid border-b border-border">
+              <h2 className="font-rajdhani text-lg font-bold text-white">Image Preview</h2>
+              <button onClick={() => setPreviewImageFilename(null)} className="text-white hover:opacity-70 text-2xl">×</button>
+            </div>
+            <div className="flex items-center justify-center p-6">
+              <img src={`/uploads/${previewImageFilename}`} alt="Preview" className="max-w-full max-h-[60vh] object-contain" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
