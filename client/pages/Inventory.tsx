@@ -32,8 +32,6 @@ export function Inventory() {
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const { batches, setBatches, selectedBatchId, setSelectedBatchId, selectedPalletId, setSelectedPalletId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
   const [currentPage, setCurrentPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<InventoryProduct | null>(null);
   const [extraInfoProduct, setExtraInfoProduct] = useState<(InventoryProduct & { batchQuantity: number }) | null>(null);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [newBatchName, setNewBatchName] = useState("");
@@ -46,7 +44,6 @@ export function Inventory() {
     manufacturer: "", isDiscontinued: false,
   });
 
-  const [formData, setFormData] = useState<InventoryProduct>(emptyForm());
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
 
   const itemsPerPage = 10;
@@ -170,24 +167,6 @@ export function Inventory() {
     await refreshBatchesFromDB();
   };
 
-  const handleSaveProduct = async () => {
-    if (!selectedProduct) return;
-    try {
-      const token = localStorage.getItem("auth_token") || "";
-      const response = await fetch(`/api/products/${selectedProduct.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reorder_point: formData.reorderPoint }),
-      });
-      if (!response.ok) throw new Error("Failed to save");
-      await fetchProductsFromApi();
-      resetForm();
-      setIsModalOpen(false);
-    } catch (err) {
-      alert("Failed to update reorder level. Please try again.");
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
     try {
@@ -206,17 +185,6 @@ export function Inventory() {
     } catch (err) {
       alert("Failed to delete product. Please try again.");
     }
-  };
-
-  const handleEdit = (product: InventoryProduct) => {
-    setSelectedProduct(product);
-    setFormData(product);
-    setIsModalOpen(true);
-  };
-
-  const resetForm = () => {
-    setFormData(emptyForm());
-    setSelectedProduct(null);
   };
 
   return (
@@ -396,17 +364,10 @@ export function Inventory() {
                         <div className="flex items-center gap-1">
                           <ActionButtons
                             onView={() => setExtraInfoProduct(product)}
-                            onEdit={() => handleEdit(product)}
+                            onEdit={undefined}
                             onDelete={() => handleDelete(product.id)}
                             showDelete={showDeleteButtons}
                           />
-                          <button
-                            onClick={() => handleEdit(product)}
-                            className="px-2 py-1 bg-accent-2 text-white rounded text-xs font-semibold hover:opacity-90"
-                            title="Set reorder level"
-                          >
-                            📋
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -449,16 +410,6 @@ export function Inventory() {
         <ExtraInfoModal
           product={extraInfoProduct}
           onClose={() => setExtraInfoProduct(null)}
-        />
-      )}
-
-      {/* Edit Reorder Level Modal */}
-      {isModalOpen && (
-        <ProductModal
-          onClose={() => { setIsModalOpen(false); resetForm(); }}
-          onSave={handleSaveProduct}
-          formData={formData}
-          setFormData={setFormData}
         />
       )}
 
@@ -528,60 +479,6 @@ function ExtraInfoModal({ product, onClose }: { product: InventoryProduct & { ba
 
         <div className="sticky bottom-0 bg-off-white px-6 py-4 border-t border-border flex justify-end">
           <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white">Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Product Modal (Reorder Level only) ────────────────────────────────────────
-function ProductModal({
-  onClose,
-  onSave,
-  formData,
-  setFormData,
-}: {
-  onClose: () => void;
-  onSave: () => void;
-  formData: InventoryProduct;
-  setFormData: (d: InventoryProduct) => void;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl border border-border max-w-sm w-full">
-        <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
-          <div>
-            <h2 className="font-rajdhani text-lg font-bold text-white">Edit Reorder Level</h2>
-            <p className="text-xs text-muted mt-0.5">Only the reorder level can be changed here</p>
-          </div>
-          <button onClick={onClose} className="text-white hover:opacity-70 text-2xl leading-none">×</button>
-        </div>
-        <div className="p-6 space-y-4">
-          {/* Read-only product context */}
-          <div className="bg-off-white rounded-lg p-3 space-y-1">
-            <div className="text-xs text-muted font-semibold">Product</div>
-            <div className="text-sm font-semibold text-navy">{formData.description}</div>
-            {formData.sku && <div className="text-xs text-muted">SKU: {formData.sku}</div>}
-          </div>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
-            💡 To change name, price, SKU, manufacturer, or discontinued status — use the <strong>Pricing</strong> tab.
-          </div>
-          {/* Reorder Level — the only editable field */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Reorder Level</label>
-            <input
-              type="number"
-              min="0"
-              value={formData.reorderPoint}
-              onChange={(e) => setFormData({ ...formData, reorderPoint: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-            />
-            <p className="text-xs text-muted mt-1">Row turns orange and shows RE-ORDER when stock falls at or below this number.</p>
-          </div>
-        </div>
-        <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
-          <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white">Cancel</button>
-          <button onClick={onSave} className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90">Save</button>
         </div>
       </div>
     </div>
