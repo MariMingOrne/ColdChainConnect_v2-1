@@ -403,7 +403,7 @@ export function Inventory() {
                       )}
                       {/* Actions */}
                       <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 whitespace-nowrap bg-white border-l border-border shadow-left">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-center gap-1">
                           <ActionButtons
                             onView={() => setExtraInfoProduct(product)}
                             onEdit={undefined}
