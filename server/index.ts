@@ -29,6 +29,7 @@ import {
   deleteBatch,
   deletePallet,
   deletePalletItem,
+  archiveBatch,
 } from "./routes/batches";
 import {
   listDrivers,
@@ -117,6 +118,7 @@ export function createServer() {
   app.get("/api/batches", authMiddleware, listBatches);
   app.post("/api/batches", authMiddleware, requireRole("admin"), createBatch);
   app.patch("/api/batches/:id", authMiddleware, requireRole("admin"), updateBatch);
+  app.patch("/api/batches/:id/archive", authMiddleware, requireRole("admin"), archiveBatch);
   app.delete("/api/batches/:id", authMiddleware, requireRole("admin"), deleteBatch);
   app.delete("/api/batches/pallets/:id", authMiddleware, requireRole("admin"), deletePallet);
   app.delete("/api/batches/pallet-items/:id", authMiddleware, requireRole("admin"), deletePalletItem);

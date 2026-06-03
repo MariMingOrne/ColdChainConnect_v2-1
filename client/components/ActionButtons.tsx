@@ -2,7 +2,7 @@ import { Eye, Trash2 } from "lucide-react";
 
 interface ActionButtonsProps {
   onView?: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onDelete: () => void;
   showDelete?: boolean;
   size?: "sm" | "md";
@@ -39,13 +39,15 @@ export function ActionButtons({
       )}
 
       {/* Edit Button */}
-      <button
-        onClick={onEdit}
-        className={`${buttonClasses[size]} bg-gold text-white rounded font-semibold hover:opacity-90 transition-opacity`}
-        title="Edit"
-      >
-        ✏️
-      </button>
+      {onEdit && (
+        <button
+          onClick={onEdit}
+          className={`${buttonClasses[size]} bg-gold text-white rounded font-semibold hover:opacity-90 transition-opacity`}
+          title="Edit"
+        >
+          ✏️
+        </button>
+      )}
 
       {/* Delete Button - with toggle */}
       {showDelete && (

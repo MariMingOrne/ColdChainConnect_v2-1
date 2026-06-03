@@ -78,6 +78,7 @@ export const products = pgTable("products", {
 export const inventory_batches = pgTable("inventory_batches", {
   id: text("id").primaryKey(),
   batch_name: text("batch_name").notNull(),
+  is_archived: boolean("is_archived").default(false).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -15,9 +15,9 @@ interface ProductForm {
   sku?: string;
   price: string;
   image_filename?: string;
-  batch_tracking_enabled: boolean;
   manufacturer?: string;
   is_discontinued: boolean;
+  reorder_point?: number;
 }
 
 function StatsBox({
@@ -140,19 +140,6 @@ function ProductModal({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="batch_tracking"
-              checked={formData.batch_tracking_enabled}
-              onChange={(e) => setFormData({ ...formData, batch_tracking_enabled: e.target.checked })}
-              className="w-4 h-4 accent-navy"
-            />
-            <label htmlFor="batch_tracking" className="text-sm font-semibold text-navy">
-              Enable Batch Tracking
-            </label>
-          </div>
-
           <div>
             <label className="block text-xs font-semibold text-navy mb-1">Manufacturer</label>
             <input
@@ -162,6 +149,19 @@ function ProductModal({
               className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
               placeholder="e.g., Frabelle Food Corp"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Reorder Level</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.reorder_point || ""}
+              onChange={(e) => setFormData({ ...formData, reorder_point: parseInt(e.target.value) || 0 })}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              placeholder="e.g., 300"
+            />
+            <p className="text-xs text-muted mt-1">Stock level at which inventory shows as needing reorder.</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -261,14 +261,15 @@ export function Pricing({ onBack }: PricingProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [previewImageFilename, setPreviewImageFilename] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProductForm>({
     name: "",
     sku: "",
     price: "",
     image_filename: "",
-    batch_tracking_enabled: true,
     manufacturer: "",
     is_discontinued: false,
+    reorder_point: 0,
   });
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -315,7 +316,7 @@ export function Pricing({ onBack }: PricingProps) {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData({ name: "", sku: "", price: "", image_filename: "", batch_tracking_enabled: true, manufacturer: "", is_discontinued: false });
+    setFormData({ name: "", sku: "", price: "", image_filename: "", manufacturer: "", is_discontinued: false, reorder_point: 0 });
     setIsModalOpen(true);
   };
 
@@ -326,9 +327,9 @@ export function Pricing({ onBack }: PricingProps) {
       sku: product.sku ?? "",
       price: product.price?.toString() ?? "",
       image_filename: product.image_filename ?? "",
-      batch_tracking_enabled: product.batch_tracking_enabled ?? true,
       manufacturer: (product as any).manufacturer ?? "",
       is_discontinued: (product as any).is_discontinued ?? false,
+      reorder_point: (product as any).reorder_point ?? 0,
     });
     setIsModalOpen(true);
   };
@@ -372,7 +373,6 @@ export function Pricing({ onBack }: PricingProps) {
     }
   };
 
-  const trackedCount = products.filter((p) => p.batch_tracking_enabled).length;
   const totalValue = products.reduce((sum, p) => sum + parseFloat(p.price ?? "0"), 0);
   const avgPrice = products.length > 0 ? totalValue / products.length : 0;
 
@@ -391,10 +391,10 @@ export function Pricing({ onBack }: PricingProps) {
         <div className="flex items-center gap-4">
           <div>
             <h1 className="font-rajdhani text-3xl font-bold text-navy letter-spacing-tight">
-              Pricing Management
+              Products
             </h1>
             <p className="text-xs text-muted mt-1">
-              Manage product prices and batch tracking settings
+              Manage your products
             </p>
           </div>
         </div>
@@ -424,19 +424,12 @@ export function Pricing({ onBack }: PricingProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
         <StatsBox label="Total Products" value={products.length.toString()} icon="🏷️" />
-        <StatsBox label="Batch Tracked" value={trackedCount.toString()} icon="📦" />
         <StatsBox
           label="Avg Price"
           value={`₱${avgPrice.toLocaleString("en-PH", { maximumFractionDigits: 0 })}`}
           icon="💰"
-        />
-        <StatsBox
-          label="Untracked"
-          value={(products.length - trackedCount).toString()}
-          icon="⚠️"
-          color="gold"
         />
       </div>
 
@@ -475,9 +468,6 @@ export function Pricing({ onBack }: PricingProps) {
             <thead>
               <tr>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
-                  Status
-                </th>
-                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Image
                 </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
@@ -486,8 +476,11 @@ export function Pricing({ onBack }: PricingProps) {
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                   Unit Price
                 </th>
+                <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
+                  Reorder Level
+                </th>
                 <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap hidden md:table-cell">
-                  Batch Tracking
+                  Status
                 </th>
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-center border-b border-border whitespace-nowrap shadow-left">
                   Actions
@@ -497,7 +490,7 @@ export function Pricing({ onBack }: PricingProps) {
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
                     {products.length === 0 ? "No products found" : "No results matching your search"}
                   </td>
                 </tr>
@@ -508,23 +501,8 @@ export function Pricing({ onBack }: PricingProps) {
                     className="border-b border-border hover:bg-off-white/50 transition-colors"
                   >
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.batch_tracking_enabled ? "badge-green" : "badge-gold"
-                            }`}
-                        >
-                          {product.batch_tracking_enabled ? "Tracked" : "Discontinued"}
-                        </span>
-                        {(product as any).is_discontinued && (
-                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold badge-red">
-                            Discontinued
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
                       {product.image_filename ? (
-                        <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center">
+                        <div className="w-10 h-10 bg-off-white rounded-lg overflow-hidden border border-border flex items-center justify-center cursor-pointer hover:border-accent-2 hover:shadow-md transition-all duration-200 hover:scale-110" onClick={() => setPreviewImageFilename(product.image_filename)}>
                           <img src={`/uploads/${product.image_filename}`} alt={product.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
@@ -543,10 +521,12 @@ export function Pricing({ onBack }: PricingProps) {
                         })}
                       </span>
                     </td>
+                    <td className="px-3 py-3 whitespace-nowrap font-semibold text-navy">
+                      {product.reorder_point?.toLocaleString() || "—"}
+                    </td>
                     <td className="px-3 py-3 hidden md:table-cell">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.batch_tracking_enabled ? "badge-green" : "badge-red"
-                        }`}>
-                        {product.batch_tracking_enabled ? "Yes" : "Discontinued"}
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${product.is_discontinued ? "bg-red text-white" : "bg-green text-white"}`}>
+                        {product.is_discontinued ? "Discontinued" : "Active"}
                       </span>
                     </td>
                     <td style={{ width: '120px' }} className="sticky right-0 z-10 px-3 py-3 bg-white border-l border-border shadow-left">
@@ -605,6 +585,21 @@ export function Pricing({ onBack }: PricingProps) {
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
         />
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImageFilename && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setPreviewImageFilename(null)}>
+          <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 bg-navy-mid border-b border-border">
+              <h2 className="font-rajdhani text-lg font-bold text-white">Image Preview</h2>
+              <button onClick={() => setPreviewImageFilename(null)} className="text-white hover:opacity-70 text-2xl">×</button>
+            </div>
+            <div className="flex items-center justify-center p-6">
+              <img src={`/uploads/${previewImageFilename}`} alt="Preview" className="max-w-full max-h-[60vh] object-contain" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

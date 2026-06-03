@@ -173,3 +173,34 @@ export const deletePalletItem: RequestHandler = async (req: AuthRequest, res) =>
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const archiveBatch: RequestHandler = async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const { is_archived } = req.body;
+
+  try {
+    const existing = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
+    if (!existing) return res.status(404).json({ error: "Batch not found" });
+
+    await db.update(inventory_batches).set({
+      is_archived: is_archived ?? true,
+      updated_at: new Date(),
+    }).where(eq(inventory_batches.id, id));
+
+    const updated = await db.query.inventory_batches.findFirst({
+      where: eq(inventory_batches.id, id),
+      with: {
+        pallets: {
+          with: {
+            items: { with: { product: true } },
+          },
+        },
+      },
+    });
+    if (req.user) await logAction(req.user.userId, is_archived ? "archive" : "unarchive", "batch", id, existing, updated);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error archiving batch:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
