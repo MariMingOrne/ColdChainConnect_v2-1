@@ -145,6 +145,7 @@ export function Inventory() {
   const createNewBatch = async (pallets: any[], batchName: string) => {
     await refreshBatchesFromDB();
     setNewBatchName("");
+    setStartBatchCreation(false);
     setIsBatchModalOpen(false);
   };
 
