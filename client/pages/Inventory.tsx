@@ -158,6 +158,25 @@ export function Inventory() {
     return { bg: "", hover: "hover:bg-off-white/50" };
   };
 
+  const getExpiryStatus = (expiryDate: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    const daysUntilExpiry = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilExpiry < 0) return { status: "expired", icon: "❌", color: { bg: "bg-red-50", hover: "hover:bg-red-100/60" } };
+    if (daysUntilExpiry <= 7) return { status: "almost-expired", icon: "⚠️", color: { bg: "bg-yellow-50", hover: "hover:bg-yellow-100/60" } };
+    return { status: "ok", icon: "✅", color: { bg: "", hover: "hover:bg-off-white/50" } };
+  };
+
+  const getRowHighlightColor = () => {
+    if (selectedBatchId === "batch-all" || !selectedPalletId) {
+      return (qty: number, reorderPoint: number) => getStockHighlightColor(qty, reorderPoint);
+    }
+    return (_qty: number, _reorderPoint: number, expiryDate: string) => getExpiryStatus(expiryDate).color;
+  };
+
   const createNewBatch = async (pallets: any[], batchName: string) => {
     await refreshBatchesFromDB();
     setNewBatchName("");
