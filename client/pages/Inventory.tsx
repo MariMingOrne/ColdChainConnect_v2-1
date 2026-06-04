@@ -248,6 +248,21 @@ export function Inventory() {
       {/* Products Section */}
       <div className="space-y-6">
 
+      {/* Batch Selector Card */}
+      <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-navy">Current Batch</label>
+            <button onClick={() => setIsBatchModalOpen(true)} className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
+              📦 {currentBatch?.name || "All Products"}
+            </button>
+          </div>
+          <button onClick={() => { setNewBatchName(""); setStartBatchCreation(true); setIsBatchModalOpen(true); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
+            ➕ Create New Batch
+          </button>
+        </div>
+      </div>
+
       {/* Search + Delete Toggle */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch">
         <div className="flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2 flex-1">
