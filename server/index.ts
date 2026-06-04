@@ -88,7 +88,7 @@ import {
   createPallet,
   updatePalletStatus,
   approvePallet,
-  deletePallet,
+  deletePalletForOrder,
   getProductInventory,
   suggestBatches,
 } from "./routes/pallets";
@@ -203,13 +203,13 @@ export function createServer() {
   app.post("/api/inventory-batches/:id/items", authMiddleware, requireRole("admin"), addInventoryBatchItem);
   app.delete("/api/inventory-batches/:id/items/:itemId", authMiddleware, requireRole("admin"), removeInventoryBatchItem);
 
-  // Pallet routes
+  // Pallet routes (order preparation)
   app.get("/api/pallets", authMiddleware, listPallets);
   app.get("/api/pallets/:id", authMiddleware, getPallet);
   app.post("/api/pallets", authMiddleware, createPallet);
   app.patch("/api/pallets/:id/status", authMiddleware, updatePalletStatus);
   app.patch("/api/pallets/:id/approve", authMiddleware, approvePallet);
-  app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePallet);
+  app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePalletForOrder);
   app.get("/api/products/inventory", authMiddleware, getProductInventory);
   app.get("/api/orders/:orderId/suggested-batches", authMiddleware, suggestBatches);
 
