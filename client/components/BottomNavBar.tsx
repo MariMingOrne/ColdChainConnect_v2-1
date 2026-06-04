@@ -33,7 +33,6 @@ const globalNavItems = [
 const hubModules = [
   { path: "/information-management",  label: "Information Management", icon: Package },
   { path: "/booking-dispatch",        label: "Booking Dispatch",       icon: ClipboardList },
-  { path: "/audit",                   label: "Audit Log",              icon: History },
 ];
 
 export function BottomNavBar({ onLogout }: BottomNavBarProps) {
@@ -42,24 +41,23 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  // Show hub modules bottom bar if admin is inside a hub page
+  // Show hub modules bottom bar if admin is inside a hub page (not dashboard/audit)
   const isInHub = isAdmin && (
     currentPath.startsWith("/information-management") ||
-    currentPath.startsWith("/booking-dispatch") ||
-    currentPath.startsWith("/audit")
+    currentPath.startsWith("/booking-dispatch")
   );
 
   if (isInHub) {
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-navy border-t border-white/10 z-30 md:hidden">
-        <div className="flex overflow-x-auto overflow-y-hidden scrollbar-visible gap-1 scroll-smooth touch-pan-x px-2 py-1" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="flex justify-center items-center gap-2 px-2 py-1">
           {hubModules.map(({ path, label, icon: Icon }) => {
             const isActive = currentPath.startsWith(path);
             return (
               <Link
                 key={path}
                 to={path}
-                className={`flex-shrink-0 flex flex-col items-center justify-center px-3 py-2 rounded-full text-[10px] font-semibold transition-all min-w-max gap-0.5 ${
+                className={`flex flex-col items-center justify-center px-4 py-2 rounded-full text-[10px] font-semibold transition-all gap-0.5 ${
                   isActive
                     ? "bg-accent-2 text-white"
                     : "text-white/60 hover:text-white hover:bg-white/10"
@@ -70,7 +68,6 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
               </Link>
             );
           })}
-          <div className="flex-shrink-0 w-2" />
         </div>
       </div>
     );
@@ -79,7 +76,7 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
   // Show global nav for dashboard or when not in a hub page
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-navy border-t border-white/10 z-30 md:hidden">
-      <div className="flex overflow-x-auto overflow-y-hidden scrollbar-visible gap-1 scroll-smooth touch-pan-x px-2 py-1" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className="flex overflow-x-auto overflow-y-hidden scrollbar-visible gap-1 scroll-smooth touch-pan-x px-2 py-1 justify-center" style={{ WebkitOverflowScrolling: "touch" }}>
         {globalNavItems.map(({ path, label, icon: Icon }) => {
           const isActive = currentPath === path || (path !== "/" && currentPath.startsWith(path));
           return (
