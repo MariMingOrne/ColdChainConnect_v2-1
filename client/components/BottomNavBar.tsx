@@ -41,6 +41,11 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
+  // Hide navbar for Dashboard and Audit Log (single-view modules)
+  if (currentPath === "/" || currentPath === "/audit") {
+    return null;
+  }
+
   // Show hub modules bottom bar if admin is inside a hub page (not dashboard/audit)
   const isInHub = isAdmin && (
     currentPath.startsWith("/information-management") ||
