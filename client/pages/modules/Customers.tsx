@@ -12,6 +12,7 @@ interface CustomersProps {
 interface CustomerForm {
   store_name: string;
   location: string;
+  contact_person: string;
   contact_info: string;
   payment_type: "" | "cash" | "check" | "bank_transfer" | "cod" | "credit";
   tax_rate: string;
@@ -64,6 +65,10 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Location</label>
             <div className="text-sm text-navy">{customer.location || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Contact Person</label>
+            <div className="text-sm text-navy">{customer.contact_person || "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Info</label>
@@ -140,6 +145,21 @@ function CustomerModal({
               }
               className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
               placeholder="e.g., Makati City"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-navy">
+              Contact Person
+            </label>
+            <input
+              type="text"
+              value={formData.contact_person}
+              onChange={(e) =>
+                setFormData({ ...formData, contact_person: e.target.value })
+              }
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+              placeholder="e.g., Juan Dela Cruz"
             />
           </div>
 
@@ -303,6 +323,7 @@ export function Customers({ onBack }: CustomersProps) {
     setFormData({
       store_name: "",
       location: "",
+      contact_person: "",
       contact_info: "",
       payment_type: "",
       tax_rate: "",
@@ -315,6 +336,7 @@ export function Customers({ onBack }: CustomersProps) {
     setFormData({
       store_name: customer.store_name,
       location: customer.location,
+      contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
       payment_type: (customer.payment_type as CustomerForm["payment_type"]) ?? "",
       tax_rate:
@@ -348,6 +370,7 @@ export function Customers({ onBack }: CustomersProps) {
         body: JSON.stringify({
           store_name: formData.store_name,
           location: formData.location,
+          contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
           payment_type: formData.payment_type || undefined,
           tax_rate:
