@@ -224,6 +224,9 @@ export const delivery_items = pgTable("delivery_items", {
   status: deliveryStatusEnum("status").default("pending").notNull(),
   completed_at: timestamp("completed_at"),
   receipt_number: text("receipt_number"),
+  is_paid: boolean("is_paid").default(false),
+  payment_method: varchar("payment_method", { length: 50 }),
+  paid_at: timestamp("paid_at"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -247,6 +250,25 @@ export const receipts = pgTable("receipts", {
   confirmed_by: text("confirmed_by"),
   notes: text("notes"),
   confirmed_at: timestamp("confirmed_at").defaultNow().notNull(),
+});
+
+// Accounts Receivable table — tracks unpaid delivery amounts
+export const accounts_receivable = pgTable("accounts_receivable", {
+  id: text("id").primaryKey(),
+  customer_id: text("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  delivery_item_id: text("delivery_item_id")
+    .notNull()
+    .references(() => delivery_items.id),
+  invoice_id: text("invoice_id")
+    .notNull()
+    .references(() => invoices.id),
+  amount_due: decimal("amount_due", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 20 }).default("outstanding").notNull(),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Audit logs table
