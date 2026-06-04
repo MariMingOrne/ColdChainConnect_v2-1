@@ -25,7 +25,7 @@ export function Invoicing() {
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "issued" | "paid">("all");
   const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [approvalFilter, setApprovalFilter] = useState<"all" | "approved" | "unapproved">("all");
-  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "week" | "month" | "custom">("today");
   const [customDateStart, setCustomDateStart] = useState<string>("");
   const [customDateEnd, setCustomDateEnd] = useState<string>("");
 
