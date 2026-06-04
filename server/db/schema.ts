@@ -51,6 +51,7 @@ export const customers = pgTable("customers", {
   id: text("id").primaryKey(),
   store_name: text("store_name").notNull(),
   location: text("location").notNull(),
+  contact_person: text("contact_person"),
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
   payment_type: text("payment_type"),

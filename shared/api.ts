@@ -42,6 +42,7 @@ export interface Customer {
   id: string;
   store_name: string;
   location: string;
+  contact_person?: string;
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
@@ -53,6 +54,7 @@ export interface Customer {
 export const CreateCustomerSchema = z.object({
   store_name: z.string().min(1, "Store name is required"),
   location: z.string().min(1, "Location is required"),
+  contact_person: z.string().optional(),
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
