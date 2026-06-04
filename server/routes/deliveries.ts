@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { deliveries, delivery_items } from "../db/schema";
+import { deliveries, delivery_items, accounts_receivable, invoices } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 

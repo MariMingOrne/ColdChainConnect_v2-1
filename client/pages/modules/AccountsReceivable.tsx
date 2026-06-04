@@ -11,38 +11,43 @@ import {
 } from "@/components/ui/table";
 import { Eye, Send, RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
-import { Invoice } from "@shared/api";
+import { AccountsReceivable as ARType, Customer } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 
 export function AccountsReceivable() {
-  const [unpaidInvoices, setUnpaidInvoices] = useState<Invoice[]>([]);
+  const [arRecords, setARRecords] = useState<ARType[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [ageFilter, setAgeFilter] = useState<"all" | "0-7" | "8-30" | "31-60" | "60+">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "outstanding" | "paid" | "partial">("outstanding");
 
-  const fetchUnpaid = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch("/api/invoices?unpaid=true", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch unpaid invoices");
-      const data = await response.json();
-      setUnpaidInvoices(data);
+      const [arRes, custRes] = await Promise.all([
+        fetch("/api/accounts-receivable", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/api/customers", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (!arRes.ok) throw new Error("Failed to fetch AR records");
+      const arData = await arRes.json();
+      setARRecords(arData);
+
+      if (custRes.ok) {
+        const custData = await custRes.json();
+        setCustomers(custData);
+      }
+
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error loading invoices");
-      // Set mock data if API fails
-      setUnpaidInvoices([
-        {
-          id: "INV-001",
-          booking_id: "booking-1",
-          status: "issued",
-          payment_status: "unpaid",
-        },
-      ] as Invoice[]);
+      setError(err instanceof Error ? err.message : "Error loading data");
+      setARRecords([]);
     } finally {
       setIsLoading(false);
     }
@@ -50,17 +55,21 @@ export function AccountsReceivable() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchUnpaid();
+    await fetchData();
     setIsRefreshing(false);
   };
 
   useEffect(() => {
     if (token) {
-      fetchUnpaid();
+      fetchData();
     }
   }, [token]);
 
-  const daysOverdue = (createdAt: string) => {
+  const getCustomerName = (customerId: string) => {
+    return customers.find((c) => c.id === customerId)?.store_name || customerId.slice(0, 8);
+  };
+
+  const daysCreated = (createdAt: string) => {
     const created = new Date(createdAt);
     const now = new Date();
     const days = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
@@ -74,27 +83,26 @@ export function AccountsReceivable() {
     return "bg-red-100 text-red-800";
   };
 
+  const getStatusColor = (status: string) => {
+    if (status === "paid") return "badge-green";
+    if (status === "partial") return "badge-gold";
+    return "badge-blue";
+  };
+
   if (isLoading) return <div className="p-6">Loading...</div>;
 
-  const totalUnpaid = unpaidInvoices.length;
-  const overdue30 = unpaidInvoices.filter(
-    (inv) => daysOverdue(inv.created_at) > 30
-  ).length;
+  const totalDue = arRecords.reduce((sum, ar) => sum + parseFloat(ar.amount_due || "0"), 0);
+  const outstandingCount = arRecords.filter((ar) => ar.status === "outstanding").length;
 
-  const filtered = unpaidInvoices.filter((invoice) => {
+  const filtered = arRecords.filter((ar) => {
     const matchesSearch =
-      invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.booking_id.toLowerCase().includes(searchTerm.toLowerCase());
+      ar.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getCustomerName(ar.customer_id).toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    if (ageFilter === "all") return true;
-    const days = daysOverdue(invoice.created_at);
-    if (ageFilter === "0-7") return days <= 7;
-    if (ageFilter === "8-30") return days > 7 && days <= 30;
-    if (ageFilter === "31-60") return days > 30 && days <= 60;
-    if (ageFilter === "60+") return days > 60;
-    return true;
+    if (statusFilter === "all") return true;
+    return ar.status === statusFilter;
   });
 
   return (
@@ -102,7 +110,7 @@ export function AccountsReceivable() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy">Accounts Receivable</h1>
-          <p className="text-gray-600">Track unpaid invoices and customer balances</p>
+          <p className="text-gray-600">Track customer balances and unpaid deliveries</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -124,16 +132,16 @@ export function AccountsReceivable() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <div className="text-3xl font-bold text-navy">{totalUnpaid}</div>
-          <p className="text-sm text-gray-600">Total Unpaid</p>
+          <div className="text-3xl font-bold text-navy">{outstandingCount}</div>
+          <p className="text-sm text-gray-600">Outstanding</p>
         </Card>
         <Card className="p-4">
-          <div className="text-3xl font-bold text-orange-600">{overdue30}</div>
-          <p className="text-sm text-gray-600">Overdue 30+ Days</p>
+          <div className="text-3xl font-bold text-orange-600">{arRecords.length}</div>
+          <p className="text-sm text-gray-600">Total Records</p>
         </Card>
         <Card className="p-4 bg-blue-50">
           <div className="text-sm text-gray-600 mb-1">Total Amount Due</div>
-          <div className="text-2xl font-bold text-navy">₱0.00</div>
+          <div className="text-2xl font-bold text-navy">₱{totalDue.toFixed(2)}</div>
         </Card>
       </div>
 
@@ -141,61 +149,66 @@ export function AccountsReceivable() {
       <SearchFilterBar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        placeholder="Search by invoice ID or booking ID…"
+        placeholder="Search by AR ID or customer…"
         filters={[
           {
-            name: "ageFilter",
-            value: ageFilter,
-            onChange: (value) => setAgeFilter(value as any),
+            name: "statusFilter",
+            value: statusFilter,
+            onChange: (value) => setStatusFilter(value as any),
             options: [
-              { label: "All Ages", value: "all" },
-              { label: "Current (0-7 days)", value: "0-7" },
-              { label: "8-30 Days", value: "8-30" },
-              { label: "31-60 Days", value: "31-60" },
-              { label: "60+ Days Overdue", value: "60+" },
+              { label: "All Status", value: "all" },
+              { label: "Outstanding", value: "outstanding" },
+              { label: "Paid", value: "paid" },
+              { label: "Partial", value: "partial" },
             ],
           },
         ]}
       />
 
-      {/* Unpaid Invoices Table */}
+      {/* AR Records Table */}
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice ID</TableHead>
-              <TableHead>Booking ID</TableHead>
+              <TableHead>AR ID</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Amount Due</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Age</TableHead>
-              <TableHead>Amount</TableHead>
+              <TableHead>Days Old</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                  {unpaidInvoices.length === 0 ? "No unpaid invoices - Great job!" : "No invoices match your search"}
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  {arRecords.length === 0 ? "No outstanding balances - Great job!" : "No records match your search"}
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((invoice) => {
-                const days = daysOverdue(invoice.created_at);
+              filtered.map((ar) => {
+                const days = daysCreated(ar.created_at);
                 return (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-mono text-sm">{invoice.id.slice(0, 8)}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {invoice.booking_id.slice(0, 8)}
+                  <TableRow key={ar.id}>
+                    <TableCell className="font-mono text-sm">{ar.id.slice(0, 8)}…</TableCell>
+                    <TableCell className="text-sm font-semibold text-navy">
+                      {getCustomerName(ar.customer_id)}
+                    </TableCell>
+                    <TableCell className="text-sm font-bold">₱{ar.amount_due}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(ar.status)}`}>
+                        {ar.status}
+                      </span>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {new Date(invoice.created_at).toLocaleDateString()}
+                      {new Date(ar.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getAgeColor(days)}`}>
                         {days} days
                       </span>
                     </TableCell>
-                    <TableCell>₱0.00</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm">

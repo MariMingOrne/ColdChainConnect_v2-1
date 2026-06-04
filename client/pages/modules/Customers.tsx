@@ -253,6 +253,7 @@ export function Customers({ onBack }: CustomersProps) {
   const [formData, setFormData] = useState<CustomerForm>({
     store_name: "",
     location: "",
+    contact_person: "",
     contact_info: "",
     payment_type: "",
     tax_rate: "",

@@ -68,6 +68,11 @@ import {
 } from "./routes/deliveries";
 import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
+import {
+  listAccountsReceivable,
+  getCustomerBalance,
+  updateARStatus,
+} from "./routes/accounts-receivable";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
 export function createServer() {
@@ -164,6 +169,11 @@ export function createServer() {
 
   // Audit logs routes
   app.get("/api/audit-logs", authMiddleware, requireRole("admin"), listAuditLogs);
+
+  // Accounts Receivable routes
+  app.get("/api/accounts-receivable", authMiddleware, listAccountsReceivable);
+  app.get("/api/accounts-receivable/customer/:customerId", authMiddleware, getCustomerBalance);
+  app.patch("/api/accounts-receivable/:id/status", authMiddleware, requireRole("admin"), updateARStatus);
 
   return app;
 }

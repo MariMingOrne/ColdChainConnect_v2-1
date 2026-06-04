@@ -262,6 +262,11 @@ export interface DeliveryItem {
   invoice_id: string;
   destination_customer_id: string;
   status: "pending" | "in_transit" | "completed";
+  is_paid?: boolean;
+  payment_method?: string;
+  paid_at?: string;
+  completed_at?: string;
+  receipt_number?: string;
   created_at: string;
   updated_at: string;
 }
@@ -283,6 +288,24 @@ export const UpdateDeliveryStatusSchema = z.object({
 export const UpdateDeliveryItemStatusSchema = z.object({
   status: z.enum(["pending", "in_transit", "completed"]),
 });
+
+export const ConfirmDeliveryItemSchema = z.object({
+  is_paid: z.boolean().default(false),
+  payment_method: z.string().optional(),
+});
+
+// Accounts Receivable types
+export interface AccountsReceivable {
+  id: string;
+  customer_id: string;
+  delivery_item_id: string;
+  invoice_id: string;
+  amount_due: string;
+  status: "outstanding" | "paid" | "partial";
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // Audit types
 export interface AuditLog {
