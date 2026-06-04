@@ -20,12 +20,11 @@ export function BookingSummary() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("all");
 
-  // Assign truck modal
+  // Approve booking modal
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedTruck, setSelectedTruck] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approveSuccess, setApproveSuccess] = useState<string | null>(null);
 
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -106,38 +105,39 @@ export function BookingSummary() {
     }
   };
 
-  // ── Assign Truck ───────────────────────────────────────────
-  const openAssignModal = (booking: Booking) => {
+  // ── Approve Booking ───────────────────────────────────────────
+  const openApproveModal = (booking: Booking) => {
     setSelectedBooking(booking);
-    setSelectedTruck((booking as any).driver_id || "");
-    setAssignSuccess(null);
-    setShowAssignModal(true);
+    setApproveSuccess(null);
+    setShowApproveModal(true);
   };
 
-  const closeAssignModal = () => {
-    setShowAssignModal(false);
+  const closeApproveModal = () => {
+    setShowApproveModal(false);
     setSelectedBooking(null);
-    setSelectedTruck("");
-    setAssignSuccess(null);
+    setApproveSuccess(null);
   };
 
-  const handleAssignTruck = async () => {
-    if (!selectedBooking || !selectedTruck) return alert("Please select a truck");
-    setIsSaving(true);
+  const handleApproveBooking = async () => {
+    if (!selectedBooking) return alert("No booking selected");
+    setIsApproving(true);
     try {
       const res = await fetch(`/api/bookings/${selectedBooking.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ driver_id: selectedTruck }),
+        body: JSON.stringify({ status: "approved" }),
       });
-      if (!res.ok) throw new Error("Failed to assign truck");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to approve booking");
+      }
       const { booking: updated, invoice } = await res.json();
       setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
-      setAssignSuccess(invoice ? `Invoice #${invoice.id.slice(0, 8)} created successfully.` : "Truck assigned.");
+      setApproveSuccess(invoice ? `Invoice #${invoice.id.slice(0, 8)} created successfully.` : "Order approved and truck assigned.");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to assign truck");
+      alert(err instanceof Error ? err.message : "Failed to approve booking");
     } finally {
-      setIsSaving(false);
+      setIsApproving(false);
     }
   };
 
@@ -260,12 +260,16 @@ export function BookingSummary() {
                       {new Date(booking.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
-                        onClick={() => openAssignModal(booking)}
-                        className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
-                      >
-                        Assign Truck
-                      </button>
+                      {booking.status === "pending" ? (
+                        <button
+                          onClick={() => openApproveModal(booking)}
+                          className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
+                        >
+                          Approve
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted">{booking.status}</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -365,13 +369,13 @@ export function BookingSummary() {
         </div>
       )}
 
-      {/* ── Assign Truck Modal ── */}
-      {showAssignModal && selectedBooking && (
+      {/* ── Approve Booking Modal ── */}
+      {showApproveModal && selectedBooking && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
             <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
-              <h2 className="font-rajdhani text-lg font-bold text-white">Assign Truck to Order</h2>
-              <button onClick={closeAssignModal} className="text-white hover:opacity-70 text-2xl">×</button>
+              <h2 className="font-rajdhani text-lg font-bold text-white">Approve Order</h2>
+              <button onClick={closeApproveModal} className="text-white hover:opacity-70 text-2xl">×</button>
             </div>
 
             <div className="p-6 space-y-4">
@@ -390,47 +394,38 @@ export function BookingSummary() {
                   )}
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1">Location</label>
+                <div className="px-3 py-2 bg-off-white rounded-lg text-sm text-navy">
+                  {selectedBooking.customer?.location || "Unknown"}
+                </div>
+              </div>
 
-              {assignSuccess ? (
+              {approveSuccess ? (
                 <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 font-semibold">
-                  ✓ {assignSuccess}
+                  ✓ {approveSuccess}
                 </div>
               ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-navy mb-1">Select Truck *</label>
-                  <select
-                    value={selectedTruck}
-                    onChange={(e) => setSelectedTruck(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                  >
-                    <option value="">Choose a truck…</option>
-                    {trucks
-                      .filter((t) => t.status === "available")
-                      .map((truck) => (
-                        <option key={truck.id} value={truck.id}>
-                          {truck.name} — {truck.district}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-muted mt-1">Assigning a truck will automatically generate a draft invoice.</p>
+                <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  The truck will be automatically assigned based on the customer's location.
                 </div>
               )}
             </div>
 
             <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
               <button
-                onClick={closeAssignModal}
+                onClick={closeApproveModal}
                 className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
               >
-                {assignSuccess ? "Close" : "Cancel"}
+                {approveSuccess ? "Close" : "Cancel"}
               </button>
-              {!assignSuccess && (
+              {!approveSuccess && (
                 <button
-                  onClick={handleAssignTruck}
-                  disabled={!selectedTruck || isSaving}
+                  onClick={handleApproveBooking}
+                  disabled={isApproving}
                   className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
                 >
-                  {isSaving ? "Assigning…" : "Assign & Create Invoice"}
+                  {isApproving ? "Approving…" : "Approve Order"}
                 </button>
               )}
             </div>
