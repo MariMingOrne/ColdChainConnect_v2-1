@@ -20,12 +20,15 @@ export function BookingSummary() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("all");
 
-  // Assign truck modal
+  // Approve booking modal
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedTruck, setSelectedTruck] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approveSuccess, setApproveSuccess] = useState<string | null>(null);
+
+  // Order detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
 
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -106,38 +109,50 @@ export function BookingSummary() {
     }
   };
 
-  // ── Assign Truck ───────────────────────────────────────────
-  const openAssignModal = (booking: Booking) => {
+  // ── Order Detail Modal ────────────────────────────────────────
+  const openDetailModal = (booking: Booking) => {
+    setDetailBooking(booking);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setDetailBooking(null);
+  };
+
+  // ── Approve Booking ───────────────────────────────────────────
+  const openApproveModal = (booking: Booking) => {
     setSelectedBooking(booking);
-    setSelectedTruck((booking as any).driver_id || "");
-    setAssignSuccess(null);
-    setShowAssignModal(true);
+    setApproveSuccess(null);
+    setShowApproveModal(true);
   };
 
-  const closeAssignModal = () => {
-    setShowAssignModal(false);
+  const closeApproveModal = () => {
+    setShowApproveModal(false);
     setSelectedBooking(null);
-    setSelectedTruck("");
-    setAssignSuccess(null);
+    setApproveSuccess(null);
   };
 
-  const handleAssignTruck = async () => {
-    if (!selectedBooking || !selectedTruck) return alert("Please select a truck");
-    setIsSaving(true);
+  const handleApproveBooking = async () => {
+    if (!selectedBooking) return alert("No booking selected");
+    setIsApproving(true);
     try {
       const res = await fetch(`/api/bookings/${selectedBooking.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ driver_id: selectedTruck }),
+        body: JSON.stringify({ status: "approved" }),
       });
-      if (!res.ok) throw new Error("Failed to assign truck");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to approve booking");
+      }
       const { booking: updated, invoice } = await res.json();
       setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
-      setAssignSuccess(invoice ? `Invoice #${invoice.id.slice(0, 8)} created successfully.` : "Truck assigned.");
+      setApproveSuccess(invoice ? `Invoice #${invoice.id.slice(0, 8)} created successfully.` : "Order approved and truck assigned.");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to assign truck");
+      alert(err instanceof Error ? err.message : "Failed to approve booking");
     } finally {
-      setIsSaving(false);
+      setIsApproving(false);
     }
   };
 
@@ -228,7 +243,14 @@ export function BookingSummary() {
                 const assignedTruck = trucks.find((t) => t.id === (booking as any).driver_id);
                 return (
                   <TableRow key={booking.id}>
-                    <TableCell className="font-mono text-sm">{booking.id.slice(0, 8)}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <button
+                        onClick={() => openDetailModal(booking)}
+                        className="text-accent-2 hover:underline font-semibold transition"
+                      >
+                        {booking.id.slice(0, 8)}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-sm">
                       {customer ? (
                         <div className="flex flex-col">
@@ -260,12 +282,16 @@ export function BookingSummary() {
                       {new Date(booking.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
-                        onClick={() => openAssignModal(booking)}
-                        className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
-                      >
-                        Assign Truck
-                      </button>
+                      {booking.status === "pending" ? (
+                        <button
+                          onClick={() => openApproveModal(booking)}
+                          className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
+                        >
+                          Approve
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted">{booking.status}</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -365,13 +391,13 @@ export function BookingSummary() {
         </div>
       )}
 
-      {/* ── Assign Truck Modal ── */}
-      {showAssignModal && selectedBooking && (
+      {/* ── Approve Booking Modal ── */}
+      {showApproveModal && selectedBooking && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
             <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
-              <h2 className="font-rajdhani text-lg font-bold text-white">Assign Truck to Order</h2>
-              <button onClick={closeAssignModal} className="text-white hover:opacity-70 text-2xl">×</button>
+              <h2 className="font-rajdhani text-lg font-bold text-white">Approve Order</h2>
+              <button onClick={closeApproveModal} className="text-white hover:opacity-70 text-2xl">×</button>
             </div>
 
             <div className="p-6 space-y-4">
@@ -390,49 +416,161 @@ export function BookingSummary() {
                   )}
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1">Location</label>
+                <div className="px-3 py-2 bg-off-white rounded-lg text-sm text-navy">
+                  {selectedBooking.customer?.location || "Unknown"}
+                </div>
+              </div>
 
-              {assignSuccess ? (
+              {approveSuccess ? (
                 <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 font-semibold">
-                  ✓ {assignSuccess}
+                  ✓ {approveSuccess}
                 </div>
               ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-navy mb-1">Select Truck *</label>
-                  <select
-                    value={selectedTruck}
-                    onChange={(e) => setSelectedTruck(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                  >
-                    <option value="">Choose a truck…</option>
-                    {trucks
-                      .filter((t) => t.status === "available")
-                      .map((truck) => (
-                        <option key={truck.id} value={truck.id}>
-                          {truck.name} — {truck.district}
-                        </option>
-                      ))}
-                  </select>
-                  <p className="text-xs text-muted mt-1">Assigning a truck will automatically generate a draft invoice.</p>
+                <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  The truck will be automatically assigned based on the customer's location.
                 </div>
               )}
             </div>
 
             <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
               <button
-                onClick={closeAssignModal}
+                onClick={closeApproveModal}
                 className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
               >
-                {assignSuccess ? "Close" : "Cancel"}
+                {approveSuccess ? "Close" : "Cancel"}
               </button>
-              {!assignSuccess && (
+              {!approveSuccess && (
                 <button
-                  onClick={handleAssignTruck}
-                  disabled={!selectedTruck || isSaving}
+                  onClick={handleApproveBooking}
+                  disabled={isApproving}
                   className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
                 >
-                  {isSaving ? "Assigning…" : "Assign & Create Invoice"}
+                  {isApproving ? "Approving…" : "Approve Order"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Order Detail Modal ── */}
+      {showDetailModal && detailBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+              <h2 className="font-rajdhani text-lg font-bold text-white">Order Details</h2>
+              <button onClick={closeDetailModal} className="text-white hover:opacity-70 text-2xl">×</button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto">
+              {/* Order Header */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-1">Order ID</label>
+                  <div className="px-3 py-2 bg-off-white rounded-lg text-sm font-mono text-navy font-semibold">
+                    {detailBooking.id}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-1">Status</label>
+                  <div className="px-3 py-2 bg-off-white rounded-lg text-sm">
+                    <span className={`px-2 py-1 rounded text-sm font-semibold ${getStatusColor(detailBooking.status)}`}>
+                      {detailBooking.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info */}
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-navy mb-3">Customer Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Store Name</label>
+                    <p className="text-sm text-navy font-semibold">{detailBooking.customer?.store_name || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Location</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.location || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Contact Person</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.contact_person || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Contact Info</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.contact_info || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Truck Assignment */}
+              {(detailBooking as any).truck_id && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-navy mb-3">Assigned Truck</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">Truck Name</label>
+                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.name || "N/A"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">District</label>
+                      <p className="text-sm text-navy">{(detailBooking as any).truck?.district || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Order Items */}
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-navy mb-3">Order Items</h3>
+                {detailBooking.booking_items && detailBooking.booking_items.length > 0 ? (
+                  <div className="space-y-2">
+                    {detailBooking.booking_items.map((item, idx) => {
+                      const product = products.find((p) => p.id === item.product_id);
+                      return (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-off-white rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-navy">{product?.name || "Unknown Product"}</p>
+                            <p className="text-xs text-muted">{product?.sku || "No SKU"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-navy">{item.qty_ordered} units</p>
+                            <p className="text-xs text-muted">₱{parseFloat(product?.price || "0").toLocaleString()}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted italic">No items in this order</p>
+                )}
+              </div>
+
+              {/* Timestamps */}
+              <div className="border-t border-border pt-4">
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="font-semibold text-muted mb-1 block">Created</label>
+                    <p className="text-navy">{new Date(detailBooking.created_at).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-muted mb-1 block">Last Updated</label>
+                    <p className="text-navy">{new Date(detailBooking.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-off-white px-6 py-4 flex justify-end border-t border-border rounded-b-2xl">
+              <button
+                onClick={closeDetailModal}
+                className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
