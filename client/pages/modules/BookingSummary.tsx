@@ -26,6 +26,10 @@ export function BookingSummary() {
   const [isApproving, setIsApproving] = useState(false);
   const [approveSuccess, setApproveSuccess] = useState<string | null>(null);
 
+  // Order detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCustomerId, setNewCustomerId] = useState("");
@@ -103,6 +107,17 @@ export function BookingSummary() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  // ── Order Detail Modal ────────────────────────────────────────
+  const openDetailModal = (booking: Booking) => {
+    setDetailBooking(booking);
+    setShowDetailModal(true);
+  };
+
+  const closeDetailModal = () => {
+    setShowDetailModal(false);
+    setDetailBooking(null);
   };
 
   // ── Approve Booking ───────────────────────────────────────────
@@ -228,7 +243,14 @@ export function BookingSummary() {
                 const assignedTruck = trucks.find((t) => t.id === (booking as any).driver_id);
                 return (
                   <TableRow key={booking.id}>
-                    <TableCell className="font-mono text-sm">{booking.id.slice(0, 8)}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <button
+                        onClick={() => openDetailModal(booking)}
+                        className="text-accent-2 hover:underline font-semibold transition"
+                      >
+                        {booking.id.slice(0, 8)}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-sm">
                       {customer ? (
                         <div className="flex flex-col">
@@ -428,6 +450,127 @@ export function BookingSummary() {
                   {isApproving ? "Approving…" : "Approve Order"}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Order Detail Modal ── */}
+      {showDetailModal && detailBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+              <h2 className="font-rajdhani text-lg font-bold text-white">Order Details</h2>
+              <button onClick={closeDetailModal} className="text-white hover:opacity-70 text-2xl">×</button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto">
+              {/* Order Header */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-1">Order ID</label>
+                  <div className="px-3 py-2 bg-off-white rounded-lg text-sm font-mono text-navy font-semibold">
+                    {detailBooking.id}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-1">Status</label>
+                  <div className="px-3 py-2 bg-off-white rounded-lg text-sm">
+                    <span className={`px-2 py-1 rounded text-sm font-semibold ${getStatusColor(detailBooking.status)}`}>
+                      {detailBooking.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Info */}
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-navy mb-3">Customer Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Store Name</label>
+                    <p className="text-sm text-navy font-semibold">{detailBooking.customer?.store_name || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Location</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.location || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Contact Person</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.contact_person || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted mb-1 block">Contact Info</label>
+                    <p className="text-sm text-navy">{detailBooking.customer?.contact_info || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Truck Assignment */}
+              {(detailBooking as any).truck_id && (
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-semibold text-navy mb-3">Assigned Truck</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">Truck Name</label>
+                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.name || "N/A"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">District</label>
+                      <p className="text-sm text-navy">{(detailBooking as any).truck?.district || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Order Items */}
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-navy mb-3">Order Items</h3>
+                {detailBooking.booking_items && detailBooking.booking_items.length > 0 ? (
+                  <div className="space-y-2">
+                    {detailBooking.booking_items.map((item, idx) => {
+                      const product = products.find((p) => p.id === item.product_id);
+                      return (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-off-white rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-navy">{product?.name || "Unknown Product"}</p>
+                            <p className="text-xs text-muted">{product?.sku || "No SKU"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-navy">{item.qty_ordered} units</p>
+                            <p className="text-xs text-muted">₱{parseFloat(product?.price || "0").toLocaleString()}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted italic">No items in this order</p>
+                )}
+              </div>
+
+              {/* Timestamps */}
+              <div className="border-t border-border pt-4">
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="font-semibold text-muted mb-1 block">Created</label>
+                    <p className="text-navy">{new Date(detailBooking.created_at).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-muted mb-1 block">Last Updated</label>
+                    <p className="text-navy">{new Date(detailBooking.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-off-white px-6 py-4 flex justify-end border-t border-border rounded-b-2xl">
+              <button
+                onClick={closeDetailModal}
+                className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
