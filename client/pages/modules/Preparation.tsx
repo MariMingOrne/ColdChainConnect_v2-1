@@ -1,0 +1,476 @@
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Eye, Check, RefreshCw, Calendar } from "lucide-react";
+import { SearchFilterBar } from "@/components/SearchFilterBar";
+import { Booking, Customer, InventoryBatch, Pallet } from "@shared/api";
+import { useAuth } from "../../hooks/useAuth";
+
+export function Preparation() {
+  const [orders, setOrders] = useState<Booking[]>([]);
+  const [pallets, setPallets] = useState<Pallet[]>([]);
+  const [batches, setBatches] = useState<InventoryBatch[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("approved");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "week" | "month" | "custom">("today");
+  const [customDateStart, setCustomDateStart] = useState<string>("");
+  const [customDateEnd, setCustomDateEnd] = useState<string>("");
+  const [selectedOrder, setSelectedOrder] = useState<Booking | null>(null);
+  const [showPaletModal, setShowPaletModal] = useState(false);
+
+  const fetchAll = async () => {
+    try {
+      const [oRes, pRes, bRes, cRes] = await Promise.all([
+        fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/pallets", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/inventory-batches", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (oRes.ok) setOrders(await oRes.json());
+      if (pRes.ok) setPallets(await pRes.json());
+      if (bRes.ok) setBatches(await bRes.json());
+      if (cRes.ok) setCustomers(await cRes.json());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error loading data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAll();
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchAll();
+    }
+  }, [token]);
+
+  const isDateInRange = (dateStr: string): boolean => {
+    if (dateRangeFilter === "all") return true;
+
+    const orderDate = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const orderDateOnly = new Date(
+      orderDate.getFullYear(),
+      orderDate.getMonth(),
+      orderDate.getDate()
+    );
+
+    if (dateRangeFilter === "today") {
+      return orderDateOnly.getTime() === today.getTime();
+    }
+
+    if (dateRangeFilter === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      return orderDateOnly >= weekStart && orderDateOnly <= weekEnd;
+    }
+
+    if (dateRangeFilter === "month") {
+      return (
+        orderDate.getFullYear() === now.getFullYear() &&
+        orderDate.getMonth() === now.getMonth()
+      );
+    }
+
+    if (dateRangeFilter === "custom") {
+      if (!customDateStart || !customDateEnd) return true;
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
+      return orderDate >= start && orderDate <= end;
+    }
+
+    return true;
+  };
+
+  if (isLoading) return <div className="p-6">Loading...</div>;
+
+  const filtered = orders.filter((order) => {
+    const matchesSearch =
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer_id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (statusFilter !== "all" && order.status !== statusFilter) return false;
+    if (!isDateInRange(order.created_at)) return false;
+
+    return true;
+  });
+
+  const ordersReadyForPrep = filtered.length;
+  const pendingPalletItems = orders.reduce((sum, order) => {
+    const orderPallets = pallets.filter((p) => p.order_id === order.id && p.status === "draft");
+    return (
+      sum +
+      orderPallets.reduce((pSum, p) => pSum + (p.items?.length ?? 0), 0)
+    );
+  }, 0);
+  const palletsCreatedToday = pallets.filter((p) => {
+    const today = new Date();
+    const pDate = new Date(p.created_at);
+    return (
+      pDate.getFullYear() === today.getFullYear() &&
+      pDate.getMonth() === today.getMonth() &&
+      pDate.getDate() === today.getDate()
+    );
+  }).length;
+
+  return (
+    <div className="flex-1 flex flex-col p-6 gap-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy">Preparation</h1>
+          <p className="text-gray-600">Prepare pallets for customer orders</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-off-white disabled:opacity-50 flex items-center gap-2 w-fit"
+        >
+          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <Card className="p-4 bg-red-50 border-red-200">
+          <p className="text-red-700">{error}</p>
+        </Card>
+      )}
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <p className="text-xs text-blue-600 font-semibold">Orders Ready</p>
+          <p className="text-2xl font-bold text-blue-800">{ordersReadyForPrep}</p>
+        </Card>
+        <Card className="p-4 bg-orange-50 border-orange-200">
+          <p className="text-xs text-orange-600 font-semibold">Items Pending</p>
+          <p className="text-2xl font-bold text-orange-800">{pendingPalletItems}</p>
+        </Card>
+        <Card className="p-4 bg-green-50 border-green-200">
+          <p className="text-xs text-green-600 font-semibold">Pallets Today</p>
+          <p className="text-2xl font-bold text-green-800">{palletsCreatedToday}</p>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <SearchFilterBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        placeholder="Search by order ID or customer ID…"
+        filters={[
+          {
+            name: "statusFilter",
+            value: statusFilter,
+            onChange: (value) => setStatusFilter(value as any),
+            options: [
+              { label: "All Status", value: "all" },
+              { label: "Pending", value: "pending" },
+              { label: "Approved", value: "approved" },
+              { label: "Prep", value: "prep" },
+              { label: "Ready", value: "ready" },
+            ],
+          },
+          {
+            name: "dateRangeFilter",
+            value: dateRangeFilter,
+            onChange: (value) => setDateRangeFilter(value as any),
+            options: [
+              { label: "All Dates", value: "all" },
+              { label: "This Day", value: "today" },
+              { label: "This Week", value: "week" },
+              { label: "This Month", value: "month" },
+              { label: "Custom", value: "custom" },
+            ],
+          },
+        ]}
+      />
+
+      {/* Custom Date Picker */}
+      {dateRangeFilter === "custom" && (
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <div className="flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
+              <Calendar size={16} className="text-muted" />
+              <input
+                type="date"
+                value={customDateStart}
+                onChange={(e) => setCustomDateStart(e.target.value)}
+                className="flex-1 bg-transparent border-none text-white py-2 outline-none text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              End Date
+            </label>
+            <div className="flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
+              <Calendar size={16} className="text-muted" />
+              <input
+                type="date"
+                value={customDateEnd}
+                onChange={(e) => setCustomDateEnd(e.target.value)}
+                className="flex-1 bg-transparent border-none text-white py-2 outline-none text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Orders Table */}
+      <Card className="overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  {orders.length === 0 ? "No orders found" : "No orders match your search"}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((order) => {
+                const customer = customers.find((c) => c.id === order.customer_id);
+                const itemCount = order.booking_items?.length ?? 0;
+                const orderPallets = pallets.filter((p) => p.order_id === order.id);
+                const approvedPalletCount = orderPallets.filter((p) => p.status === "approved").length;
+
+                return (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-mono text-sm font-semibold text-accent-2">
+                      {order.id.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-navy">{customer?.store_name || "Unknown"}</span>
+                        {customer?.location && (
+                          <span className="text-xs text-muted">{customer.location}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <span className="font-semibold">{itemCount} items</span>
+                      {approvedPalletCount > 0 && (
+                        <span className="text-xs text-green-600 block">
+                          {approvedPalletCount} pallet(s) ready
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-sm font-semibold ${
+                        order.status === "approved"
+                          ? "bg-blue-100 text-blue-800"
+                          : order.status === "ready"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}>
+                        {order.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setShowPaletModal(true);
+                          }}
+                        >
+                          <Plus className="w-4 h-4" title="Create Pallet" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Eye className="w-4 h-4" title="View Details" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      {/* Create Pallet Modal */}
+      {showPaletModal && selectedOrder && (
+        <CreatePalletModal
+          order={selectedOrder}
+          batches={batches}
+          onClose={() => {
+            setShowPaletModal(false);
+            setSelectedOrder(null);
+          }}
+          onCreated={() => {
+            handleRefresh();
+            setShowPaletModal(false);
+            setSelectedOrder(null);
+          }}
+          token={token}
+        />
+      )}
+    </div>
+  );
+}
+
+interface CreatePalletModalProps {
+  order: Booking;
+  batches: InventoryBatch[];
+  onClose: () => void;
+  onCreated: () => void;
+  token: string;
+}
+
+function CreatePalletModal({
+  order,
+  batches,
+  onClose,
+  onCreated,
+  token,
+}: CreatePalletModalProps) {
+  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const selectedBatch = batches.find((b) => b.id === selectedBatchId);
+
+  const handleCreatePallet = async () => {
+    if (!selectedBatchId) return alert("Please select a batch");
+
+    setIsCreating(true);
+    try {
+      const items = selectedBatch?.items?.map((item) => ({
+        product_id: item.product_id,
+        qty_units: item.qty_units,
+        batch_item_id: item.id,
+      })) || [];
+
+      const response = await fetch("/api/pallets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          items,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create pallet");
+
+      onCreated();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create pallet");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
+        <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+          <h2 className="font-rajdhani text-lg font-bold text-white">Create Pallet</h2>
+          <button onClick={onClose} className="text-white hover:opacity-70 text-2xl">
+            ×
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">Order ID</label>
+            <div className="px-3 py-2 bg-off-white rounded-lg text-sm font-mono text-navy">
+              {order.id.slice(0, 8)}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-navy mb-1">
+              Select Batch *
+            </label>
+            <select
+              value={selectedBatchId}
+              onChange={(e) => setSelectedBatchId(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+            >
+              <option value="">Choose a batch…</option>
+              {batches.map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.name} ({batch.items?.length || 0} items)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedBatch && (
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <p className="text-xs font-semibold text-blue-800 mb-2">Batch Contents:</p>
+              <div className="space-y-1">
+                {selectedBatch.items?.map((item) => (
+                  <p key={item.id} className="text-xs text-blue-700">
+                    • Product {item.product_id}: {item.qty_units} units @ ₱{item.unit_cost}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreatePallet}
+            disabled={isCreating || !selectedBatchId}
+            className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
+          >
+            {isCreating ? "Creating…" : "Create Pallet"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -3,6 +3,7 @@ import { useInventoryContext } from "../context/InventoryContext";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
+import { InventoryBatchesTab } from "@/components/InventoryBatchesTab";
 
 interface InventoryProduct {
   id: string;
@@ -29,6 +30,7 @@ interface PalletDisplay {
 
 export function Inventory() {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"products" | "batches">("products");
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const { batches, setBatches, selectedBatchId, setSelectedBatchId, selectedPalletId, setSelectedPalletId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
   const [currentPage, setCurrentPage] = useState(1);
