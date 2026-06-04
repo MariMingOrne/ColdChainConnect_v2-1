@@ -512,6 +512,9 @@ export function Customers({ onBack }: CustomersProps) {
                   Location
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap hidden md:table-cell">
+                  Contact Person
+                </th>
+                <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap hidden md:table-cell">
                   Contact Info
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
@@ -525,7 +528,7 @@ export function Customers({ onBack }: CustomersProps) {
             <tbody>
               {paginatedCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
                     {customers.length === 0
                       ? "No customers found"
                       : "No results matching your search"}
@@ -541,6 +544,9 @@ export function Customers({ onBack }: CustomersProps) {
                       {customer.store_name}
                     </td>
                     <td className="px-3 py-3 text-navy">{customer.location}</td>
+                    <td className="hidden px-3 py-3 text-navy md:table-cell">
+                      {customer.contact_person || <span className="text-muted">—</span>}
+                    </td>
                     <td className="hidden px-3 py-3 text-navy md:table-cell">
                       {customer.contact_info || <span className="text-muted">—</span>}
                     </td>
