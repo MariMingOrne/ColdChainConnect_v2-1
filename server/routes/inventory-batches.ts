@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { InventoryBatch, InventoryBatchItem, CreateInventoryBatchSchema, UpdateInventoryBatchSchema } from "@shared/api";
+import { InventoryBatch, InventoryBatchItem, CreateInventoryBatchSchema, UpdateInventoryBatchSchema } from "../../shared/api";
 
 const inventoryBatches: InventoryBatch[] = [
   {

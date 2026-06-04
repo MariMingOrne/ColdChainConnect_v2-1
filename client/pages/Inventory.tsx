@@ -246,6 +246,34 @@ export function Inventory() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-border">
+        <button
+          onClick={() => setActiveTab("products")}
+          className={`px-4 py-3 font-semibold text-sm transition-colors border-b-2 ${
+            activeTab === "products"
+              ? "border-accent-2 text-accent-2"
+              : "border-transparent text-muted hover:text-navy"
+          }`}
+        >
+          Products
+        </button>
+        <button
+          onClick={() => setActiveTab("batches")}
+          className={`px-4 py-3 font-semibold text-sm transition-colors border-b-2 ${
+            activeTab === "batches"
+              ? "border-accent-2 text-accent-2"
+              : "border-transparent text-muted hover:text-navy"
+          }`}
+        >
+          Inventory Batches
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "products" && (
+        <div className="space-y-6">
+
       {/* Batch Selector */}
       <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -476,6 +504,13 @@ export function Inventory() {
           products={products} startCreating={startBatchCreation}
           onRefresh={async () => { await fetchProductsFromApi(); await refreshBatchesFromDB(); }}
         />
+      )}
+        </div>
+      )}
+
+      {/* Inventory Batches Tab */}
+      {activeTab === "batches" && (
+        <InventoryBatchesTab />
       )}
     </div>
   );

@@ -157,91 +157,89 @@ export function InventoryBatchesTab() {
                 </TableCell>
               </TableRow>
             ) : (
-              batches.map((batch) => {
+              batches.flatMap((batch) => {
                 const itemCount = batch.items?.length ?? 0;
                 const totalQty = batch.items?.reduce((sum, item) => sum + item.qty_units, 0) ?? 0;
                 const isExpanded = expandedBatchId === batch.id;
 
-                return (
-                  <div key={batch.id}>
-                    <TableRow
-                      onClick={() =>
-                        setExpandedBatchId(isExpanded ? null : batch.id)
-                      }
-                      className="cursor-pointer hover:bg-gray-50"
-                    >
-                      <TableCell className="font-semibold text-navy">{batch.name}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded text-sm font-semibold ${
-                            batch.status === "open"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {batch.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{itemCount} items</TableCell>
-                      <TableCell className="text-sm font-semibold">{totalQty} units</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(batch.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {batch.status === "open" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCloseBatch(batch.id);
-                              }}
-                              className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition"
-                            >
-                              Close Batch
-                            </button>
-                          )}
-                          <button className="text-gray-600 hover:text-navy transition">
-                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                return [
+                  <TableRow
+                    key={batch.id}
+                    onClick={() =>
+                      setExpandedBatchId(isExpanded ? null : batch.id)
+                    }
+                    className="cursor-pointer hover:bg-gray-50"
+                  >
+                    <TableCell className="font-semibold text-navy">{batch.name}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-1 rounded text-sm font-semibold ${
+                          batch.status === "open"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {batch.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">{itemCount} items</TableCell>
+                    <TableCell className="text-sm font-semibold">{totalQty} units</TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(batch.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {batch.status === "open" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCloseBatch(batch.id);
+                            }}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition"
+                          >
+                            Close Batch
                           </button>
+                        )}
+                        <button className="text-gray-600 hover:text-navy transition">
+                          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>,
+                  isExpanded && batch.items && (
+                    <TableRow key={`${batch.id}-expanded`}>
+                      <TableCell colSpan={6} className="bg-gray-50 p-4">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-navy mb-3">Batch Items</h4>
+                          {batch.items.map((item) => {
+                            const product = products.find((p) => p.id === item.product_id);
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex justify-between items-center p-3 bg-white rounded border border-border"
+                              >
+                                <div>
+                                  <p className="font-semibold text-navy">
+                                    {product?.name || item.product_id}
+                                  </p>
+                                  <p className="text-xs text-muted">
+                                    Cost: ₱{item.unit_cost}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-navy">{item.qty_units} units</p>
+                                  <p className="text-xs text-muted">
+                                    Subtotal: ₱{(parseFloat(item.unit_cost) * item.qty_units).toFixed(2)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </TableCell>
                     </TableRow>
-
-                    {isExpanded && batch.items && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="bg-gray-50 p-4">
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-navy mb-3">Batch Items</h4>
-                            {batch.items.map((item) => {
-                              const product = products.find((p) => p.id === item.product_id);
-                              return (
-                                <div
-                                  key={item.id}
-                                  className="flex justify-between items-center p-3 bg-white rounded border border-border"
-                                >
-                                  <div>
-                                    <p className="font-semibold text-navy">
-                                      {product?.name || item.product_id}
-                                    </p>
-                                    <p className="text-xs text-muted">
-                                      Cost: ₱{item.unit_cost}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="font-semibold text-navy">{item.qty_units} units</p>
-                                    <p className="text-xs text-muted">
-                                      Subtotal: ₱{(parseFloat(item.unit_cost) * item.qty_units).toFixed(2)}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </div>
-                );
+                  ),
+                ].filter(Boolean);
               })
             )}
           </TableBody>

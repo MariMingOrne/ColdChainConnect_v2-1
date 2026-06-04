@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "@shared/api";
+import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 
 const pallets: Pallet[] = [];
 let productInventory: Record<string, number> = {
@@ -78,26 +78,54 @@ export const approvePallet: RequestHandler = (req, res) => {
     if (!pallet) return res.status(404).json({ error: "Pallet not found" });
     if (pallet.status !== "draft") return res.status(400).json({ error: "Only draft pallets can be approved" });
 
+    // Validate inventory is available
+    const deductionLog: Array<{ product_id: string; qty_deducted: number; batch_item_id: string }> = [];
+
     if (pallet.items) {
       for (const item of pallet.items) {
         if (!productInventory[item.product_id]) {
           productInventory[item.product_id] = 0;
         }
-        const deductAmount = Math.min(item.qty_units, productInventory[item.product_id]);
-        productInventory[item.product_id] -= deductAmount;
+
+        // Ensure we have enough inventory
+        if (productInventory[item.product_id] < item.qty_units) {
+          return res.status(400).json({
+            error: `Insufficient inventory for product ${item.product_id}. Available: ${productInventory[item.product_id]}, Needed: ${item.qty_units}`,
+          });
+        }
+
+        // Deduct from product inventory
+        productInventory[item.product_id] -= item.qty_units;
+
+        // Log the deduction
+        deductionLog.push({
+          product_id: item.product_id,
+          qty_deducted: item.qty_units,
+          batch_item_id: item.batch_item_id,
+        });
       }
     }
 
     pallet.status = "approved";
     pallet.updated_at = new Date().toISOString();
 
-    res.json({ pallet, inventory: productInventory });
+    // Return detailed response with audit trail
+    res.json({
+      pallet,
+      inventory: productInventory,
+      deduction_audit: {
+        pallet_id: id,
+        order_id: pallet.order_id,
+        approved_at: pallet.updated_at,
+        deductions: deductionLog,
+      },
+    });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
 };
 
-export const deletePallet: RequestHandler = (req, res) => {
+export const deletePalletForOrder: RequestHandler = (req, res) => {
   const { id } = req.params;
   const idx = pallets.findIndex((p) => p.id === id);
   if (idx === -1) return res.status(404).json({ error: "Pallet not found" });
