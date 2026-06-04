@@ -3,7 +3,6 @@ import { useInventoryContext } from "../context/InventoryContext";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
-import { InventoryBatchesTab } from "@/components/InventoryBatchesTab";
 
 interface InventoryProduct {
   id: string;
@@ -30,7 +29,6 @@ interface PalletDisplay {
 
 export function Inventory() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"products" | "batches">("products");
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const { batches, setBatches, selectedBatchId, setSelectedBatchId, selectedPalletId, setSelectedPalletId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
   const [currentPage, setCurrentPage] = useState(1);
@@ -246,97 +244,8 @@ export function Inventory() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-border">
-        <button
-          onClick={() => setActiveTab("products")}
-          className={`px-4 py-3 font-semibold text-sm transition-colors border-b-2 ${
-            activeTab === "products"
-              ? "border-accent-2 text-accent-2"
-              : "border-transparent text-muted hover:text-navy"
-          }`}
-        >
-          Products
-        </button>
-        <button
-          onClick={() => setActiveTab("batches")}
-          className={`px-4 py-3 font-semibold text-sm transition-colors border-b-2 ${
-            activeTab === "batches"
-              ? "border-accent-2 text-accent-2"
-              : "border-transparent text-muted hover:text-navy"
-          }`}
-        >
-          Inventory Batches
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === "products" && (
-        <div className="space-y-6">
-
-      {/* Batch Selector */}
-      <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-navy">Current Batch</label>
-            <button onClick={() => setIsBatchModalOpen(true)} className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
-              📦 {currentBatch?.name || "Select Batch"}
-            </button>
-          </div>
-          <button onClick={() => { setNewBatchName(""); setStartBatchCreation(true); setIsBatchModalOpen(true); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
-            ➕ Create New Batch
-          </button>
-        </div>
-
-        {/* Pallet Selector */}
-        {currentBatch && currentBatch.id !== "batch-all" && currentBatch.pallets.length > 0 && (
-          <div className="border-t border-border pt-4">
-            <label className="text-xs font-semibold text-navy mb-3 block">Pallets in Batch</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <button
-                onClick={() => setSelectedPalletId(null)}
-                className={`px-4 py-3 rounded-lg font-semibold text-sm transition-colors border-2 text-left ${
-                  !selectedPalletId
-                    ? "bg-accent-2 border-accent-2 text-white"
-                    : "border-border text-navy hover:border-accent-2/50 hover:bg-off-white/50"
-                }`}
-              >
-                <div className="text-lg">📦</div>
-                <div className="font-semibold">All Pallets</div>
-                <div className="text-xs opacity-75">{currentBatch.pallets.length} pallets</div>
-              </button>
-              {currentBatch.pallets.map((pallet) => {
-                const itemCount = pallet.items.length;
-                const totalQty = pallet.items.reduce((sum, item) => sum + item.quantity, 0);
-                return (
-                  <button
-                    key={pallet.id}
-                    onClick={() => setSelectedPalletId(pallet.id)}
-                    className={`px-4 py-3 rounded-lg font-semibold text-sm transition-colors border-2 text-left ${
-                      selectedPalletId === pallet.id
-                        ? "bg-accent-2 border-accent-2 text-white"
-                        : "border-border text-navy hover:border-accent-2/50 hover:bg-off-white/50"
-                    }`}
-                  >
-                    <div className="text-lg">🔲</div>
-                    <div className="font-semibold truncate">{pallet.palletId}</div>
-                    <div className="text-xs opacity-75">{itemCount} items · {totalQty} qty</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Display Status */}
-      {selectedBatchId !== "batch-all" && selectedPalletId && (
-        <div className="bg-accent-2/10 border border-accent-2 rounded-lg p-3">
-          <p className="text-sm text-navy font-semibold">
-            📍 Viewing <span className="text-accent-2">{currentBatch?.name}</span> → Pallet <span className="text-accent-2">{currentBatch?.pallets.find(p => p.id === selectedPalletId)?.palletId}</span>
-          </p>
-        </div>
-      )}
+      {/* Products Section */}
+      <div className="space-y-6">
 
       {/* Search + Delete Toggle */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch">
@@ -505,13 +414,7 @@ export function Inventory() {
           onRefresh={async () => { await fetchProductsFromApi(); await refreshBatchesFromDB(); }}
         />
       )}
-        </div>
-      )}
-
-      {/* Inventory Batches Tab */}
-      {activeTab === "batches" && (
-        <InventoryBatchesTab />
-      )}
+      </div>
     </div>
   );
 }
