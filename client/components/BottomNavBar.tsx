@@ -30,9 +30,28 @@ const globalNavItems = [
   { path: "/employees", label: "Employees",   icon: Users2 },
 ];
 
-const hubModules = [
-  { path: "/information-management",  label: "Information Management", icon: Package },
-  { path: "/booking-dispatch",        label: "Booking Dispatch",       icon: ClipboardList },
+// Map of hub paths to their sub-modules
+const hubModulesByPath: Record<string, Array<{ path: string; label: string; icon: React.ElementType }>> = {
+  "/information-management": [
+    { path: "/products", label: "Products", icon: Package },
+    { path: "/inventory", label: "Inventory", icon: Package },
+    { path: "/customers", label: "Customers", icon: Users },
+    { path: "/agents", label: "Agents", icon: Users2 },
+    { path: "/drivers", label: "Drivers", icon: Truck },
+  ],
+  "/booking-dispatch": [
+    { path: "/order-summary", label: "Order Summary", icon: ClipboardList },
+    { path: "/inventory", label: "Inventory", icon: Package },
+    { path: "/invoicing", label: "Invoicing", icon: FileText },
+    { path: "/delivery", label: "Delivery", icon: Truck },
+    { path: "/accounts", label: "Accounts", icon: Wallet },
+    { path: "/delivery-history", label: "History", icon: History },
+  ],
+};
+
+const hubMainModules = [
+  { path: "/information-management", label: "Information Management", icon: Package },
+  { path: "/booking-dispatch", label: "Booking Dispatch", icon: ClipboardList },
 ];
 
 export function BottomNavBar({ onLogout }: BottomNavBarProps) {
@@ -46,30 +65,37 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
     return null;
   }
 
-  // Show hub modules bottom bar if admin is inside a hub page (not dashboard/audit)
-  const isInHub = isAdmin && (
-    currentPath.startsWith("/information-management") ||
-    currentPath.startsWith("/booking-dispatch")
-  );
+  // Determine which hub the user is in and get the appropriate modules
+  let currentHub: string | null = null;
+  let modulesToShow: Array<{ path: string; label: string; icon: React.ElementType }> = [];
 
-  if (isInHub) {
+  if (isAdmin && currentPath.startsWith("/information-management")) {
+    currentHub = "/information-management";
+    modulesToShow = hubModulesByPath["/information-management"] || [];
+  } else if (isAdmin && currentPath.startsWith("/booking-dispatch")) {
+    currentHub = "/booking-dispatch";
+    modulesToShow = hubModulesByPath["/booking-dispatch"] || [];
+  }
+
+  if (currentHub && modulesToShow.length > 0) {
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-navy border-t border-white/10 z-30 md:hidden">
-        <div className="flex justify-center items-center gap-2 px-2 py-1">
-          {hubModules.map(({ path, label, icon: Icon }) => {
-            const isActive = currentPath.startsWith(path);
+        <div className="flex overflow-x-auto overflow-y-hidden gap-1 px-2 py-1 justify-center scrollbar-visible" style={{ WebkitOverflowScrolling: "touch" }}>
+          {modulesToShow.map(({ path, label, icon: Icon }) => {
+            const fullPath = currentHub + path;
+            const isActive = currentPath === fullPath || currentPath.startsWith(fullPath + "/");
             return (
               <Link
-                key={path}
-                to={path}
-                className={`flex flex-col items-center justify-center px-4 py-2 rounded-full text-[10px] font-semibold transition-all gap-0.5 ${
+                key={fullPath}
+                to={fullPath}
+                className={`flex-shrink-0 flex flex-col items-center justify-center px-3 py-2 rounded-full text-[10px] font-semibold transition-all min-w-max gap-0.5 ${
                   isActive
                     ? "bg-accent-2 text-white"
                     : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
                 <Icon size={16} />
-                <span>{label}</span>
+                <span className="truncate">{label}</span>
               </Link>
             );
           })}
