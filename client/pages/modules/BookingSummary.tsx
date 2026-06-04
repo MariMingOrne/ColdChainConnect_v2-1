@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, Calendar } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -19,6 +19,10 @@ export function BookingSummary() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("all");
+  const [approvalFilter, setApprovalFilter] = useState<"all" | "approved" | "unapproved">("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "week" | "month" | "custom">("all");
+  const [customDateStart, setCustomDateStart] = useState<string>("");
+  const [customDateEnd, setCustomDateEnd] = useState<string>("");
 
   // Approve booking modal
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -74,6 +78,48 @@ export function BookingSummary() {
       ready: "bg-green-100 text-green-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
+  };
+
+  const isDateInRange = (dateStr: string): boolean => {
+    if (dateRangeFilter === "all") return true;
+
+    const bookingDate = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const bookingDateOnly = new Date(
+      bookingDate.getFullYear(),
+      bookingDate.getMonth(),
+      bookingDate.getDate()
+    );
+
+    if (dateRangeFilter === "today") {
+      return bookingDateOnly.getTime() === today.getTime();
+    }
+
+    if (dateRangeFilter === "week") {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      return bookingDateOnly >= weekStart && bookingDateOnly <= weekEnd;
+    }
+
+    if (dateRangeFilter === "month") {
+      return (
+        bookingDate.getFullYear() === now.getFullYear() &&
+        bookingDate.getMonth() === now.getMonth()
+      );
+    }
+
+    if (dateRangeFilter === "custom") {
+      if (!customDateStart || !customDateEnd) return true;
+      const start = new Date(customDateStart);
+      const end = new Date(customDateEnd);
+      end.setHours(23, 59, 59, 999);
+      return bookingDate >= start && bookingDate <= end;
+    }
+
+    return true;
   };
 
   // ── Add Order ──────────────────────────────────────────────
@@ -164,6 +210,17 @@ export function BookingSummary() {
       b.customer_id.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
+
+    // Check approval status
+    if (approvalFilter !== "all") {
+      const isApproved = b.status === "approved";
+      if (approvalFilter === "approved" && !isApproved) return false;
+      if (approvalFilter === "unapproved" && isApproved) return false;
+    }
+
+    // Check date range filter
+    if (!isDateInRange(b.created_at)) return false;
+
     return true;
   });
 
@@ -203,19 +260,77 @@ export function BookingSummary() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         placeholder="Search by order ID or customer ID…"
-        filters={[{
-          name: "statusFilter",
-          value: statusFilter,
-          onChange: (value) => setStatusFilter(value as any),
-          options: [
-            { label: "All Status", value: "all" },
-            { label: "Pending", value: "pending" },
-            { label: "Approved", value: "approved" },
-            { label: "Prep", value: "prep" },
-            { label: "Ready", value: "ready" },
-          ],
-        }]}
+        filters={[
+          {
+            name: "statusFilter",
+            value: statusFilter,
+            onChange: (value) => setStatusFilter(value as any),
+            options: [
+              { label: "All Status", value: "all" },
+              { label: "Pending", value: "pending" },
+              { label: "Approved", value: "approved" },
+              { label: "Prep", value: "prep" },
+              { label: "Ready", value: "ready" },
+            ],
+          },
+          {
+            name: "approvalFilter",
+            value: approvalFilter,
+            onChange: (value) => setApprovalFilter(value as any),
+            options: [
+              { label: "All Orders", value: "all" },
+              { label: "Approved", value: "approved" },
+              { label: "Unapproved", value: "unapproved" },
+            ],
+          },
+          {
+            name: "dateRangeFilter",
+            value: dateRangeFilter,
+            onChange: (value) => setDateRangeFilter(value as any),
+            options: [
+              { label: "All Dates", value: "all" },
+              { label: "This Day", value: "today" },
+              { label: "This Week", value: "week" },
+              { label: "This Month", value: "month" },
+              { label: "Custom", value: "custom" },
+            ],
+          },
+        ]}
       />
+
+      {/* Custom Date Picker */}
+      {dateRangeFilter === "custom" && (
+        <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <div className="flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
+              <Calendar size={16} className="text-muted" />
+              <input
+                type="date"
+                value={customDateStart}
+                onChange={(e) => setCustomDateStart(e.target.value)}
+                className="flex-1 bg-transparent border-none text-white py-2 outline-none text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              End Date
+            </label>
+            <div className="flex items-center bg-navy-mid border border-border rounded-lg px-3 gap-2">
+              <Calendar size={16} className="text-muted" />
+              <input
+                type="date"
+                value={customDateEnd}
+                onChange={(e) => setCustomDateEnd(e.target.value)}
+                className="flex-1 bg-transparent border-none text-white py-2 outline-none text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <Card className="overflow-hidden">
@@ -225,6 +340,7 @@ export function BookingSummary() {
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Assigned Truck</TableHead>
+              <TableHead>Approval</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -233,7 +349,7 @@ export function BookingSummary() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                   {bookings.length === 0 ? "No orders found" : "No orders match your search"}
                 </TableCell>
               </TableRow>
@@ -241,6 +357,7 @@ export function BookingSummary() {
               filtered.map((booking) => {
                 const customer = booking.customer;
                 const assignedTruck = trucks.find((t) => t.id === (booking as any).driver_id);
+                const isApproved = booking.status === "approved";
                 return (
                   <TableRow key={booking.id}>
                     <TableCell className="font-mono text-sm">
@@ -272,6 +389,15 @@ export function BookingSummary() {
                       ) : (
                         <span className="text-muted italic">Not assigned</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        isApproved
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}>
+                        {isApproved ? "Approved" : "Pending"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded text-sm ${getStatusColor(booking.status)}`}>
