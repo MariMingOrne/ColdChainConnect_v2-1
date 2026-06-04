@@ -6,11 +6,13 @@ import { DeliveryDispatch } from "./modules/Delivery";
 import { AccountsReceivable } from "./modules/AccountsReceivable";
 import { DeliveryHistory } from "./modules/DeliveryHistory";
 import { BookingInventory } from "./modules/BookingInventory";
+import { Preparation } from "./modules/Preparation";
 import { InventoryProvider } from "../context/InventoryContext";
 import { useAuth } from "../hooks/useAuth";
 
 const adminModules = [
   { label: "Order Summary",       path: "/order-summary" },
+  { label: "Preparation",         path: "/preparation" },
   { label: "Inventory",           path: "/inventory" },
   { label: "Invoicing",           path: "/invoicing" },
   { label: "Delivery",            path: "/delivery" },
@@ -20,7 +22,7 @@ const adminModules = [
 
 const agentModules = [
   { label: "Order Summary", path: "/order-summary" },
-  { label: "Inventory",     path: "/inventory" },
+  { label: "Preparation",   path: "/preparation" },
   { label: "Delivery",      path: "/delivery" },
 ];
 
@@ -39,6 +41,7 @@ export function BookingDispatch() {
         <div className={`flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}>
           <Routes>
             <Route path="/order-summary"    element={<BookingSummary />} />
+            <Route path="/preparation"      element={<Preparation />} />
             <Route path="/inventory"        element={<BookingInventory />} />
             <Route path="/invoicing"        element={<Invoicing />} />
             <Route path="/delivery"         element={<DeliveryDispatch />} />

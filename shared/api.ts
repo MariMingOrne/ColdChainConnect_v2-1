@@ -113,6 +113,82 @@ export const CreateBatchSchema = z.object({
 
 export const UpdateBatchSchema = CreateBatchSchema.partial();
 
+// Inventory Batch types (restock batches, separate from physical Batch/pallet)
+export interface InventoryBatch {
+  id: string;
+  name: string;
+  status: "open" | "closed";
+  created_at: string;
+  closed_at?: string;
+  updated_at: string;
+  items?: InventoryBatchItem[];
+}
+
+export interface InventoryBatchItem {
+  id: string;
+  batch_id: string;
+  product_id: string;
+  qty_units: number;
+  unit_cost: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const CreateInventoryBatchSchema = z.object({
+  name: z.string().min(1, "Batch name is required"),
+  items: z.array(z.object({
+    product_id: z.string().min(1, "Product ID is required"),
+    qty_units: z.number().int().positive("Quantity must be positive"),
+  })).min(1, "At least one item is required"),
+});
+
+export const UpdateInventoryBatchSchema = z.object({
+  status: z.enum(["open", "closed"]).optional(),
+  name: z.string().optional(),
+});
+
+// Pallet types (for order preparation)
+export interface Pallet {
+  id: string;
+  order_id: string;
+  truck_id?: string;
+  status: "draft" | "approved" | "shipped";
+  created_at: string;
+  updated_at: string;
+  items?: PalletItem[];
+  batch_links?: PalletBatchLink[];
+}
+
+export interface PalletItem {
+  id: string;
+  pallet_id: string;
+  product_id: string;
+  qty_units: number;
+  unit_cost: string;
+  batch_item_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PalletBatchLink {
+  pallet_id: string;
+  batch_id: string;
+  items_from_batch: number;
+}
+
+export const CreatePalletSchema = z.object({
+  order_id: z.string().min(1, "Order ID is required"),
+  items: z.array(z.object({
+    product_id: z.string().min(1, "Product ID is required"),
+    qty_units: z.number().int().positive("Quantity must be positive"),
+    batch_item_id: z.string().min(1, "Batch item ID is required"),
+  })).min(1, "At least one item is required"),
+});
+
+export const UpdatePalletStatusSchema = z.object({
+  status: z.enum(["draft", "approved", "shipped"]),
+});
+
 // Agent types — account-linked staff with login credentials
 export interface Agent {
   id: string;

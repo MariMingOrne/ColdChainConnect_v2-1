@@ -73,6 +73,25 @@ import {
   getCustomerBalance,
   updateARStatus,
 } from "./routes/accounts-receivable";
+import {
+  listInventoryBatches,
+  getInventoryBatch,
+  createInventoryBatch,
+  updateInventoryBatch,
+  deleteInventoryBatch,
+  addInventoryBatchItem,
+  removeInventoryBatchItem,
+} from "./routes/inventory-batches";
+import {
+  listPallets,
+  getPallet,
+  createPallet,
+  updatePalletStatus,
+  approvePallet,
+  deletePallet,
+  getProductInventory,
+  suggestBatches,
+} from "./routes/pallets";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
 export function createServer() {
@@ -174,6 +193,25 @@ export function createServer() {
   app.get("/api/accounts-receivable", authMiddleware, listAccountsReceivable);
   app.get("/api/accounts-receivable/customer/:customerId", authMiddleware, getCustomerBalance);
   app.patch("/api/accounts-receivable/:id/status", authMiddleware, requireRole("admin"), updateARStatus);
+
+  // Inventory Batch routes
+  app.get("/api/inventory-batches", authMiddleware, listInventoryBatches);
+  app.get("/api/inventory-batches/:id", authMiddleware, getInventoryBatch);
+  app.post("/api/inventory-batches", authMiddleware, requireRole("admin"), createInventoryBatch);
+  app.patch("/api/inventory-batches/:id", authMiddleware, requireRole("admin"), updateInventoryBatch);
+  app.delete("/api/inventory-batches/:id", authMiddleware, requireRole("admin"), deleteInventoryBatch);
+  app.post("/api/inventory-batches/:id/items", authMiddleware, requireRole("admin"), addInventoryBatchItem);
+  app.delete("/api/inventory-batches/:id/items/:itemId", authMiddleware, requireRole("admin"), removeInventoryBatchItem);
+
+  // Pallet routes
+  app.get("/api/pallets", authMiddleware, listPallets);
+  app.get("/api/pallets/:id", authMiddleware, getPallet);
+  app.post("/api/pallets", authMiddleware, createPallet);
+  app.patch("/api/pallets/:id/status", authMiddleware, updatePalletStatus);
+  app.patch("/api/pallets/:id/approve", authMiddleware, approvePallet);
+  app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePallet);
+  app.get("/api/products/inventory", authMiddleware, getProductInventory);
+  app.get("/api/orders/:orderId/suggested-batches", authMiddleware, suggestBatches);
 
   return app;
 }
