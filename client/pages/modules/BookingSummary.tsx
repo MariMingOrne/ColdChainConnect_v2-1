@@ -454,7 +454,7 @@ export function BookingSummary() {
                       ) : booking.status === "approved" ? (
                         <button
                           onClick={() => handleUnapproveBooking(booking)}
-                          className="px-4 py-2 text-sm font-semibold bg-yellow-500 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2 ml-auto"
+                          className="px-4 py-2 text-sm font-semibold bg-amber-400 text-navy rounded-lg hover:bg-amber-500 transition flex items-center gap-2 ml-auto"
                         >
                           <XCircle size={16} />
                           Unapprove
