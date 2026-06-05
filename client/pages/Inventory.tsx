@@ -670,7 +670,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
   const addItem = (productId: string) => {
     if (!productId) return;
     const p = products.find((x) => x.id === productId);
-    setItems([...items, { product_id: productId, qty_units: p?.quantity ?? 0, expiration_date_note: "" }]);
+    setItems([...items, { productId, quantity: p?.quantity ?? 1, expirationNote: "" }]);
   };
 
   const removeItem = (itemIdx: number) => {
@@ -690,7 +690,12 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     }
     const token = localStorage.getItem("auth_token") || "";
     try {
-      const pallet = { pallet_id: "UNPALLETTED", items };
+      const formattedItems = items.map((item) => ({
+        product_id: item.productId,
+        quantity: item.quantity,
+        expiration_date_note: item.expirationNote || "",
+      }));
+      const pallet = { pallet_id: "UNPALLETTED", items: formattedItems };
       const res = await fetch("/api/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -740,15 +745,15 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
               <div key={itemIdx} className="bg-white border border-border rounded p-2 space-y-2">
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
-                    <div className="text-xs text-muted">{getSku(item.product_id)}</div>
+                    <div className="text-xs font-semibold text-navy">{getName(item.productId)}</div>
+                    <div className="text-xs text-muted">{getSku(item.productId)}</div>
                   </div>
-                  <input type="number" min="1" value={item.qty_units} onChange={(e) => updateItem(itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                  <input type="number" min="1" value={item.quantity} onChange={(e) => updateItem(itemIdx, "quantity", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
                   <button onClick={() => removeItem(itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-navy mb-1">Expiry Date</label>
-                  <input type="date" value={item.expiration_date_note || ""} onChange={(e) => updateItem(itemIdx, "expiration_date_note", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                  <input type="date" value={item.expirationNote || ""} onChange={(e) => updateItem(itemIdx, "expirationNote", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
                 </div>
               </div>
             ))}
