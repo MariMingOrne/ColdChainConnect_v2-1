@@ -17,6 +17,7 @@ export const userRoleEnum = pgEnum("user_role", ["admin", "agent"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending",
   "approved",
+  "rejected",
   "prep",
   "ready",
 ]);

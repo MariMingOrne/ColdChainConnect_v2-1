@@ -268,7 +268,7 @@ export interface Booking {
   id: string;
   customer_id: string;
   created_by: string;
-  status: "pending" | "approved" | "prep" | "ready";
+  status: "pending" | "approved" | "rejected" | "prep" | "ready";
   created_at: string;
   customer?: Customer;
   creator?: User;
@@ -295,7 +295,7 @@ export const CreateBookingSchema = z.object({
 });
 
 export const UpdateBookingStatusSchema = z.object({
-  status: z.enum(["pending", "approved", "prep", "ready"]),
+  status: z.enum(["pending", "approved", "rejected", "prep", "ready"]),
 });
 
 // Invoice types
