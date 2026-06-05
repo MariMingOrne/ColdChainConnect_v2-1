@@ -290,7 +290,6 @@ export const CreateBookingItemSchema = z.object({
 
 export const CreateBookingSchema = z.object({
   customer_id: z.string().min(1, "Customer ID is required"),
-  driver_id: z.string().optional(),
   items: z.array(CreateBookingItemSchema).min(1, "At least one item is required"),
 });
 

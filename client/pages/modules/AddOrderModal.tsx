@@ -16,7 +16,7 @@ interface AddOrderModalProps {
   orderItems: OrderItem[];
   newCustomerId: string;
   onCustomerChange: (customerId: string) => void;
-  onAddItem: () => void;
+  onAddItem: (productId: string) => void;
   onRemoveItem: (idx: number) => void;
   onItemChange: (idx: number, field: "product_id" | "qty_ordered", value: string | number) => void;
   onCreateOrder: () => void;
@@ -139,11 +139,7 @@ export function AddOrderModal({
                         const itemIdx = orderItems.findIndex((item) => item.product_id === product.id);
                         if (itemIdx !== -1) onRemoveItem(itemIdx);
                       } else if (!isOutOfStock) {
-                        onAddItem();
-                        const newIdx = orderItems.length;
-                        setTimeout(() => {
-                          onItemChange(newIdx, "product_id", product.id);
-                        }, 0);
+                        onAddItem(product.id);
                       }
                     }}
                     disabled={isOutOfStock}

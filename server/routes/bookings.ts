@@ -98,7 +98,7 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
 
     const newBooking = await db.query.bookings.findFirst({
       where: eq(bookings.id, bookingId),
-      with: { booking_items: true, customer: true, truck: true },
+      with: { booking_items: true, customer: true, creator: true },
     });
 
     if (req.user) {
