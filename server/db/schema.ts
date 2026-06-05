@@ -291,6 +291,7 @@ export const audit_logs = pgTable("audit_logs", {
 export const usersRelations = relations(users, ({ many }) => ({
   customers: many(customers),
   agents: many(agents),
+  created_bookings: many(bookings),
   invoices: many(invoices),
   audit_logs: many(audit_logs),
 }));
@@ -327,7 +328,6 @@ export const agentsRelations = relations(agents, ({ one }) => ({
 
 export const driversRelations = relations(drivers, ({ many }) => ({
   trucks: many(trucks),
-  bookings: many(bookings),
 }));
 
 export const trucksRelations = relations(trucks, ({ one, many }) => ({

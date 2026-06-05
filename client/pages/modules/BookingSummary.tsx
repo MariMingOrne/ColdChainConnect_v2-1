@@ -654,10 +654,6 @@ export function BookingSummary() {
                     <label className="font-semibold text-muted mb-1 block">Created</label>
                     <p className="text-navy">{new Date(detailBooking.created_at).toLocaleString()}</p>
                   </div>
-                  <div>
-                    <label className="font-semibold text-muted mb-1 block">Last Updated</label>
-                    <p className="text-navy">{new Date(detailBooking.updated_at).toLocaleString()}</p>
-                  </div>
                 </div>
               </div>
             </div>
