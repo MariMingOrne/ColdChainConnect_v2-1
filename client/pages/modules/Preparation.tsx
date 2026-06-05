@@ -632,6 +632,34 @@ function CreatePalletModal({
     return totals;
   };
 
+  const getProductQuantityStatus = (productId: string) => {
+    const orderItem = order.booking_items?.find((item) => item.product_id === productId);
+    const totalSelections = getTotalQuantityByProduct();
+    const selected = totalSelections[productId]?.qty || 0;
+
+    // Item exists in order
+    if (orderItem) {
+      const needed = orderItem.qty_ordered;
+      const isOver = selected > needed;
+      const difference = Math.abs(selected - needed);
+      return { needed, selected, isOver, difference, isNotNeeded: false };
+    }
+
+    // Item does NOT exist in order but is in pallets
+    return { needed: 0, selected, isOver: false, difference: 0, isNotNeeded: selected > 0 };
+  };
+
+  const getUnneededItems = () => {
+    const totalSelections = getTotalQuantityByProduct();
+    const neededProductIds = new Set(
+      (order.booking_items || []).map((item) => item.product_id)
+    );
+
+    return Object.entries(totalSelections)
+      .filter(([productId]) => !neededProductIds.has(productId))
+      .map(([productId, { name, qty }]) => ({ productId, name, qty }));
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -842,15 +870,50 @@ function CreatePalletModal({
               </button>
 
               {/* Total Quantities Summary */}
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                <p className="text-xs font-semibold text-blue-800 mb-2">Total Quantities Across All Pallets:</p>
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-2">
+                <p className="text-xs font-semibold text-blue-800">Total Quantities Across All Pallets:</p>
                 {Object.entries(getTotalQuantityByProduct()).length > 0 ? (
-                  <div className="space-y-1">
-                    {Object.entries(getTotalQuantityByProduct()).map(([productId, { name, qty }]) => (
-                      <p key={productId} className="text-xs text-blue-700">
-                        • {name}: <span className="font-semibold">{qty} units</span>
-                      </p>
-                    ))}
+                  <div className="space-y-2">
+                    {/* Needed items from order */}
+                    {(order.booking_items || []).map((orderItem) => {
+                      const status = getProductQuantityStatus(orderItem.product_id);
+                      return (
+                        <div key={orderItem.id} className="flex items-center justify-between">
+                          <p className="text-xs text-blue-700">
+                            {orderItem.product?.name || orderItem.product_id}:{" "}
+                            <span className="font-semibold">{status.selected} units</span>
+                            <span className="text-gray-500"> (need {status.needed})</span>
+                          </p>
+                          {status.isOver && (
+                            <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                              +{status.difference} over
+                            </span>
+                          )}
+                          {!status.isOver && status.selected > 0 && status.selected === status.needed && (
+                            <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded">
+                              ✓ Complete
+                            </span>
+                          )}
+                          {!status.isOver && status.selected > 0 && status.selected < status.needed && (
+                            <span className="text-xs font-semibold text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">
+                              -{status.difference} needed
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Items not needed in order */}
+                    {getUnneededItems().length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-200">
+                        <p className="text-xs font-semibold text-red-700 mb-1">⚠ Items Not Needed:</p>
+                        {getUnneededItems().map((item) => (
+                          <p key={item.productId} className="text-xs text-red-600">
+                            • {item.name}: <span className="font-semibold">{item.qty} units</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-blue-600">No items selected yet</p>
