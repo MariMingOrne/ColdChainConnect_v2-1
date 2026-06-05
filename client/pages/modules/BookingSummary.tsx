@@ -32,6 +32,11 @@ export function BookingSummary() {
   const [isApproving, setIsApproving] = useState(false);
   const [approveSuccess, setApproveSuccess] = useState<string | null>(null);
 
+  // Reject booking modal
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
   // Order detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
@@ -76,6 +81,7 @@ export function BookingSummary() {
     const colors: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800",
       approved: "bg-blue-100 text-blue-800",
+      rejected: "bg-red-100 text-red-800",
       prep: "bg-purple-100 text-purple-800",
       ready: "bg-green-100 text-green-800",
     };
@@ -248,6 +254,42 @@ export function BookingSummary() {
       alert("Order moved back to pending status.");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to unapprove booking");
+    }
+  };
+
+  const openRejectModal = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+
+  const closeRejectModal = () => {
+    setShowRejectModal(false);
+    setSelectedBooking(null);
+    setRejectReason("");
+  };
+
+  const handleRejectBooking = async () => {
+    if (!selectedBooking) return alert("No booking selected");
+    setIsRejecting(true);
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "rejected" }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to reject booking");
+      }
+      const updated = await res.json();
+      setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
+      closeRejectModal();
+      alert("Order rejected successfully.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to reject booking");
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -455,13 +497,22 @@ export function BookingSummary() {
                     </TableCell>
                     <TableCell className="text-right">
                       {booking.status === "pending" ? (
-                        <button
-                          onClick={() => openApproveModal(booking)}
-                          className="px-4 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2 ml-auto"
-                        >
-                          <CheckCircle size={16} />
-                          Approve
-                        </button>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => openApproveModal(booking)}
+                            className="px-3 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2"
+                          >
+                            <CheckCircle size={16} />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => openRejectModal(booking)}
+                            className="px-3 py-2 text-sm font-semibold bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center gap-2"
+                          >
+                            <XCircle size={16} />
+                            Reject
+                          </button>
+                        </div>
                       ) : booking.status === "approved" ? (
                         <button
                           onClick={() => handleUnapproveBooking(booking)}
@@ -678,6 +729,57 @@ export function BookingSummary() {
                 className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reject Booking Modal ── */}
+      {showRejectModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
+            <div className="bg-red-600 px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+              <h2 className="font-rajdhani text-lg font-bold text-white">Reject Order</h2>
+              <button onClick={closeRejectModal} className="text-white hover:opacity-70 text-2xl">×</button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1">Order ID</label>
+                <div className="px-3 py-2 bg-off-white rounded-lg text-sm font-mono text-navy">
+                  {selectedBooking.id.slice(0, 8)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1">Customer</label>
+                <div className="px-3 py-2 bg-off-white rounded-lg text-sm text-navy">
+                  <span className="font-semibold">{selectedBooking.customer?.store_name || "Unknown"}</span>
+                  {selectedBooking.customer?.contact_info && (
+                    <span className="text-xs text-muted block">{selectedBooking.customer.contact_info}</span>
+                  )}
+                </div>
+              </div>
+              <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                <p className="text-xs text-red-800">
+                  This order will be marked as rejected and cannot be processed further. This action cannot be undone easily.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
+              <button
+                onClick={closeRejectModal}
+                className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectBooking}
+                disabled={isRejecting}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold text-sm hover:bg-red-600 disabled:opacity-50"
+              >
+                {isRejecting ? "Rejecting…" : "Reject Order"}
               </button>
             </div>
           </div>
