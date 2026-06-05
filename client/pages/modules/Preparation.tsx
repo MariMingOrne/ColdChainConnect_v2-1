@@ -367,22 +367,88 @@ function CreatePalletModal({
   onCreated,
   token,
 }: CreatePalletModalProps) {
-  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
+  const [suggestedItems, setSuggestedItems] = useState<Array<{
+    product_id: string;
+    qty_units: number;
+    batch_item_id: string;
+    batch_name: string;
+    expiry_note?: string;
+  }>>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  const selectedBatch = batches.find((b) => b.id === selectedBatchId);
+  const PALLET_CAPACITY = 50;
+
+  useEffect(() => {
+    // Auto-find matching items from inventory sorted by expiry date
+    const orderItems = order.booking_items || [];
+    const suggested: Array<{
+      product_id: string;
+      qty_units: number;
+      batch_item_id: string;
+      batch_name: string;
+      expiry_note?: string;
+    }> = [];
+    let totalItems = 0;
+
+    for (const orderItem of orderItems) {
+      const neededQty = orderItem.qty_ordered;
+      let remainingQty = neededQty;
+
+      // Collect all matching inventory items and sort by expiry (nearest first)
+      const matchingItems = batches
+        .flatMap((batch) =>
+          (batch.items || [])
+            .filter((item) => item.product_id === orderItem.product_id)
+            .map((item) => ({
+              batchId: batch.id,
+              batchName: batch.name,
+              item,
+              expiryNote: batch.items?.find(i => i.id === item.id)?.created_at || "",
+            }))
+        )
+        .sort((a, b) => {
+          // Sort by expiry date (closer dates first - FIFO)
+          const dateA = new Date(a.expiryNote).getTime();
+          const dateB = new Date(b.expiryNote).getTime();
+          return dateA - dateB;
+        });
+
+      // Fill pallet with matching items up to capacity and order requirements
+      for (const { batchId, batchName, item } of matchingItems) {
+        if (remainingQty <= 0 || totalItems >= PALLET_CAPACITY) break;
+
+        const qtyToTake = Math.min(remainingQty, item.qty_units, PALLET_CAPACITY - totalItems);
+
+        suggested.push({
+          product_id: item.product_id,
+          qty_units: qtyToTake,
+          batch_item_id: item.id,
+          batch_name: batchName,
+          expiry_note: item.created_at,
+        });
+
+        remainingQty -= qtyToTake;
+        totalItems += qtyToTake;
+      }
+
+      if (remainingQty > 0) {
+        setError(`Insufficient inventory for product ${orderItem.product_id}: need ${remainingQty} more units`);
+      }
+    }
+
+    setSuggestedItems(suggested);
+  }, [order, batches]);
 
   const handleCreatePallet = async () => {
-    if (!selectedBatchId) return alert("Please select a batch");
+    if (suggestedItems.length === 0) {
+      setError("No matching inventory items found for this order");
+      return;
+    }
 
     setIsCreating(true);
+    setError(null);
     try {
-      const items = selectedBatch?.items?.map((item) => ({
-        product_id: item.product_id,
-        qty_units: item.qty_units,
-        batch_item_id: item.id,
-      })) || [];
-
       const response = await fetch("/api/pallets", {
         method: "POST",
         headers: {
@@ -391,7 +457,11 @@ function CreatePalletModal({
         },
         body: JSON.stringify({
           order_id: order.id,
-          items,
+          items: suggestedItems.map((item) => ({
+            product_id: item.product_id,
+            qty_units: item.qty_units,
+            batch_item_id: item.batch_item_id,
+          })),
         }),
       });
 
@@ -399,11 +469,13 @@ function CreatePalletModal({
 
       onCreated();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to create pallet");
+      setError(err instanceof Error ? err.message : "Failed to create pallet");
     } finally {
       setIsCreating(false);
     }
   };
+
+  const totalQty = suggestedItems.reduce((sum, item) => sum + item.qty_units, 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -423,36 +495,29 @@ function CreatePalletModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">
-              Select Batch *
-            </label>
-            <select
-              value={selectedBatchId}
-              onChange={(e) => setSelectedBatchId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-            >
-              <option value="">Choose a batch…</option>
-              {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.name} ({batch.items?.length || 0} items)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedBatch && (
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-              <p className="text-xs font-semibold text-blue-800 mb-2">Batch Contents:</p>
-              <div className="space-y-1">
-                {selectedBatch.items?.map((item) => (
-                  <p key={item.id} className="text-xs text-blue-700">
-                    • Product {item.product_id}: {item.qty_units} units @ ₱{item.unit_cost}
-                  </p>
-                ))}
-              </div>
+          {error && (
+            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+              <p className="text-xs text-orange-700">{error}</p>
             </div>
           )}
+
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <p className="text-xs font-semibold text-blue-800 mb-2">Suggested Pallet (Auto-matched by expiry):</p>
+            {suggestedItems.length > 0 ? (
+              <div className="space-y-1">
+                {suggestedItems.map((item, idx) => (
+                  <p key={idx} className="text-xs text-blue-700">
+                    • Product {item.product_id}: {item.qty_units} units (from {item.batch_name})
+                  </p>
+                ))}
+                <p className="text-xs font-semibold text-blue-800 mt-2 pt-2 border-t border-blue-200">
+                  Total: {totalQty}/{PALLET_CAPACITY} items
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-blue-600">Finding best matches from inventory…</p>
+            )}
+          </div>
         </div>
 
         <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
@@ -464,7 +529,7 @@ function CreatePalletModal({
           </button>
           <button
             onClick={handleCreatePallet}
-            disabled={isCreating || !selectedBatchId}
+            disabled={isCreating || suggestedItems.length === 0}
             className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
           >
             {isCreating ? "Creating…" : "Create Pallet"}
