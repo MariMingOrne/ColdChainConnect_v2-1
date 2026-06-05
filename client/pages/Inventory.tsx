@@ -657,6 +657,7 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
 function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, onCreateBatch, onCancel, products }: { newBatchName: string; setNewBatchName: (n: string) => void; pallets: any[]; setPallets: (p: any[]) => void; onCreateBatch: () => void; onCancel: () => void; products: InventoryProduct[] }) {
   const [dbProducts, setDbProducts] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [acquisitionDate, setAcquisitionDate] = useState("");
 
   useEffect(() => {
     fetch("/api/products", { headers: { Authorization: `Bearer ${localStorage.getItem("auth_token") || ""}` } })
@@ -717,8 +718,6 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     const product = products.find((prod) => prod.id === p.id);
     return !product?.isDiscontinued;
   });
-
-  const [acquisitionDate, setAcquisitionDate] = useState("");
 
   return (
     <div className="space-y-6">
