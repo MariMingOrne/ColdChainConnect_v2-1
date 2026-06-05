@@ -39,6 +39,7 @@ export function AddOrderModal({
   isCreating,
 }: AddOrderModalProps) {
   const [selectedTab, setSelectedTab] = useState<"products" | "cart">("products");
+  const [productSearch, setProductSearch] = useState("");
 
   const getImageUrl = (imageFilename?: string): string => {
     if (!imageFilename) return "/placeholder.svg";
@@ -54,6 +55,11 @@ export function AddOrderModal({
   const getTotalQuantity = (): number => {
     return orderItems.reduce((sum, item) => sum + item.qty_ordered, 0);
   };
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    (product.sku && product.sku.toLowerCase().includes(productSearch.toLowerCase()))
+  );
 
   if (!isOpen) return null;
 
@@ -112,8 +118,16 @@ export function AddOrderModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {selectedTab === "products" ? (
-            <div className="grid grid-cols-2 gap-4">
-              {products.map((product) => {
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Search by product name or SKU…"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                {filteredProducts.map((product) => {
                 const { stock, isOutOfStock } = getStockStatus(product.id);
                 const isSelected = orderItems.some((item) => item.product_id === product.id);
 
@@ -176,6 +190,12 @@ export function AddOrderModal({
                   </button>
                 );
               })}
+              </div>
+              {filteredProducts.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-muted text-sm">No products found matching "{productSearch}"</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
