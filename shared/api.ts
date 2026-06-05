@@ -267,12 +267,11 @@ export const UpdateTruckSchema = CreateTruckSchema.partial();
 export interface Booking {
   id: string;
   customer_id: string;
-  driver_id?: string;
+  created_by: string;
   status: "pending" | "approved" | "prep" | "ready";
   created_at: string;
-  updated_at: string;
   customer?: Customer;
-  driver?: Driver;
+  creator?: User;
   booking_items?: BookingItem[];
 }
 

@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Plus, Calendar } from "lucide-react";
+import { RefreshCw, Plus, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -39,9 +39,7 @@ export function BookingSummary() {
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCustomerId, setNewCustomerId] = useState("");
-  const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([
-    { product_id: "", qty_ordered: 1 },
-  ]);
+  const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   const fetchAll = async () => {
@@ -164,7 +162,7 @@ export function BookingSummary() {
       setBookings((prev) => [created, ...prev]);
       setShowAddModal(false);
       setNewCustomerId("");
-      setOrderItems([{ product_id: "", qty_ordered: 1 }]);
+      setOrderItems([]);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create order");
     } finally {
@@ -216,6 +214,26 @@ export function BookingSummary() {
       alert(err instanceof Error ? err.message : "Failed to approve booking");
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  const handleUnapproveBooking = async (booking: Booking) => {
+    if (!window.confirm("Are you sure you want to unapprove this order? It will return to pending status.")) return;
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "pending" }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to unapprove booking");
+      }
+      const updated = await res.json();
+      setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
+      alert("Order moved back to pending status.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to unapprove booking");
     }
   };
 
@@ -356,7 +374,7 @@ export function BookingSummary() {
             <TableRow>
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Assigned Truck</TableHead>
+              <TableHead>Agent</TableHead>
               <TableHead>Approval</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
@@ -373,7 +391,7 @@ export function BookingSummary() {
             ) : (
               filtered.map((booking) => {
                 const customer = booking.customer;
-                const assignedTruck = trucks.find((t) => t.id === (booking as any).driver_id);
+                const creator = (booking as any).creator;
                 const isApproved = booking.status === "approved";
                 return (
                   <TableRow key={booking.id}>
@@ -398,13 +416,10 @@ export function BookingSummary() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {assignedTruck ? (
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-navy">{assignedTruck.name}</span>
-                          <span className="text-xs text-muted">{assignedTruck.district}</span>
-                        </div>
+                      {creator ? (
+                        <span className="font-semibold text-navy">{creator.username}</span>
                       ) : (
-                        <span className="text-muted italic">Not assigned</span>
+                        <span className="text-muted italic">Unknown</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -428,12 +443,21 @@ export function BookingSummary() {
                       {booking.status === "pending" ? (
                         <button
                           onClick={() => openApproveModal(booking)}
-                          className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
+                          className="px-4 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2 ml-auto"
                         >
+                          <CheckCircle size={16} />
                           Approve
                         </button>
+                      ) : booking.status === "approved" ? (
+                        <button
+                          onClick={() => handleUnapproveBooking(booking)}
+                          className="px-4 py-2 text-sm font-semibold bg-amber-400 text-navy rounded-lg hover:bg-amber-500 transition flex items-center gap-2 ml-auto"
+                        >
+                          <XCircle size={16} />
+                          Unapprove
+                        </button>
                       ) : (
-                        <span className="text-xs text-muted">{booking.status}</span>
+                        <span className="px-3 py-2 text-xs font-semibold text-muted bg-gray-100 rounded-lg capitalize">{booking.status}</span>
                       )}
                     </TableCell>
                   </TableRow>
