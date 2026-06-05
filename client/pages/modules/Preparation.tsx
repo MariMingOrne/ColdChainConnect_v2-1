@@ -607,6 +607,31 @@ function CreatePalletModal({
     setManualPallets((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const duplicatePallet = (index: number) => {
+    setManualPallets((prev) => {
+      const palletToDuplicate = prev[index];
+      const newPallet: PalletDraft = {
+        items: palletToDuplicate.items.map((item) => ({ ...item })),
+        totalQty: palletToDuplicate.totalQty,
+      };
+      return [...prev, newPallet];
+    });
+  };
+
+  const getTotalQuantityByProduct = () => {
+    const totals: { [key: string]: { name: string; qty: number } } = {};
+    manualPallets.forEach((pallet) => {
+      pallet.items.forEach((item) => {
+        const key = item.product_id;
+        if (!totals[key]) {
+          totals[key] = { name: item.product_name || item.product_id, qty: 0 };
+        }
+        totals[key].qty += item.qty_units;
+      });
+    });
+    return totals;
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -704,14 +729,23 @@ function CreatePalletModal({
                 <div key={palletIdx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-navy">Pallet {palletIdx + 1}</p>
-                    {manualPallets.length > 1 && (
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => removePallet(palletIdx)}
-                        className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                        onClick={() => duplicatePallet(palletIdx)}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                        title="Duplicate this pallet"
                       >
-                        Remove
+                        Duplicate
                       </button>
-                    )}
+                      {manualPallets.length > 1 && (
+                        <button
+                          onClick={() => removePallet(palletIdx)}
+                          className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {order.booking_items && order.booking_items.length > 0 ? (
@@ -806,6 +840,22 @@ function CreatePalletModal({
               >
                 + Add Another Pallet
               </button>
+
+              {/* Total Quantities Summary */}
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <p className="text-xs font-semibold text-blue-800 mb-2">Total Quantities Across All Pallets:</p>
+                {Object.entries(getTotalQuantityByProduct()).length > 0 ? (
+                  <div className="space-y-1">
+                    {Object.entries(getTotalQuantityByProduct()).map(([productId, { name, qty }]) => (
+                      <p key={productId} className="text-xs text-blue-700">
+                        • {name}: <span className="font-semibold">{qty} units</span>
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-blue-600">No items selected yet</p>
+                )}
+              </div>
             </div>
           )}
         </div>
