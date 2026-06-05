@@ -88,11 +88,14 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
     });
 
     for (const item of items) {
+      if (!item.product_id || item.qty_ordered === undefined) {
+        throw new Error(`Invalid item: ${JSON.stringify(item)}`);
+      }
       await db.insert(booking_items).values({
         id: randomUUID(),
         booking_id: bookingId,
         product_id: item.product_id,
-        qty_ordered: item.qty_ordered,
+        qty_ordered: parseInt(String(item.qty_ordered)),
       });
     }
 
@@ -108,7 +111,7 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
     res.status(201).json(newBooking);
   } catch (error) {
     console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: error instanceof Error ? error.message : "Internal server error" });
   }
 };
 

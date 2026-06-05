@@ -168,7 +168,10 @@ export function BookingSummary() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ customer_id: newCustomerId, items: orderItems }),
       });
-      if (!res.ok) throw new Error("Failed to create order");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to create order");
+      }
       const created = await res.json();
       setBookings((prev) => [created, ...prev]);
       setShowAddModal(false);
