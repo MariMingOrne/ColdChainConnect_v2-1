@@ -125,7 +125,7 @@ export function BookingInventory() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-navy">Inventory</h1>
+          <h1 className="text-3xl font-bold text-navy">Pallets</h1>
           <p className="text-gray-600">Manage batches, pallets, and items</p>
         </div>
         <button
