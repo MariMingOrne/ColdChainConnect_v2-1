@@ -42,6 +42,7 @@ export interface Customer {
   id: string;
   store_name: string;
   location: string;
+  contact_person?: string;
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
@@ -53,6 +54,7 @@ export interface Customer {
 export const CreateCustomerSchema = z.object({
   store_name: z.string().min(1, "Store name is required"),
   location: z.string().min(1, "Location is required"),
+  contact_person: z.string().optional(),
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
@@ -110,6 +112,82 @@ export const CreateBatchSchema = z.object({
 });
 
 export const UpdateBatchSchema = CreateBatchSchema.partial();
+
+// Inventory Batch types (restock batches, separate from physical Batch/pallet)
+export interface InventoryBatch {
+  id: string;
+  name: string;
+  status: "open" | "closed";
+  created_at: string;
+  closed_at?: string;
+  updated_at: string;
+  items?: InventoryBatchItem[];
+}
+
+export interface InventoryBatchItem {
+  id: string;
+  batch_id: string;
+  product_id: string;
+  qty_units: number;
+  unit_cost: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const CreateInventoryBatchSchema = z.object({
+  name: z.string().min(1, "Batch name is required"),
+  items: z.array(z.object({
+    product_id: z.string().min(1, "Product ID is required"),
+    qty_units: z.number().int().positive("Quantity must be positive"),
+  })).min(1, "At least one item is required"),
+});
+
+export const UpdateInventoryBatchSchema = z.object({
+  status: z.enum(["open", "closed"]).optional(),
+  name: z.string().optional(),
+});
+
+// Pallet types (for order preparation)
+export interface Pallet {
+  id: string;
+  order_id: string;
+  truck_id?: string;
+  status: "draft" | "prepared" | "approved" | "shipped";
+  created_at: string;
+  updated_at: string;
+  items?: PalletItem[];
+  batch_links?: PalletBatchLink[];
+}
+
+export interface PalletItem {
+  id: string;
+  pallet_id: string;
+  product_id: string;
+  qty_units: number;
+  unit_cost: string;
+  batch_item_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PalletBatchLink {
+  pallet_id: string;
+  batch_id: string;
+  items_from_batch: number;
+}
+
+export const CreatePalletSchema = z.object({
+  order_id: z.string().min(1, "Order ID is required"),
+  items: z.array(z.object({
+    product_id: z.string().min(1, "Product ID is required"),
+    qty_units: z.number().int().positive("Quantity must be positive"),
+    batch_item_id: z.string().min(1, "Batch item ID is required"),
+  })).min(1, "At least one item is required"),
+});
+
+export const UpdatePalletStatusSchema = z.object({
+  status: z.enum(["draft", "prepared", "approved", "shipped"]),
+});
 
 // Agent types — account-linked staff with login credentials
 export interface Agent {
@@ -189,12 +267,11 @@ export const UpdateTruckSchema = CreateTruckSchema.partial();
 export interface Booking {
   id: string;
   customer_id: string;
-  driver_id?: string;
-  status: "pending" | "approved" | "prep" | "ready";
+  created_by: string;
+  status: "pending" | "approved" | "rejected" | "prep" | "ready";
   created_at: string;
-  updated_at: string;
   customer?: Customer;
-  driver?: Driver;
+  creator?: User;
   booking_items?: BookingItem[];
 }
 
@@ -204,6 +281,7 @@ export interface BookingItem {
   product_id: string;
   qty_ordered: number;
   created_at: string;
+  product?: Product;
 }
 
 export const CreateBookingItemSchema = z.object({
@@ -213,12 +291,11 @@ export const CreateBookingItemSchema = z.object({
 
 export const CreateBookingSchema = z.object({
   customer_id: z.string().min(1, "Customer ID is required"),
-  driver_id: z.string().optional(),
   items: z.array(CreateBookingItemSchema).min(1, "At least one item is required"),
 });
 
 export const UpdateBookingStatusSchema = z.object({
-  status: z.enum(["pending", "approved", "prep", "ready"]),
+  status: z.enum(["pending", "approved", "rejected", "prep", "ready"]),
 });
 
 // Invoice types
@@ -260,6 +337,11 @@ export interface DeliveryItem {
   invoice_id: string;
   destination_customer_id: string;
   status: "pending" | "in_transit" | "completed";
+  is_paid?: boolean;
+  payment_method?: string;
+  paid_at?: string;
+  completed_at?: string;
+  receipt_number?: string;
   created_at: string;
   updated_at: string;
 }
@@ -281,6 +363,24 @@ export const UpdateDeliveryStatusSchema = z.object({
 export const UpdateDeliveryItemStatusSchema = z.object({
   status: z.enum(["pending", "in_transit", "completed"]),
 });
+
+export const ConfirmDeliveryItemSchema = z.object({
+  is_paid: z.boolean().default(false),
+  payment_method: z.string().optional(),
+});
+
+// Accounts Receivable types
+export interface AccountsReceivable {
+  id: string;
+  customer_id: string;
+  delivery_item_id: string;
+  invoice_id: string;
+  amount_due: string;
+  status: "outstanding" | "paid" | "partial";
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // Audit types
 export interface AuditLog {

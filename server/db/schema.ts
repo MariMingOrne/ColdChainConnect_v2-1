@@ -17,6 +17,7 @@ export const userRoleEnum = pgEnum("user_role", ["admin", "agent"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending",
   "approved",
+  "rejected",
   "prep",
   "ready",
 ]);
@@ -51,6 +52,7 @@ export const customers = pgTable("customers", {
   id: text("id").primaryKey(),
   store_name: text("store_name").notNull(),
   location: text("location").notNull(),
+  contact_person: text("contact_person"),
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
   payment_type: text("payment_type"),
@@ -161,10 +163,11 @@ export const bookings = pgTable("bookings", {
   customer_id: text("customer_id")
     .notNull()
     .references(() => customers.id),
-  truck_id: text("truck_id").references(() => trucks.id),
+  created_by: text("created_by")
+    .notNull()
+    .references(() => users.id),
   status: bookingStatusEnum("status").default("pending").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Booking items table
@@ -178,6 +181,34 @@ export const booking_items = pgTable("booking_items", {
     .references(() => products.id),
   qty_ordered: integer("qty_ordered").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Order pallets table (pallets created for order fulfillment)
+export const order_pallets = pgTable("order_pallets", {
+  id: text("id").primaryKey(),
+  order_id: text("order_id")
+    .notNull()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  truck_id: text("truck_id").references(() => trucks.id),
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, prepared, approved, shipped
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Order pallet items table
+export const order_pallet_items = pgTable("order_pallet_items", {
+  id: text("id").primaryKey(),
+  pallet_id: text("pallet_id")
+    .notNull()
+    .references(() => order_pallets.id, { onDelete: "cascade" }),
+  product_id: text("product_id")
+    .notNull()
+    .references(() => products.id),
+  qty_units: integer("qty_units").notNull(),
+  unit_cost: varchar("unit_cost", { length: 20 }).default("0.00"),
+  batch_item_id: text("batch_item_id").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Invoices table
@@ -223,6 +254,9 @@ export const delivery_items = pgTable("delivery_items", {
   status: deliveryStatusEnum("status").default("pending").notNull(),
   completed_at: timestamp("completed_at"),
   receipt_number: text("receipt_number"),
+  is_paid: boolean("is_paid").default(false),
+  payment_method: varchar("payment_method", { length: 50 }),
+  paid_at: timestamp("paid_at"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -248,6 +282,25 @@ export const receipts = pgTable("receipts", {
   confirmed_at: timestamp("confirmed_at").defaultNow().notNull(),
 });
 
+// Accounts Receivable table — tracks unpaid delivery amounts
+export const accounts_receivable = pgTable("accounts_receivable", {
+  id: text("id").primaryKey(),
+  customer_id: text("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  delivery_item_id: text("delivery_item_id")
+    .notNull()
+    .references(() => delivery_items.id),
+  invoice_id: text("invoice_id")
+    .notNull()
+    .references(() => invoices.id),
+  amount_due: decimal("amount_due", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 20 }).default("outstanding").notNull(),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Audit logs table
 export const audit_logs = pgTable("audit_logs", {
   id: text("id").primaryKey(),
@@ -267,6 +320,7 @@ export const audit_logs = pgTable("audit_logs", {
 export const usersRelations = relations(users, ({ many }) => ({
   customers: many(customers),
   agents: many(agents),
+  created_bookings: many(bookings),
   invoices: many(invoices),
   audit_logs: many(audit_logs),
 }));
@@ -281,6 +335,7 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
 export const productsRelations = relations(products, ({ many }) => ({
   pallet_items: many(pallet_items),
   booking_items: many(booking_items),
+  order_pallet_items: many(order_pallet_items),
 }));
 
 export const inventoryBatchesRelations = relations(inventory_batches, ({ many }) => ({
@@ -303,25 +358,37 @@ export const agentsRelations = relations(agents, ({ one }) => ({
 
 export const driversRelations = relations(drivers, ({ many }) => ({
   trucks: many(trucks),
-  bookings: many(bookings),
 }));
 
 export const trucksRelations = relations(trucks, ({ one, many }) => ({
   driver: one(drivers, { fields: [trucks.driver_id], references: [drivers.id] }),
   deliveries: many(deliveries),
+  order_pallets: many(order_pallets),
   receipts: many(receipts),
 }));
 
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   customer: one(customers, { fields: [bookings.customer_id], references: [customers.id] }),
-  truck: one(trucks, { fields: [bookings.truck_id], references: [trucks.id] }),
+  creator: one(users, { fields: [bookings.created_by], references: [users.id] }),
   booking_items: many(booking_items),
+  order_pallets: many(order_pallets),
   invoices: many(invoices),
 }));
 
 export const bookingItemsRelations = relations(booking_items, ({ one }) => ({
   booking: one(bookings, { fields: [booking_items.booking_id], references: [bookings.id] }),
   product: one(products, { fields: [booking_items.product_id], references: [products.id] }),
+}));
+
+export const orderPalletsRelations = relations(order_pallets, ({ one, many }) => ({
+  order: one(bookings, { fields: [order_pallets.order_id], references: [bookings.id] }),
+  truck: one(trucks, { fields: [order_pallets.truck_id], references: [trucks.id] }),
+  items: many(order_pallet_items),
+}));
+
+export const orderPalletItemsRelations = relations(order_pallet_items, ({ one }) => ({
+  pallet: one(order_pallets, { fields: [order_pallet_items.pallet_id], references: [order_pallets.id] }),
+  product: one(products, { fields: [order_pallet_items.product_id], references: [products.id] }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({

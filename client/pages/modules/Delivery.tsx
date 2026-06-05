@@ -60,6 +60,8 @@ export function DeliveryDispatch() {
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
   const [showChangeDriverModal,setShowChangeDriverModal]= useState(false);
+  const [showPaymentModal,     setShowPaymentModal]     = useState(false);
+  const [paymentItem,          setPaymentItem]          = useState<{ delivery: DeliveryExt; item: DeliveryItemExt } | null>(null);
   const [confirmingItem,       setConfirmingItem]       = useState<string | null>(null);
 
   // Mobile: track which "panel" is visible — "trucks" | "detail"
@@ -130,16 +132,31 @@ export function DeliveryDispatch() {
     ? deliveries.filter((d) => d.truck_id === selectedTruck.id)
     : [];
 
-  const handleConfirm = async (delivery: DeliveryExt, item: DeliveryItemExt) => {
-    if (!token) return;
+  const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
+    setPaymentItem({ delivery, item });
+    setShowPaymentModal(true);
+  };
+
+  const handleConfirmWithPayment = async (isPaid: boolean, paymentMethod?: string) => {
+    if (!token || !paymentItem) return;
+    const { delivery, item } = paymentItem;
     setConfirmingItem(item.id);
     try {
       const res = await fetch(
         `/api/deliveries/${delivery.id}/items/${item.id}/confirm`,
-        { method: "POST", headers: authHeaders(token), body: JSON.stringify({}) }
+        {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({
+            is_paid: isPaid,
+            payment_method: paymentMethod,
+          })
+        }
       );
       if (!res.ok) throw new Error(await res.text());
       await fetchAll();
+      setShowPaymentModal(false);
+      setPaymentItem(null);
     } catch (err) {
       alert("Failed to confirm: " + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -575,6 +592,17 @@ export function DeliveryDispatch() {
           onSave={handleCreateDelivery}
         />
       )}
+
+      {showPaymentModal && paymentItem && (
+        <PaymentConfirmationModal
+          item={paymentItem.item}
+          customer={paymentItem.item.customer}
+          invoice={paymentItem.item.invoice}
+          onClose={() => { setShowPaymentModal(false); setPaymentItem(null); }}
+          onConfirm={handleConfirmWithPayment}
+          isConfirming={confirmingItem === paymentItem.item.id}
+        />
+      )}
     </div>
   );
 }
@@ -777,5 +805,134 @@ function ModalShell({ title, onClose, children }: {
         <div className="p-5 overflow-y-auto space-y-4 flex-1">{children}</div>
       </div>
     </div>
+  );
+}
+
+// ─── Payment Confirmation Modal ────────────────────────────────────────────────
+
+function PaymentConfirmationModal({
+  item,
+  customer,
+  invoice,
+  onClose,
+  onConfirm,
+  isConfirming
+}: {
+  item: DeliveryItemExt;
+  customer?: any;
+  invoice?: any;
+  onClose: () => void;
+  onConfirm: (isPaid: boolean, paymentMethod?: string) => Promise<void>;
+  isConfirming: boolean;
+}) {
+  const [isPaid, setIsPaid] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+
+  const PAYMENT_METHODS = [
+    { value: "cash", label: "💵 Cash" },
+    { value: "check", label: "✓ Check" },
+    { value: "bank_transfer", label: "🏦 Bank Transfer" },
+    { value: "online", label: "💳 Online Payment" },
+  ];
+
+  const handleConfirm = async () => {
+    await onConfirm(isPaid, isPaid ? paymentMethod : undefined);
+  };
+
+  return (
+    <ModalShell
+      title="Complete Delivery"
+      onClose={onClose}
+    >
+      <div className="space-y-5">
+        {/* Delivery Summary */}
+        <div className="bg-off-white rounded-lg p-4 space-y-2">
+          <p className="text-xs font-semibold text-muted uppercase tracking-wider">Delivery Details</p>
+          <p className="font-semibold text-navy">{customer?.store_name || "Customer"}</p>
+          <p className="text-xs text-muted">{customer?.location || "—"}</p>
+          {invoice && (
+            <p className="text-xs text-muted">Invoice: {invoice.id.slice(0, 8)}…</p>
+          )}
+        </div>
+
+        {/* Payment Status Question */}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-navy">Was payment received at delivery?</p>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all"
+              style={{ borderColor: !isPaid ? '#006699' : '#e0e0e0', backgroundColor: !isPaid ? '#e6f2ff' : 'transparent' }}>
+              <input
+                type="radio"
+                checked={!isPaid}
+                onChange={() => setIsPaid(false)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold text-navy">Not Paid</span>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all"
+              style={{ borderColor: isPaid ? '#10b981' : '#e0e0e0', backgroundColor: isPaid ? '#d1fae5' : 'transparent' }}>
+              <input
+                type="radio"
+                checked={isPaid}
+                onChange={() => setIsPaid(true)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold text-navy">Paid</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Payment Method Selection (only if paid) */}
+        {isPaid && (
+          <div className="space-y-3 p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Payment Method</p>
+            <div className="space-y-2">
+              {PAYMENT_METHODS.map((method) => (
+                <label key={method.value} className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-white transition-colors">
+                  <input
+                    type="radio"
+                    checked={paymentMethod === method.value}
+                    onChange={() => setPaymentMethod(method.value)}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-semibold text-navy">{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Warning if not paid */}
+        {!isPaid && (
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-xs font-semibold text-amber-900 mb-1">⚠️ Accounts Receivable</p>
+            <p className="text-xs text-amber-800">
+              Since payment was not received, this amount will be recorded in Accounts Receivable. {customer?.store_name} will show as owing this amount.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <button
+          onClick={onClose}
+          disabled={isConfirming}
+          className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={isConfirming}
+          className={`px-4 py-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 ${
+            isPaid ? "bg-green" : "bg-accent-2"
+          }`}
+        >
+          {isConfirming ? "Processing…" : (isPaid ? "✓ Confirm Paid" : "✓ Confirm Not Paid")}
+        </button>
+      </div>
+    </ModalShell>
   );
 }
