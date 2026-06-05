@@ -121,14 +121,12 @@ export function AddOrderModal({
                   <button
                     key={product.id}
                     onClick={() => {
-                      if (!isOutOfStock) {
-                        if (!isSelected) {
-                          onAddItem();
-                          setTimeout(() => {
-                            const lastIdx = orderItems.length;
-                            onItemChange(lastIdx, "product_id", product.id);
-                          }, 0);
-                        }
+                      if (!isOutOfStock && !isSelected) {
+                        onAddItem();
+                        const newIdx = orderItems.length;
+                        setTimeout(() => {
+                          onItemChange(newIdx, "product_id", product.id);
+                        }, 0);
                       }
                     }}
                     disabled={isOutOfStock}
@@ -183,7 +181,13 @@ export function AddOrderModal({
             <div className="space-y-3">
               {orderItems.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-muted text-sm">No items added yet. Browse products to add items.</p>
+                  <p className="text-muted text-sm mb-4">No items added yet. Browse products to add items.</p>
+                  <button
+                    onClick={() => setSelectedTab("products")}
+                    className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90"
+                  >
+                    Browse Products
+                  </button>
                 </div>
               ) : (
                 <>

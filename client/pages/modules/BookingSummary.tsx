@@ -39,9 +39,7 @@ export function BookingSummary() {
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCustomerId, setNewCustomerId] = useState("");
-  const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([
-    { product_id: "", qty_ordered: 1 },
-  ]);
+  const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   const fetchAll = async () => {
@@ -164,7 +162,7 @@ export function BookingSummary() {
       setBookings((prev) => [created, ...prev]);
       setShowAddModal(false);
       setNewCustomerId("");
-      setOrderItems([{ product_id: "", qty_ordered: 1 }]);
+      setOrderItems([]);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create order");
     } finally {
