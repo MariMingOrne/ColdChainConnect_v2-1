@@ -684,8 +684,8 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
   };
 
   const handleCreate = async () => {
-    if (!newBatchName.trim() || items.length === 0) {
-      alert("Ensure batch name is set and at least one item is added");
+    if (!newBatchName.trim() || items.length === 0 || !acquisitionDate) {
+      alert("Ensure batch name, acquisition date, and at least one item are set");
       return;
     }
     const token = localStorage.getItem("auth_token") || "";
@@ -699,7 +699,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
       const res = await fetch("/api/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ batch_name: newBatchName, pallets: [pallet] }),
+        body: JSON.stringify({ batch_name: newBatchName, acquisition_date: acquisitionDate, pallets: [pallet] }),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -718,11 +718,19 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     return !product?.isDiscontinued;
   });
 
+  const [acquisitionDate, setAcquisitionDate] = useState("");
+
   return (
     <div className="space-y-6">
-      <div>
-        <label className="block text-xs font-semibold text-navy mb-2">Batch Name *</label>
-        <input type="text" value={newBatchName} onChange={(e) => setNewBatchName(e.target.value)} placeholder="e.g., Morning Delivery, Q1 Restock" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-2">Batch Name *</label>
+          <input type="text" value={newBatchName} onChange={(e) => setNewBatchName(e.target.value)} placeholder="e.g., Morning Delivery, Q1 Restock" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-2">Acquisition Date *</label>
+          <input type="date" value={acquisitionDate} onChange={(e) => setAcquisitionDate(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -763,7 +771,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
 
       <div className="flex gap-2 justify-end pt-4 border-t border-border">
         <button onClick={onCancel} className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-off-white">Cancel</button>
-        <button onClick={handleCreate} disabled={!newBatchName.trim() || items.length === 0} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+        <button onClick={handleCreate} disabled={!newBatchName.trim() || items.length === 0 || !acquisitionDate} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
           ✓ Add Items
         </button>
       </div>
