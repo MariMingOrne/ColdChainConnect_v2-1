@@ -281,6 +281,7 @@ export interface BookingItem {
   product_id: string;
   qty_ordered: number;
   created_at: string;
+  product?: Product;
 }
 
 export const CreateBookingItemSchema = z.object({

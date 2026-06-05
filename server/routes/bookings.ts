@@ -53,7 +53,11 @@ export const listBookings: RequestHandler = async (req, res) => {
     const allBookings = await db.query.bookings.findMany({
       where: whereClause,
       with: {
-        booking_items: true,
+        booking_items: {
+          with: {
+            product: true,
+          },
+        },
         customer: true,
         creator: true,
       },
@@ -101,7 +105,15 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
 
     const newBooking = await db.query.bookings.findFirst({
       where: eq(bookings.id, bookingId),
-      with: { booking_items: true, customer: true, creator: true },
+      with: {
+        booking_items: {
+          with: {
+            product: true,
+          },
+        },
+        customer: true,
+        creator: true,
+      },
     });
 
     if (req.user) {

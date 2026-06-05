@@ -667,6 +667,28 @@ function CreatePalletModal({
             </div>
           </div>
 
+          {/* Order Items */}
+          {order.booking_items && order.booking_items.length > 0 && (
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <p className="text-xs font-semibold text-navy mb-2">Order Items</p>
+              <div className="space-y-2">
+                {order.booking_items.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-start bg-white p-2 rounded border border-gray-100">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-gray-800">
+                        {item.product?.name || `Product ${item.product_id}`}
+                      </p>
+                      {item.product?.sku && (
+                        <p className="text-xs text-gray-500">SKU: {item.product.sku}</p>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-gray-900">{item.qty_ordered} units</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
               <p className="text-xs text-orange-700 font-semibold mb-1">
@@ -741,7 +763,10 @@ function CreatePalletModal({
                     {source.items.map((item, iIdx) => (
                       <div key={iIdx} className="text-xs text-gray-600 flex justify-between pl-2">
                         <span>
-                          Product {item.product_id}
+                          {/* Find product name from allocation items */}
+                          {allocationItems.find(a => a.product_id === item.product_id)?.product_id === item.product_id
+                            ? `Product ${item.product_id}`
+                            : `Product ${item.product_id}`}
                           {!singleExpiryDate && (
                             <span className="text-gray-500 ml-1">
                               (exp: {new Date(item.expiry_date).toLocaleDateString()})
