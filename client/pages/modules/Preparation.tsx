@@ -285,9 +285,22 @@ export function Preparation() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm">
-                      <span className="font-semibold">{itemCount} items</span>
+                      <div className="space-y-1">
+                        {order.booking_items && order.booking_items.length > 0 ? (
+                          <>
+                            {order.booking_items.map((item) => (
+                              <div key={item.id} className="text-xs">
+                                <span className="font-semibold text-navy">{item.product?.name || item.product_id}</span>
+                                <span className="text-muted"> × {item.qty_ordered}</span>
+                              </div>
+                            ))}
+                          </>
+                        ) : (
+                          <span className="font-semibold text-muted">No items</span>
+                        )}
+                      </div>
                       {approvedPalletCount > 0 && (
-                        <span className="text-xs text-green-600 block">
+                        <span className="text-xs text-green-600 block mt-1">
                           {approvedPalletCount} pallet(s) ready
                         </span>
                       )}
@@ -370,6 +383,7 @@ function CreatePalletModal({
   const [isCreating, setIsCreating] = useState(false);
   const [suggestedItems, setSuggestedItems] = useState<Array<{
     product_id: string;
+    product_name?: string;
     qty_units: number;
     batch_item_id: string;
     batch_name: string;
@@ -384,6 +398,7 @@ function CreatePalletModal({
     const orderItems = order.booking_items || [];
     const suggested: Array<{
       product_id: string;
+      product_name?: string;
       qty_units: number;
       batch_item_id: string;
       batch_name: string;
@@ -422,6 +437,7 @@ function CreatePalletModal({
 
         suggested.push({
           product_id: item.product_id,
+          product_name: orderItem.product?.name,
           qty_units: qtyToTake,
           batch_item_id: item.id,
           batch_name: batchName,
@@ -433,7 +449,8 @@ function CreatePalletModal({
       }
 
       if (remainingQty > 0) {
-        setError(`Insufficient inventory for product ${orderItem.product_id}: need ${remainingQty} more units`);
+        const productName = orderItem.product?.name || orderItem.product_id;
+        setError(`Insufficient inventory for ${productName}: need ${remainingQty} more units`);
       }
     }
 
@@ -495,6 +512,21 @@ function CreatePalletModal({
             </div>
           </div>
 
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <p className="text-xs font-semibold text-navy mb-2">Products Needed:</p>
+            <div className="space-y-1">
+              {order.booking_items && order.booking_items.length > 0 ? (
+                order.booking_items.map((item) => (
+                  <p key={item.id} className="text-xs text-gray-700">
+                    • {item.product?.name || item.product_id} <span className="text-gray-500">({item.qty_ordered} units)</span>
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs text-gray-600">No items in order</p>
+              )}
+            </div>
+          </div>
+
           {error && (
             <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
               <p className="text-xs text-orange-700">{error}</p>
@@ -507,7 +539,7 @@ function CreatePalletModal({
               <div className="space-y-1">
                 {suggestedItems.map((item, idx) => (
                   <p key={idx} className="text-xs text-blue-700">
-                    • Product {item.product_id}: {item.qty_units} units (from {item.batch_name})
+                    • {item.product_name || item.product_id}: {item.qty_units} units (from {item.batch_name})
                   </p>
                 ))}
                 <p className="text-xs font-semibold text-blue-800 mt-2 pt-2 border-t border-blue-200">
