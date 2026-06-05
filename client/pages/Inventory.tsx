@@ -668,7 +668,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
   const getSku = (id: string) => dbProducts.find((p) => p.id === id)?.sku || products.find((p) => p.id === id)?.sku || "";
 
   const addItem = (productId: string) => {
-    if (!productId || items.some((i) => i.product_id === productId)) { alert("Product already added"); return; }
+    if (!productId) return;
     const p = products.find((x) => x.id === productId);
     setItems([...items, { product_id: productId, qty_units: p?.quantity ?? 0, expiration_date_note: "" }]);
   };
