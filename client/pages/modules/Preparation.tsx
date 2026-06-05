@@ -829,54 +829,47 @@ function CreatePalletModal({
                   ✕
                 </button>
               </div>
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                {expiryGroups.map((group, groupIdx) => (
-                  <div key={groupIdx} className="bg-white p-2 rounded border border-purple-100">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">
-                      Expires: {new Date(group.expiry_date).toLocaleDateString()}
-                    </p>
-                    <div className="space-y-1">
-                      {group.batches.map((batch, batchIdx) => {
-                        const correspondingBatch = batches.find((b) => b.id === batch.batch_id);
-                        const inventoryItem = correspondingBatch?.items?.find(
-                          (item) => item.id === batch.product_id.split("-")[0] // This is a simplification
-                        );
-
-                        return (
-                          <div
-                            key={batchIdx}
-                            className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs"
-                          >
-                            <span className="text-gray-700">
-                              {batch.batch_name} - Product {batch.product_id}
-                              <span className="text-gray-500 ml-1">({batch.qty_units} avail)</span>
-                            </span>
-                            <button
-                              onClick={() => {
-                                const correspondingBatch = batches.find((b) => b.id === batch.batch_id);
-                                const itemToAdd = correspondingBatch?.items?.find(
-                                  (item) => item.product_id === batch.product_id
-                                );
-                                if (itemToAdd) {
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {batches.length === 0 ? (
+                  <p className="text-xs text-gray-600">No batches available</p>
+                ) : (
+                  batches.map((batch, batchIdx) => (
+                    <div key={batchIdx} className="bg-white p-3 rounded border border-purple-100">
+                      <p className="text-xs font-semibold text-gray-800 mb-2">{batch.name}</p>
+                      {!batch.items || batch.items.length === 0 ? (
+                        <p className="text-xs text-gray-500">No items in batch</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {batch.items.map((item, itemIdx) => (
+                            <div
+                              key={itemIdx}
+                              className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs"
+                            >
+                              <div className="flex-1">
+                                <span className="text-gray-800 font-medium">Product {item.product_id}</span>
+                                <span className="text-gray-500 ml-2">({item.qty_units} avail)</span>
+                              </div>
+                              <button
+                                onClick={() => {
                                   addManualItem(
-                                    batch.batch_id,
-                                    batch.batch_name,
-                                    itemToAdd,
-                                    group.expiry_date
+                                    batch.id,
+                                    batch.name,
+                                    item,
+                                    item.created_at
                                   );
                                   setShowAddItems(false);
-                                }
-                              }}
-                              className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 font-semibold"
-                            >
-                              Add
-                            </button>
-                          </div>
-                        );
-                      })}
+                                }}
+                                className="ml-2 px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 font-semibold whitespace-nowrap"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
