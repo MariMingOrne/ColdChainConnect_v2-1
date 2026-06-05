@@ -708,10 +708,9 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     }
   };
 
-  const usedProducts = items.map((i) => i.product_id);
   const availableProducts = allProducts.filter((p) => {
     const product = products.find((prod) => prod.id === p.id);
-    return !usedProducts.includes(p.id) && !product?.isDiscontinued;
+    return !product?.isDiscontinued;
   });
 
   return (
