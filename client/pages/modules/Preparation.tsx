@@ -295,7 +295,6 @@ export function Preparation() {
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -303,7 +302,7 @@ export function Preparation() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                   {orders.length === 0 ? "No orders found" : "No orders match your search"}
                 </TableCell>
               </TableRow>
@@ -350,24 +349,6 @@ export function Preparation() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <span className={`px-2 py-1 rounded text-sm font-semibold ${
-                          order.status === "approved"
-                            ? "bg-blue-100 text-blue-800"
-                            : order.status === "ready"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {order.status}
-                        </span>
-                        {isPrepared && (
-                          <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
-                            ✓ Prepared
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
                     <TableCell className="text-sm">
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
@@ -388,11 +369,11 @@ export function Preparation() {
                             </Button>
                             {draftPalletCount > 0 && (
                               <Button
-                                variant="outline"
                                 size="sm"
                                 onClick={() => handleMarkPrepared(order.id)}
+                                className="bg-green-600 text-white hover:bg-green-700"
                               >
-                                Mark Prepared
+                                Prepared
                               </Button>
                             )}
                           </>
