@@ -636,12 +636,9 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
               pallets={pallets}
               setPallets={setPallets}
               onCreateBatch={async () => {
-                if (newBatchName.trim() && pallets.length > 0) {
-                  await onCreateBatch(pallets, newBatchName);
-                  setIsCreatingBatch(false);
-                  setPallets([]);
-                  onRefresh();
-                }
+                setIsCreatingBatch(false);
+                setPallets([]);
+                onRefresh();
               }}
               onCancel={() => { setIsCreatingBatch(false); setPallets([]); }}
               products={products}
@@ -704,13 +701,16 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
       });
       if (!res.ok) {
         const error = await res.json();
+        console.error("API Error:", error);
         alert("Failed to create batch: " + (error.error || "Unknown error"));
         return;
       }
+      console.log("Batch created successfully");
       alert("✓ Batch created successfully!");
       setItems([]);
       setAcquisitionDate("");
-      onCreateBatch();
+      // Close the modal and refresh batches
+      await onCreateBatch();
     } catch (err) {
       console.error("Failed to create batch:", err);
       alert("Failed to create batch: " + String(err));
