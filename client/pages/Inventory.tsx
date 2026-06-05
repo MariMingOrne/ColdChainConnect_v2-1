@@ -98,23 +98,11 @@ export function Inventory() {
       return products.map((p) => ({ ...p, batchQuantity: p.quantity, batchExpiryDate: p.expiryDate }));
     }
 
-    if (selectedPalletId) {
-      const pallet = currentBatch.pallets.find((p) => p.id === selectedPalletId);
-      if (!pallet) return [];
-      return pallet.items
-        .map((item) => {
-          const product = products.find((p) => p.id === item.productId);
-          if (!product) return null;
-          return { ...product, batchQuantity: item.quantity, batchExpiryDate: item.expirationNote || product.expiryDate, itemId: item.id };
-        })
-        .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
-    }
-
-    const itemsByProduct: Record<string, { quantity: number; expiryDates: string[] }> = {};
+    const itemsByProduct: Record<string, { quantity: number; expiryDates: string[]; itemId?: string }> = {};
     for (const pallet of currentBatch.pallets) {
       for (const item of pallet.items) {
         if (!itemsByProduct[item.productId]) {
-          itemsByProduct[item.productId] = { quantity: 0, expiryDates: [] };
+          itemsByProduct[item.productId] = { quantity: 0, expiryDates: [], itemId: item.id };
         }
         itemsByProduct[item.productId].quantity += item.quantity;
         if (item.expirationNote) {
@@ -123,7 +111,7 @@ export function Inventory() {
       }
     }
     return Object.entries(itemsByProduct)
-      .map(([productId, { quantity, expiryDates }]) => {
+      .map(([productId, { quantity, expiryDates, itemId }]) => {
         const product = products.find((p) => p.id === productId);
         if (!product) return null;
         const uniqueDates = [...new Set(expiryDates)];
@@ -131,6 +119,7 @@ export function Inventory() {
           ...product,
           batchQuantity: quantity,
           batchExpiryDate: uniqueDates.length > 0 ? uniqueDates.join(", ") : product.expiryDate,
+          itemId,
         };
       })
       .filter(Boolean) as (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[];
@@ -307,7 +296,7 @@ export function Inventory() {
                     Reorder Level
                   </th>
                 )}
-                {selectedBatchId !== "batch-all" && selectedPalletId && (
+                {selectedBatchId !== "batch-all" && (
                   <th className="bg-navy-mid text-muted font-barlow-cond text-xs font-bold letter-spacing-wider uppercase px-3 py-3 text-left border-b border-border whitespace-nowrap">
                     Expiry Date
                   </th>
@@ -324,7 +313,7 @@ export function Inventory() {
                 paginatedBatchProducts.map((product) => {
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
                   const highlightColor = getRowHighlightColor(product.batchQuantity, product.reorderPoint, product.batchExpiryDate);
-                  const expiryStatus = selectedBatchId !== "batch-all" && selectedPalletId ? getExpiryStatus(product.batchExpiryDate) : null;
+                  const expiryStatus = selectedBatchId !== "batch-all" ? getExpiryStatus(product.batchExpiryDate) : null;
                   return (
                     <tr key={uniqueKey} className={`border-b border-border transition-colors ${highlightColor.bg} ${highlightColor.hover}`}>
                       {/* Name */}
@@ -350,8 +339,8 @@ export function Inventory() {
                           {product.reorderPoint.toLocaleString()}
                         </td>
                       )}
-                      {/* Expiry Date — display only in single pallet view */}
-                      {selectedBatchId !== "batch-all" && selectedPalletId && (
+                      {/* Expiry Date — display in batch view */}
+                      {selectedBatchId !== "batch-all" && (
                         <td className="px-3 py-3 text-navy whitespace-nowrap text-sm">
                           {product.batchExpiryDate ? new Date(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
                         </td>
@@ -448,19 +437,13 @@ function StatsBox({ label, value, icon, color }: { label: string; value: string;
 
 // ─── Extra Info Modal ─────────────────────────────────────────────────────────
 function ExtraInfoModal({ product, batches, onClose, onSelectPallet }: { product: InventoryProduct & { batchQuantity: number }; batches: any[]; onClose: () => void; onSelectPallet: (batchId: string, palletId: string) => void }) {
-  const palletsWithProduct = batches
-    .filter((b) => b.id !== "batch-all")
-    .flatMap((batch) =>
-      batch.pallets
-        .filter((pallet: any) => pallet.items.some((item: any) => item.productId === product.id))
-        .map((pallet: any) => ({
-          batchId: batch.id,
-          batchName: batch.name,
-          palletId: pallet.id,
-          palletIdDisplay: pallet.palletId,
-          quantity: pallet.items.find((item: any) => item.productId === product.id)?.quantity || 0,
-        }))
-    );
+  const batchesWithProduct = batches
+    .filter((b) => b.id !== "batch-all" && b.pallets.some((pallet: any) => pallet.items.some((item: any) => item.productId === product.id)))
+    .map((batch) => {
+      const totalQty = batch.pallets.reduce((sum: number, pallet: any) =>
+        sum + (pallet.items.find((item: any) => item.productId === product.id)?.quantity || 0), 0);
+      return { batchId: batch.id, batchName: batch.name, quantity: totalQty };
+    });
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -491,27 +474,26 @@ function ExtraInfoModal({ product, batches, onClose, onSelectPallet }: { product
           </div>
 
           <div>
-            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Pallets Containing This Product</h3>
-            {palletsWithProduct.length === 0 ? (
+            <h3 className="text-xs font-bold text-muted uppercase letter-spacing-wider mb-3">Batches Containing This Product</h3>
+            {batchesWithProduct.length === 0 ? (
               <div className="bg-off-white rounded-lg p-4 text-center">
-                <p className="text-xs text-muted">No pallets currently contain this product</p>
+                <p className="text-xs text-muted">No batches currently contain this product</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {palletsWithProduct.map((pallet, idx) => (
+                {batchesWithProduct.map((batch, idx) => (
                   <button
                     key={idx}
-                    onClick={() => onSelectPallet(pallet.batchId, pallet.palletId)}
+                    onClick={() => onSelectPallet(batch.batchId, "")}
                     className="w-full text-left bg-off-white hover:bg-accent-2/10 rounded-lg p-3 border border-border hover:border-accent-2 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-xs text-muted font-semibold mb-0.5">Batch: {pallet.batchName}</div>
-                        <div className="text-sm font-semibold text-navy">Pallet: {pallet.palletIdDisplay}</div>
+                        <div className="text-sm font-semibold text-navy">{batch.batchName}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-muted font-semibold mb-0.5">Quantity</div>
-                        <div className="text-lg font-bold text-accent-2">{pallet.quantity.toLocaleString()}</div>
+                        <div className="text-lg font-bold text-accent-2">{batch.quantity.toLocaleString()}</div>
                       </div>
                     </div>
                   </button>
@@ -596,13 +578,12 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
                       <p className="text-xs text-muted py-4">No active batches</p>
                     ) : (
                       activeBatches.map((batch) => {
-                        const totalPallets = batch.pallets?.length || 0;
                         const totalItems = batch.pallets?.reduce((sum: number, p: any) => sum + (p.items?.length || 0), 0) || 0;
                         return (
                           <div key={batch.id} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBatchId === batch.id ? "border-accent-2 bg-accent-2/10" : "border-border hover:bg-off-white"}`} onClick={() => onSelectBatch(batch.id)}>
                             <div className="flex-1">
                               <div className="text-sm font-semibold text-navy">{batch.name}</div>
-                              <div className="text-xs text-muted">{totalPallets} pallet{totalPallets !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+                              <div className="text-xs text-muted">{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
                             </div>
                             <div className="flex gap-1">
                               <button onClick={(e) => { e.stopPropagation(); handleArchiveBatch(batch.id); }} className="px-2 py-1 bg-yellow-500 text-white rounded text-xs font-semibold hover:opacity-90" title="Archive batch">📦</button>
@@ -626,13 +607,12 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
                       <p className="text-xs text-muted py-4">No archived batches</p>
                     ) : (
                       archivedBatches.map((batch) => {
-                        const totalPallets = batch.pallets?.length || 0;
                         const totalItems = batch.pallets?.reduce((sum: number, p: any) => sum + (p.items?.length || 0), 0) || 0;
                         return (
                           <div key={batch.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-off-white/50 transition-colors">
                             <div className="flex-1">
                               <div className="text-sm font-semibold text-navy">{batch.name}</div>
-                              <div className="text-xs text-muted">{totalPallets} pallet{totalPallets !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+                              <div className="text-xs text-muted">{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
                             </div>
                             <div className="flex gap-1">
                               <button onClick={() => handleUnarchiveBatch(batch.id)} className="px-2 py-1 bg-green text-white rounded text-xs font-semibold hover:opacity-90" title="Restore batch">♻️</button>
