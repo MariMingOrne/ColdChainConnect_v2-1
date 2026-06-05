@@ -692,7 +692,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     try {
       const formattedItems = items.map((item) => ({
         product_id: item.productId,
-        quantity: item.quantity,
+        qty_units: item.quantity,
         expiration_date_note: item.expirationNote || "",
       }));
       const pallet = { pallet_id: "UNPALLETTED", items: formattedItems };
