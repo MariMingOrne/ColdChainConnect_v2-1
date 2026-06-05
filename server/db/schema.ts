@@ -190,7 +190,7 @@ export const order_pallets = pgTable("order_pallets", {
     .notNull()
     .references(() => bookings.id, { onDelete: "cascade" }),
   truck_id: text("truck_id").references(() => trucks.id),
-  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, approved, shipped
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, prepared, approved, shipped
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

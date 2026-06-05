@@ -49,7 +49,7 @@ function formatPallet(dbPallet: any): Pallet {
     id: dbPallet.id,
     order_id: dbPallet.order_id,
     truck_id: dbPallet.truck_id || undefined,
-    status: dbPallet.status as "draft" | "approved" | "shipped",
+    status: dbPallet.status as "draft" | "prepared" | "approved" | "shipped",
     created_at: dbPallet.created_at.toISOString(),
     updated_at: dbPallet.updated_at.toISOString(),
     items: (dbPallet.items || []).map((item: any) => ({
