@@ -183,6 +183,34 @@ export const booking_items = pgTable("booking_items", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Order pallets table (pallets created for order fulfillment)
+export const order_pallets = pgTable("order_pallets", {
+  id: text("id").primaryKey(),
+  order_id: text("order_id")
+    .notNull()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  truck_id: text("truck_id").references(() => trucks.id),
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, approved, shipped
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Order pallet items table
+export const order_pallet_items = pgTable("order_pallet_items", {
+  id: text("id").primaryKey(),
+  pallet_id: text("pallet_id")
+    .notNull()
+    .references(() => order_pallets.id, { onDelete: "cascade" }),
+  product_id: text("product_id")
+    .notNull()
+    .references(() => products.id),
+  qty_units: integer("qty_units").notNull(),
+  unit_cost: varchar("unit_cost", { length: 20 }).default("0.00"),
+  batch_item_id: text("batch_item_id").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Invoices table
 export const invoices = pgTable("invoices", {
   id: text("id").primaryKey(),
@@ -307,6 +335,7 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
 export const productsRelations = relations(products, ({ many }) => ({
   pallet_items: many(pallet_items),
   booking_items: many(booking_items),
+  order_pallet_items: many(order_pallet_items),
 }));
 
 export const inventoryBatchesRelations = relations(inventory_batches, ({ many }) => ({
@@ -334,6 +363,7 @@ export const driversRelations = relations(drivers, ({ many }) => ({
 export const trucksRelations = relations(trucks, ({ one, many }) => ({
   driver: one(drivers, { fields: [trucks.driver_id], references: [drivers.id] }),
   deliveries: many(deliveries),
+  order_pallets: many(order_pallets),
   receipts: many(receipts),
 }));
 
@@ -341,12 +371,24 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   customer: one(customers, { fields: [bookings.customer_id], references: [customers.id] }),
   creator: one(users, { fields: [bookings.created_by], references: [users.id] }),
   booking_items: many(booking_items),
+  order_pallets: many(order_pallets),
   invoices: many(invoices),
 }));
 
 export const bookingItemsRelations = relations(booking_items, ({ one }) => ({
   booking: one(bookings, { fields: [booking_items.booking_id], references: [bookings.id] }),
   product: one(products, { fields: [booking_items.product_id], references: [products.id] }),
+}));
+
+export const orderPalletsRelations = relations(order_pallets, ({ one, many }) => ({
+  order: one(bookings, { fields: [order_pallets.order_id], references: [bookings.id] }),
+  truck: one(trucks, { fields: [order_pallets.truck_id], references: [trucks.id] }),
+  items: many(order_pallet_items),
+}));
+
+export const orderPalletItemsRelations = relations(order_pallet_items, ({ one }) => ({
+  pallet: one(order_pallets, { fields: [order_pallet_items.pallet_id], references: [order_pallets.id] }),
+  product: one(products, { fields: [order_pallet_items.product_id], references: [products.id] }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({

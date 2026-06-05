@@ -1,124 +1,108 @@
 import { useState, useEffect } from "react";
-import { useInventoryContext } from "../../context/InventoryContext";
-import { Trash2, RefreshCw, ChevronRight, Package, Layers } from "lucide-react";
+import { Trash2, RefreshCw, Eye, Loader2, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
-
-interface InventoryProduct {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-}
+import { Button } from "@/components/ui/button";
+import { Pallet, Booking, Customer, Product } from "@shared/api";
+import { useAuth } from "../../hooks/useAuth";
 
 export function BookingInventory() {
-  const {
-    batches,
-    selectedBatchId,
-    setSelectedBatchId,
-    selectedPalletId,
-    setSelectedPalletId,
-    refreshBatchesFromDB,
-    setBatches,
-  } = useInventoryContext();
-
-  const [products, setProducts] = useState<InventoryProduct[]>([]);
+  const [pallets, setPallets] = useState<Pallet[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "approved" | "shipped">("all");
+  const { token } = useAuth();
+
+  const fetchAll = async () => {
+    try {
+      const [pRes, bRes, cRes, prRes] = await Promise.all([
+        fetch("/api/pallets", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (pRes.ok) setPallets(await pRes.json());
+      if (bRes.ok) setBookings(await bRes.json());
+      if (cRes.ok) setCustomers(await cRes.json());
+      if (prRes.ok) setProducts(await prRes.json());
+    } catch (err) {
+      console.error("Error loading data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const token = localStorage.getItem("auth_token") || "";
-        const res = await fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } });
-        if (res.ok) {
-          const data = await res.json();
-          setProducts(data.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku || p.name, price: parseFloat(p.price) || 0 })));
-        }
-        await refreshBatchesFromDB();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, []);
+    if (token) fetchAll();
+  }, [token]);
 
-  const currentBatch = batches.find((b) => b.id === selectedBatchId);
-  const currentPallet = currentBatch?.pallets.find((p) => p.id === selectedPalletId) || null;
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    await fetchAll();
+  };
+
+  const handleDeletePallet = async (palletId: string) => {
+    if (!confirm("Delete this pallet?")) return;
+    setIsDeleting(palletId);
+    try {
+      const res = await fetch(`/api/pallets/${palletId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to delete pallet");
+      await fetchAll();
+      if (selectedPalletId === palletId) setSelectedPalletId(null);
+    } catch (err) {
+      alert("Failed to delete pallet");
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   const getProductName = (productId: string) =>
     products.find((p) => p.id === productId)?.name || productId;
 
-  // ── Remove item from pallet ──────────────────────────────────────
-  const handleRemoveItem = async (palletId: string, itemId: string) => {
-    if (!confirm("Remove this item from the pallet?")) return;
-    setIsDeleting(itemId);
-    try {
-      const token = localStorage.getItem("auth_token") || "";
-      const res = await fetch(`/api/batches/pallet-items/${itemId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to remove item");
-      await refreshBatchesFromDB();
-    } catch (err) {
-      alert("Failed to remove item.");
-    } finally {
-      setIsDeleting(null);
+  const getCustomerName = (customerId: string) =>
+    customers.find((c) => c.id === customerId)?.store_name || customerId;
+
+  const getCustomerLocation = (customerId: string) =>
+    customers.find((c) => c.id === customerId)?.location || "";
+
+  const getBookingOrder = (orderId: string) =>
+    bookings.find((b) => b.id === orderId);
+
+  const currentPallet = pallets.find((p) => p.id === selectedPalletId);
+  const currentOrder = currentPallet ? getBookingOrder(currentPallet.order_id) : null;
+
+  const filtered = pallets.filter((pallet) => {
+    if (statusFilter !== "all" && pallet.status !== statusFilter) return false;
+    if (searchQuery) {
+      const order = getBookingOrder(pallet.order_id);
+      const customer = order ? customers.find((c) => c.id === order.customer_id) : null;
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        pallet.order_id.toLowerCase().includes(searchLower) ||
+        pallet.id.toLowerCase().includes(searchLower) ||
+        customer?.store_name.toLowerCase().includes(searchLower) ||
+        customer?.location.toLowerCase().includes(searchLower)
+      );
     }
+    return true;
+  });
+
+  const stats = {
+    total: pallets.length,
+    draft: pallets.filter((p) => p.status === "draft").length,
+    approved: pallets.filter((p) => p.status === "approved").length,
+    shipped: pallets.filter((p) => p.status === "shipped").length,
   };
 
-  // ── Remove pallet from batch ─────────────────────────────────────
-  const handleRemovePallet = async (palletId: string) => {
-    if (!confirm("Remove this entire pallet and all its items?")) return;
-    setIsDeleting(palletId);
-    try {
-      const token = localStorage.getItem("auth_token") || "";
-      const res = await fetch(`/api/batches/pallets/${palletId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to remove pallet");
-      if (selectedPalletId === palletId) setSelectedPalletId(null);
-      await refreshBatchesFromDB();
-    } catch (err) {
-      alert("Failed to remove pallet.");
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  // ── Remove whole batch ───────────────────────────────────────────
-  const handleRemoveBatch = async (batchId: string) => {
-    if (batchId === "batch-all") return;
-    if (!confirm("Delete this entire batch and all its pallets?")) return;
-    setIsDeleting(batchId);
-    try {
-      const token = localStorage.getItem("auth_token") || "";
-      const batchName = batches.find((b) => b.id === batchId)?.name;
-      if (batchName) {
-        const listRes = await fetch("/api/batches", { headers: { Authorization: `Bearer ${token}` } });
-        const rows: any[] = listRes.ok ? await listRes.json() : [];
-        const toDelete = rows.filter((r) => r.batch_name === batchName);
-        await Promise.all(
-          toDelete.map((r) =>
-            fetch(`/api/batches/${r.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } })
-          )
-        );
-      }
-      if (selectedBatchId === batchId) setSelectedBatchId("batch-all");
-      await refreshBatchesFromDB();
-    } catch (err) {
-      alert("Failed to delete batch.");
-    } finally {
-      setIsDeleting(null);
-    }
-  };
-
-  if (isLoading) return <div className="p-6 text-gray-500">Loading inventory…</div>;
-
-  const realBatches = batches.filter((b) => b.id !== "batch-all");
+  if (isLoading) return <div className="p-6 text-gray-500">Loading pallets…</div>;
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
@@ -126,181 +110,197 @@ export function BookingInventory() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-navy">Pallets</h1>
-          <p className="text-gray-600">Manage batches, pallets, and items</p>
+          <p className="text-gray-600">Order fulfillment pallets from Preparation</p>
         </div>
-        <button
-          onClick={() => refreshBatchesFromDB()}
-          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-off-white flex items-center gap-2"
+        <Button
+          onClick={handleRefresh}
+          variant="outline"
+          className="flex items-center gap-2"
         >
           <RefreshCw size={16} />
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted">
-        <button
-          onClick={() => { setSelectedBatchId("batch-all"); setSelectedPalletId(null); }}
-          className={`font-semibold ${selectedBatchId === "batch-all" ? "text-navy" : "hover:text-navy"}`}
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-4">
+          <p className="text-xs text-muted font-medium">TOTAL PALLETS</p>
+          <p className="text-2xl font-bold text-navy mt-2">{stats.total}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-muted font-medium">DRAFT</p>
+          <p className="text-2xl font-bold text-orange-500 mt-2">{stats.draft}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-muted font-medium">APPROVED</p>
+          <p className="text-2xl font-bold text-green-500 mt-2">{stats.approved}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-muted font-medium">SHIPPED</p>
+          <p className="text-2xl font-bold text-blue-500 mt-2">{stats.shipped}</p>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-4 flex-wrap items-center">
+        <input
+          type="text"
+          placeholder="Search by order, pallet, customer…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1 px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="px-4 py-2 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-accent-2"
         >
-          All Batches
-        </button>
-        {currentBatch && currentBatch.id !== "batch-all" && (
-          <>
-            <ChevronRight size={14} />
-            <button
-              onClick={() => setSelectedPalletId(null)}
-              className={`font-semibold ${!selectedPalletId ? "text-navy" : "hover:text-navy"}`}
-            >
-              {currentBatch.name}
-            </button>
-          </>
-        )}
-        {currentPallet && (
-          <>
-            <ChevronRight size={14} />
-            <span className="font-semibold text-navy">Pallet {currentPallet.palletId}</span>
-          </>
-        )}
+          <option value="all">All Statuses</option>
+          <option value="draft">Draft</option>
+          <option value="approved">Approved</option>
+          <option value="shipped">Shipped</option>
+        </select>
       </div>
 
-      {/* ── All Batches View ── */}
-      {selectedBatchId === "batch-all" && (
-        <div className="grid gap-4">
-          {realBatches.length === 0 ? (
+      {/* Pallets List or Detail View */}
+      {!selectedPalletId ? (
+        <div className="space-y-3">
+          {filtered.length === 0 ? (
             <Card className="p-8 text-center text-gray-400">
-              <Package size={32} className="mx-auto mb-2 opacity-40" />
-              <p>No batches found. Add batches from the main Inventory page.</p>
+              <AlertCircle size={32} className="mx-auto mb-2 opacity-40" />
+              <p>{pallets.length === 0 ? "No pallets created yet. Create pallets in the Preparation module." : "No pallets match your search."}</p>
             </Card>
           ) : (
-            realBatches.map((batch) => (
-              <Card key={batch.id} className="p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                <button
-                  className="flex-1 flex items-center gap-4 text-left"
-                  onClick={() => { setSelectedBatchId(batch.id); setSelectedPalletId(null); }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-accent-2/10 flex items-center justify-center">
-                    <Layers size={18} className="text-accent-2" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-navy">{batch.name}</p>
-                    <p className="text-xs text-muted">{batch.pallets.length} pallet{batch.pallets.length !== 1 ? "s" : ""} · {batch.pallets.reduce((a, p) => a + p.items.length, 0)} items</p>
-                    <p className="text-xs text-muted">{new Date(batch.createdAt).toLocaleDateString()}</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleRemoveBatch(batch.id)}
-                  disabled={isDeleting === batch.id}
-                  className="ml-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-40"
-                  title="Delete batch"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </Card>
-            ))
-          )}
-        </div>
-      )}
+            filtered.map((pallet) => {
+              const order = getBookingOrder(pallet.order_id);
+              const customer = order ? customers.find((c) => c.id === order.customer_id) : null;
+              const statusColors: Record<string, string> = {
+                draft: "bg-orange-50 text-orange-700 border-orange-200",
+                approved: "bg-green-50 text-green-700 border-green-200",
+                shipped: "bg-blue-50 text-blue-700 border-blue-200",
+              };
 
-      {/* ── Batch → Pallets View ── */}
-      {currentBatch && currentBatch.id !== "batch-all" && !selectedPalletId && (
-        <div className="grid gap-4">
-          {currentBatch.pallets.length === 0 ? (
-            <Card className="p-8 text-center text-gray-400">
-              <p>No pallets in this batch.</p>
-            </Card>
-          ) : (
-            currentBatch.pallets.map((pallet) => (
-              <Card key={pallet.id} className="p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                <button
-                  className="flex-1 flex items-center gap-4 text-left"
+              return (
+                <Card
+                  key={pallet.id}
+                  className="p-4 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => setSelectedPalletId(pallet.id)}
                 >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Package size={18} className="text-blue-600" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-navy">Pallet {pallet.id.substring(0, 8)}</h3>
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full border ${statusColors[pallet.status] || "bg-gray-50"}`}>
+                        {pallet.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted">
+                      Order: <span className="font-medium">{pallet.order_id.substring(0, 8)}</span>
+                    </p>
+                    {customer && (
+                      <p className="text-sm text-muted">
+                        Customer: <span className="font-medium">{customer.store_name}</span> · {customer.location}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted mt-1">
+                      {pallet.items?.length || 0} item{(pallet.items?.length || 0) !== 1 ? "s" : ""} · {pallet.items?.reduce((sum, item) => sum + item.qty_units, 0) || 0} units
+                    </p>
                   </div>
-                  <div>
-                    <p className="font-semibold text-navy">Pallet {pallet.palletId}</p>
-                    {pallet.supplierName && <p className="text-xs text-muted">Supplier: {pallet.supplierName}</p>}
-                    {pallet.storageZone && <p className="text-xs text-muted">Zone: {pallet.storageZone}</p>}
-                    <p className="text-xs text-muted">{pallet.items.length} item{pallet.items.length !== 1 ? "s" : ""} · {pallet.items.reduce((a, i) => a + i.quantity, 0)} units total</p>
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPalletId(pallet.id);
+                      }}
+                    >
+                      <Eye size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePallet(pallet.id);
+                      }}
+                      disabled={isDeleting === pallet.id}
+                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-40"
+                    >
+                      {isDeleting === pallet.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                    </button>
                   </div>
-                </button>
-                <button
-                  onClick={() => handleRemovePallet(pallet.id)}
-                  disabled={isDeleting === pallet.id}
-                  className="ml-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-40"
-                  title="Remove pallet"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
-      )}
+      ) : (
+        <div className="space-y-4">
+          <button
+            onClick={() => setSelectedPalletId(null)}
+            className="text-sm font-medium text-accent-2 hover:text-accent-1 flex items-center gap-1"
+          >
+            ← Back to list
+          </button>
 
-      {/* ── Pallet → Items View ── */}
-      {currentPallet && (
-        <div className="flex flex-col gap-4">
-          <div className="bg-off-white rounded-xl p-4 border border-border text-sm text-navy space-y-1">
-            <p><span className="font-semibold">Pallet ID:</span> {currentPallet.palletId}</p>
-            {currentPallet.supplierName && <p><span className="font-semibold">Supplier:</span> {currentPallet.supplierName}</p>}
-            {currentPallet.receivedDate && <p><span className="font-semibold">Received:</span> {currentPallet.receivedDate}</p>}
-            {currentPallet.storageZone && <p><span className="font-semibold">Zone:</span> {currentPallet.storageZone}</p>}
-            {currentPallet.placementLocation && <p><span className="font-semibold">Location:</span> {currentPallet.placementLocation}</p>}
-          </div>
+          {currentPallet && currentOrder && (
+            <>
+              <Card className="p-6 bg-gradient-to-r from-navy/5 to-accent-2/5 border-navy/10">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs text-muted font-medium">PALLET ID</p>
+                    <p className="text-lg font-bold text-navy mt-1">{currentPallet.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted font-medium">ORDER ID</p>
+                    <p className="text-lg font-bold text-navy mt-1">{currentPallet.order_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted font-medium">STATUS</p>
+                    <p className="text-lg font-bold text-orange-500 mt-1">{currentPallet.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted font-medium">CREATED</p>
+                    <p className="text-sm text-muted mt-1">{new Date(currentPallet.created_at).toLocaleDateString()}</p>
+                  </div>
+                  {currentOrder && (
+                    <div>
+                      <p className="text-xs text-muted font-medium">CUSTOMER</p>
+                      <p className="text-sm text-navy font-medium mt-1">
+                        {getCustomerName(currentOrder.customer_id)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
 
-          {/* Search */}
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search items…"
-            className="w-full px-4 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-          />
-
-          <Card className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-off-white">
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Product</th>
-                  <th className="text-right px-4 py-3 font-semibold text-navy">Qty</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Expiry Note</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {currentPallet.items
-                  .filter((item) => {
-                    const name = getProductName(item.productId).toLowerCase();
-                    return name.includes(searchQuery.toLowerCase());
-                  })
-                  .map((item) => (
-                    <tr key={item.id} className="border-b border-border last:border-0 hover:bg-off-white/50">
-                      <td className="px-4 py-3 font-medium text-navy">{getProductName(item.productId)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>
-                      <td className="px-4 py-3 text-muted text-xs">{item.expirationNote || "—"}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleRemoveItem(currentPallet.id, item.id)}
-                          disabled={isDeleting === item.id}
-                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-40"
-                          title="Remove item"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
+              <Card className="overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-off-white">
+                      <th className="text-left px-4 py-3 font-semibold text-navy">Product</th>
+                      <th className="text-right px-4 py-3 font-semibold text-navy">Qty</th>
+                      <th className="text-right px-4 py-3 font-semibold text-navy">Unit Cost</th>
                     </tr>
-                  ))}
-                {currentPallet.items.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400">No items in this pallet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {currentPallet.items?.map((item) => (
+                      <tr key={item.id} className="border-b border-border last:border-0 hover:bg-off-white/50">
+                        <td className="px-4 py-3 font-medium text-navy">{getProductName(item.product_id)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{item.qty_units}</td>
+                        <td className="px-4 py-3 text-right text-muted">${item.unit_cost}</td>
+                      </tr>
+                    ))}
+                    {(!currentPallet.items || currentPallet.items.length === 0) && (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                          No items in this pallet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </Card>
+            </>
+          )}
         </div>
       )}
     </div>

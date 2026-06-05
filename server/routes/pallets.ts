@@ -1,21 +1,15 @@
 import { RequestHandler } from "express";
 import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 import { db } from "../db";
-import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
-
-const pallets: Pallet[] = [];
-let productInventory: Record<string, number> = {
-  "prod-1": 100,
-  "prod-2": 50,
-  "prod-3": 200,
-};
+import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items } from "../db/schema";
+import { AuthRequest } from "../middleware/auth";
 
 async function calculateProductInventory(): Promise<Record<string, number>> {
   try {
     if (!process.env.DATABASE_URL) {
-      console.log("[Inventory] No DATABASE_URL, using mock inventory");
-      return productInventory;
+      return {};
     }
 
     const result: Record<string, number> = {};
@@ -31,8 +25,6 @@ async function calculateProductInventory(): Promise<Record<string, number>> {
       },
     });
 
-    console.log(`[Inventory] Found ${batches.length} active batches`);
-
     for (const batch of batches) {
       for (const pallet of batch.pallets) {
         for (const item of pallet.items) {
@@ -45,138 +37,189 @@ async function calculateProductInventory(): Promise<Record<string, number>> {
       }
     }
 
-    console.log("[Inventory] Final calculated inventory:", result);
     return result;
   } catch (error) {
     console.error("Error calculating inventory:", error);
-    return productInventory;
+    return {};
   }
 }
 
-export const listPallets: RequestHandler = (_req, res) => {
-  res.json(pallets);
-};
-
-export const getPallet: RequestHandler = (req, res) => {
-  const { id } = req.params;
-  const pallet = pallets.find((p) => p.id === id);
-  if (!pallet) return res.status(404).json({ error: "Pallet not found" });
-  res.json(pallet);
-};
-
-export const createPallet: RequestHandler = (req, res) => {
-  try {
-    const { order_id, items } = CreatePalletSchema.parse(req.body);
-    const palletId = `pallet-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const palletItems: PalletItem[] = items.map((item, idx) => ({
-      id: `pallet-item-${Date.now()}-${idx}`,
-      pallet_id: palletId,
+function formatPallet(dbPallet: any): Pallet {
+  return {
+    id: dbPallet.id,
+    order_id: dbPallet.order_id,
+    truck_id: dbPallet.truck_id || undefined,
+    status: dbPallet.status as "draft" | "approved" | "shipped",
+    created_at: dbPallet.created_at.toISOString(),
+    updated_at: dbPallet.updated_at.toISOString(),
+    items: (dbPallet.items || []).map((item: any) => ({
+      id: item.id,
+      pallet_id: item.pallet_id,
       product_id: item.product_id,
       qty_units: item.qty_units,
-      unit_cost: "0.00",
+      unit_cost: item.unit_cost || "0.00",
       batch_item_id: item.batch_item_id,
-      created_at: now,
-      updated_at: now,
-    }));
+      created_at: item.created_at.toISOString(),
+      updated_at: item.updated_at.toISOString(),
+    })),
+  };
+}
 
-    const newPallet: Pallet = {
+export const listPallets: RequestHandler = async (_req, res) => {
+  try {
+    const dbPallets = await db.query.order_pallets.findMany({
+      with: {
+        items: true,
+      },
+      orderBy: (table) => [table.created_at],
+    });
+
+    const pallets = dbPallets.map(formatPallet);
+    res.json(pallets);
+  } catch (error) {
+    console.error("Error fetching pallets:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getPallet: RequestHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dbPallet = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, id),
+      with: {
+        items: true,
+      },
+    });
+
+    if (!dbPallet) return res.status(404).json({ error: "Pallet not found" });
+    res.json(formatPallet(dbPallet));
+  } catch (error) {
+    console.error("Error fetching pallet:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
+  try {
+    const { order_id, items } = CreatePalletSchema.parse(req.body);
+    const palletId = randomUUID();
+
+    await db.insert(order_pallets).values({
       id: palletId,
       order_id,
       status: "draft",
-      created_at: now,
-      updated_at: now,
-      items: palletItems,
-      batch_links: [],
-    };
+    });
 
-    pallets.push(newPallet);
-    res.status(201).json(newPallet);
+    const itemsData = items.map((item) => ({
+      id: randomUUID(),
+      pallet_id: palletId,
+      product_id: item.product_id,
+      qty_units: item.qty_units,
+      batch_item_id: item.batch_item_id,
+      unit_cost: "0.00",
+    }));
+
+    for (const item of itemsData) {
+      await db.insert(order_pallet_items).values(item);
+    }
+
+    const newPallet = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, palletId),
+      with: { items: true },
+    });
+
+    res.status(201).json(formatPallet(newPallet));
   } catch (error: any) {
+    console.error("Error creating pallet:", error);
     res.status(400).json({ error: error.message });
   }
 };
 
-export const updatePalletStatus: RequestHandler = (req, res) => {
+export const updatePalletStatus: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { status } = UpdatePalletStatusSchema.parse(req.body);
 
-    const pallet = pallets.find((p) => p.id === id);
-    if (!pallet) return res.status(404).json({ error: "Pallet not found" });
+    const existing = await db.query.order_pallets.findFirst(
+      { where: eq(order_pallets.id, id), with: { items: true } }
+    );
+    if (!existing) return res.status(404).json({ error: "Pallet not found" });
 
-    pallet.status = status;
-    pallet.updated_at = new Date().toISOString();
+    await db.update(order_pallets)
+      .set({ status, updated_at: new Date() })
+      .where(eq(order_pallets.id, id));
 
-    res.json(pallet);
+    const updated = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, id),
+      with: { items: true },
+    });
+
+    res.json(formatPallet(updated));
   } catch (error: any) {
+    console.error("Error updating pallet status:", error);
     res.status(400).json({ error: error.message });
   }
 };
 
-export const approvePallet: RequestHandler = (req, res) => {
+export const approvePallet: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
-    const pallet = pallets.find((p) => p.id === id);
-    if (!pallet) return res.status(404).json({ error: "Pallet not found" });
-    if (pallet.status !== "draft") return res.status(400).json({ error: "Only draft pallets can be approved" });
+    const pallet = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, id),
+      with: { items: true },
+    });
 
-    // Validate inventory is available
-    const deductionLog: Array<{ product_id: string; qty_deducted: number; batch_item_id: string }> = [];
+    if (!pallet) return res.status(404).json({ error: "Pallet not found" });
+    if (pallet.status !== "draft") {
+      return res.status(400).json({ error: "Only draft pallets can be approved" });
+    }
+
+    const inventory = await calculateProductInventory();
 
     if (pallet.items) {
       for (const item of pallet.items) {
-        if (!productInventory[item.product_id]) {
-          productInventory[item.product_id] = 0;
-        }
-
-        // Ensure we have enough inventory
-        if (productInventory[item.product_id] < item.qty_units) {
+        const available = inventory[item.product_id] || 0;
+        if (available < item.qty_units) {
           return res.status(400).json({
-            error: `Insufficient inventory for product ${item.product_id}. Available: ${productInventory[item.product_id]}, Needed: ${item.qty_units}`,
+            error: `Insufficient inventory for product ${item.product_id}. Available: ${available}, Needed: ${item.qty_units}`,
           });
         }
-
-        // Deduct from product inventory
-        productInventory[item.product_id] -= item.qty_units;
-
-        // Log the deduction
-        deductionLog.push({
-          product_id: item.product_id,
-          qty_deducted: item.qty_units,
-          batch_item_id: item.batch_item_id,
-        });
       }
     }
 
-    pallet.status = "approved";
-    pallet.updated_at = new Date().toISOString();
+    await db.update(order_pallets)
+      .set({ status: "approved", updated_at: new Date() })
+      .where(eq(order_pallets.id, id));
 
-    // Return detailed response with audit trail
-    res.json({
-      pallet,
-      inventory: productInventory,
-      deduction_audit: {
-        pallet_id: id,
-        order_id: pallet.order_id,
-        approved_at: pallet.updated_at,
-        deductions: deductionLog,
-      },
+    const updated = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, id),
+      with: { items: true },
     });
+
+    res.json(formatPallet(updated));
   } catch (error: any) {
+    console.error("Error approving pallet:", error);
     res.status(400).json({ error: error.message });
   }
 };
 
-export const deletePalletForOrder: RequestHandler = (req, res) => {
-  const { id } = req.params;
-  const idx = pallets.findIndex((p) => p.id === id);
-  if (idx === -1) return res.status(404).json({ error: "Pallet not found" });
+export const deletePalletForOrder: RequestHandler = async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
 
-  const [deleted] = pallets.splice(idx, 1);
-  res.json({ message: "Pallet deleted", pallet: deleted });
+    const existing = await db.query.order_pallets.findFirst(
+      { where: eq(order_pallets.id, id) }
+    );
+    if (!existing) return res.status(404).json({ error: "Pallet not found" });
+
+    await db.delete(order_pallets).where(eq(order_pallets.id, id));
+    res.json({ message: "Pallet deleted" });
+  } catch (error) {
+    console.error("Error deleting pallet:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const getProductInventory: RequestHandler = async (_req, res) => {
@@ -194,18 +237,8 @@ export const getProductStock: RequestHandler = async (req, res) => {
 export const suggestBatches: RequestHandler = async (req, res) => {
   const { orderId } = req.params;
 
-  // Placeholder: would fetch order items and find compatible batches
   res.json({
     order_id: orderId,
-    suggested_batches: [
-      {
-        batch_id: "inv-batch-001",
-        batch_name: "Morning Delivery",
-        compatibility_score: 0.9,
-        items_available: [
-          { product_id: "prod-1", qty_available: 50, qty_needed: 40 },
-        ],
-      },
-    ],
+    suggested_batches: [],
   });
 };
