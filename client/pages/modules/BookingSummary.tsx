@@ -7,12 +7,14 @@ import { RefreshCw, Plus, Calendar } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
+import { AddOrderModal } from "./AddOrderModal";
 
 export function BookingSummary() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
@@ -44,16 +46,18 @@ export function BookingSummary() {
 
   const fetchAll = async () => {
     try {
-      const [bRes, tRes, cRes, pRes] = await Promise.all([
+      const [bRes, tRes, cRes, pRes, invRes] = await Promise.all([
         fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/trucks", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/products/inventory", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (bRes.ok) setBookings(await bRes.json());
       if (tRes.ok) setTrucks(await tRes.json());
       if (cRes.ok) setCustomers(await cRes.json());
       if (pRes.ok) setProducts(await pRes.json());
+      if (invRes.ok) setProductStock(await invRes.json());
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading data");
@@ -129,8 +133,21 @@ export function BookingSummary() {
   const handleRemoveItem = (idx: number) =>
     setOrderItems((prev) => prev.filter((_, i) => i !== idx));
 
-  const handleItemChange = (idx: number, field: "product_id" | "qty_ordered", value: string | number) =>
-    setOrderItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  const handleItemChange = (idx: number, field: "product_id" | "qty_ordered", value: string | number) => {
+    setOrderItems((prev) => prev.map((item, i) => {
+      if (i !== idx) return item;
+      if (field === "qty_ordered") {
+        const maxStock = productStock[item.product_id] || 0;
+        const qty = typeof value === "number" ? value : parseInt(value) || 1;
+        return { ...item, qty_ordered: Math.min(qty, maxStock) };
+      }
+      return { ...item, product_id: String(value) };
+    }));
+  };
+
+  const getMaxQtyForProduct = (productId: string): number => {
+    return productStock[productId] || 0;
+  };
 
   const handleCreateOrder = async () => {
     if (!newCustomerId) return alert("Please select a customer");
@@ -428,94 +445,25 @@ export function BookingSummary() {
       </Card>
 
       {/* ── Add Order Modal ── */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl border border-border max-w-lg w-full max-h-[90vh] flex flex-col">
-            <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
-              <h2 className="font-rajdhani text-lg font-bold text-white">Add New Order</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-white hover:opacity-70 text-2xl">×</button>
-            </div>
-
-            <div className="p-6 space-y-4 overflow-y-auto">
-              {/* Customer */}
-              <div>
-                <label className="block text-xs font-semibold text-navy mb-1">Customer *</label>
-                <select
-                  value={newCustomerId}
-                  onChange={(e) => setNewCustomerId(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                >
-                  <option value="">Choose a customer…</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.store_name} — {c.location}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Order Items */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-navy">Order Items *</label>
-                  <button
-                    onClick={handleAddItem}
-                    className="text-xs text-accent-2 font-semibold hover:underline flex items-center gap-1"
-                  >
-                    <Plus size={12} /> Add Item
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {orderItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        value={item.product_id}
-                        onChange={(e) => handleItemChange(idx, "product_id", e.target.value)}
-                        className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                      >
-                        <option value="">Select product…</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} (₱{p.price})</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.qty_ordered}
-                        onChange={(e) => handleItemChange(idx, "qty_ordered", parseInt(e.target.value) || 1)}
-                        className="w-20 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                        placeholder="Qty"
-                      />
-                      {orderItems.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveItem(idx)}
-                          className="text-red-400 hover:text-red-600 text-lg font-bold px-1"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateOrder}
-                disabled={isCreating}
-                className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
-              >
-                {isCreating ? "Creating…" : "Create Order"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddOrderModal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setNewCustomerId("");
+          setOrderItems([{ product_id: "", qty_ordered: 1 }]);
+        }}
+        customers={customers}
+        products={products}
+        productStock={productStock}
+        orderItems={orderItems}
+        newCustomerId={newCustomerId}
+        onCustomerChange={setNewCustomerId}
+        onAddItem={handleAddItem}
+        onRemoveItem={handleRemoveItem}
+        onItemChange={handleItemChange}
+        onCreateOrder={handleCreateOrder}
+        isCreating={isCreating}
+      />
 
       {/* ── Approve Booking Modal ── */}
       {showApproveModal && selectedBooking && (
