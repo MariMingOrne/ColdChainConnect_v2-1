@@ -217,6 +217,26 @@ export function BookingSummary() {
     }
   };
 
+  const handleUnapproveBooking = async (booking: Booking) => {
+    if (!window.confirm("Are you sure you want to unapprove this order? It will return to pending status.")) return;
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: "pending" }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to unapprove booking");
+      }
+      const updated = await res.json();
+      setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
+      alert("Order moved back to pending status.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to unapprove booking");
+    }
+  };
+
   if (isLoading) return <div className="p-6">Loading...</div>;
 
   const filtered = bookings.filter((b) => {
@@ -429,6 +449,13 @@ export function BookingSummary() {
                           className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
                         >
                           Approve
+                        </button>
+                      ) : booking.status === "approved" ? (
+                        <button
+                          onClick={() => handleUnapproveBooking(booking)}
+                          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:opacity-90 transition"
+                        >
+                          Unapprove
                         </button>
                       ) : (
                         <span className="text-xs text-muted">{booking.status}</span>
