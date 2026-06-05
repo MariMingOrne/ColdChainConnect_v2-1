@@ -374,7 +374,7 @@ export function BookingSummary() {
             <TableRow>
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Assigned Truck</TableHead>
+              <TableHead>Agent</TableHead>
               <TableHead>Approval</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
@@ -392,6 +392,7 @@ export function BookingSummary() {
               filtered.map((booking) => {
                 const customer = booking.customer;
                 const assignedTruck = trucks.find((t) => t.id === (booking as any).driver_id);
+                const agent = customer?.agent_id ? customers.find((c) => c.id === customer.agent_id) : null;
                 const isApproved = booking.status === "approved";
                 return (
                   <TableRow key={booking.id}>
@@ -416,13 +417,10 @@ export function BookingSummary() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {assignedTruck ? (
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-navy">{assignedTruck.name}</span>
-                          <span className="text-xs text-muted">{assignedTruck.district}</span>
-                        </div>
+                      {customer?.agent_id ? (
+                        <span className="font-semibold text-navy">Agent ID: {customer.agent_id.slice(0, 8)}</span>
                       ) : (
-                        <span className="text-muted italic">Not assigned</span>
+                        <span className="text-muted italic">No agent assigned</span>
                       )}
                     </TableCell>
                     <TableCell>
