@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Check, RefreshCw, Calendar } from "lucide-react";
+import { Check, RefreshCw, Calendar } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Customer, InventoryBatch, Pallet } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -320,21 +320,16 @@ export function Preparation() {
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedOrder(order);
-                            setShowPaletModal(true);
-                          }}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setShowPaletModal(true);
+                        }}
+                      >
+                        Prepare
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
