@@ -55,7 +55,7 @@ export const listBookings: RequestHandler = async (req, res) => {
       with: {
         booking_items: true,
         customer: true,
-        truck: true,
+        creator: true,
       },
     });
 
@@ -73,12 +73,17 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Customer ID and items array are required" });
   }
 
+  if (!req.user) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
   try {
     const bookingId = randomUUID();
 
     await db.insert(bookings).values({
       id: bookingId,
       customer_id,
+      created_by: req.user.userId,
       status: "pending",
     });
 
@@ -141,9 +146,8 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
       resolvedTruckId = matchedTruck.id;
     }
 
-    const updates: any = { updated_at: new Date() };
+    const updates: any = {};
     if (status) updates.status = status;
-    if (resolvedTruckId) updates.truck_id = resolvedTruckId;
 
     await db.update(bookings).set(updates).where(eq(bookings.id, id));
 
@@ -184,7 +188,7 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
 
     const updated = await db.query.bookings.findFirst({
       where: eq(bookings.id, id),
-      with: { booking_items: true, customer: true, truck: true },
+      with: { booking_items: true, customer: true, creator: true },
     });
 
     if (req.user) {

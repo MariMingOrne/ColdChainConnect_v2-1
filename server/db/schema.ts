@@ -162,10 +162,11 @@ export const bookings = pgTable("bookings", {
   customer_id: text("customer_id")
     .notNull()
     .references(() => customers.id),
-  truck_id: text("truck_id").references(() => trucks.id),
+  created_by: text("created_by")
+    .notNull()
+    .references(() => users.id),
   status: bookingStatusEnum("status").default("pending").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Booking items table
@@ -337,7 +338,7 @@ export const trucksRelations = relations(trucks, ({ one, many }) => ({
 
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   customer: one(customers, { fields: [bookings.customer_id], references: [customers.id] }),
-  truck: one(trucks, { fields: [bookings.truck_id], references: [trucks.id] }),
+  creator: one(users, { fields: [bookings.created_by], references: [users.id] }),
   booking_items: many(booking_items),
   invoices: many(invoices),
 }));
