@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { RefreshCw, Plus, Calendar } from "lucide-react";
+import { RefreshCw, Plus, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -446,19 +446,21 @@ export function BookingSummary() {
                       {booking.status === "pending" ? (
                         <button
                           onClick={() => openApproveModal(booking)}
-                          className="px-3 py-1 text-sm bg-accent-2 text-white rounded hover:opacity-90 transition"
+                          className="px-4 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2 ml-auto"
                         >
+                          <CheckCircle size={16} />
                           Approve
                         </button>
                       ) : booking.status === "approved" ? (
                         <button
                           onClick={() => handleUnapproveBooking(booking)}
-                          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:opacity-90 transition"
+                          className="px-4 py-2 text-sm font-semibold bg-red-500 text-white rounded-lg hover:opacity-80 transition flex items-center gap-2 ml-auto"
                         >
+                          <XCircle size={16} />
                           Unapprove
                         </button>
                       ) : (
-                        <span className="text-xs text-muted">{booking.status}</span>
+                        <span className="px-3 py-2 text-xs font-semibold text-muted bg-gray-100 rounded-lg capitalize">{booking.status}</span>
                       )}
                     </TableCell>
                   </TableRow>
