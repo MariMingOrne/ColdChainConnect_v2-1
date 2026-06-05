@@ -125,8 +125,8 @@ export function BookingSummary() {
   };
 
   // ── Add Order ──────────────────────────────────────────────
-  const handleAddItem = () =>
-    setOrderItems((prev) => [...prev, { product_id: "", qty_ordered: 1 }]);
+  const handleAddItem = (productId: string) =>
+    setOrderItems((prev) => [...prev, { product_id: productId, qty_ordered: 1 }]);
 
   const handleRemoveItem = (idx: number) =>
     setOrderItems((prev) => prev.filter((_, i) => i !== idx));
@@ -148,8 +148,19 @@ export function BookingSummary() {
   };
 
   const handleCreateOrder = async () => {
-    if (!newCustomerId) return alert("Please select a customer");
-    if (orderItems.some((i) => !i.product_id)) return alert("Please select a product for every item");
+    if (!newCustomerId) {
+      alert("Please select a customer");
+      return;
+    }
+    const emptyItems = orderItems.filter((i) => !i.product_id);
+    if (emptyItems.length > 0) {
+      alert(`Please select a product for ${emptyItems.length} item${emptyItems.length > 1 ? "s" : ""}`);
+      return;
+    }
+    if (orderItems.length === 0) {
+      alert("Please add at least one item to the order");
+      return;
+    }
     setIsCreating(true);
     try {
       const res = await fetch("/api/bookings", {
