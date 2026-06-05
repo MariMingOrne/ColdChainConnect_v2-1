@@ -377,6 +377,7 @@ type PalletDraft = {
   items: Array<{
     product_id: string;
     product_name?: string;
+    product_sku?: string;
     qty_units: number;
     batch_item_id: string;
     batch_name: string;
@@ -445,6 +446,7 @@ function CreatePalletModal({
           currentPallet.items.push({
             product_id: item.product_id,
             product_name: orderItem.product?.name,
+            product_sku: orderItem.product?.sku,
             qty_units: qtyForThisPallet,
             batch_item_id: item.id,
             batch_name: batchName,
@@ -578,6 +580,7 @@ function CreatePalletModal({
           pallet.items.push({
             product_id: productId,
             product_name: orderItem?.product?.name,
+            product_sku: orderItem?.product?.sku,
             qty_units: qty,
             batch_item_id: batchItemId,
             batch_name: batchName,
@@ -791,9 +794,9 @@ function CreatePalletModal({
                           >
                             <p className="text-xs font-semibold text-navy mb-2">
                               {orderItem.product?.name || orderItem.product_id}{" "}
-                              <span className="text-gray-500">
-                                ({palletUsed}/{orderItem.qty_ordered} units used in this pallet)
-                              </span>
+                              {orderItem.product?.sku && (
+                                <span className="text-gray-500">({orderItem.product.sku})</span>
+                              )}
                             </p>
                             {availableItems.length > 0 ? (
                               <div className="space-y-1.5">
