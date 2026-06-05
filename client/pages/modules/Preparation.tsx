@@ -353,40 +353,44 @@ export function Preparation() {
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        {!isPrepared && (
+                      <div className="flex gap-2 justify-end items-center">
+                        {draftPalletCount === 0 && !isPrepared && (
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setShowPaletModal(true);
+                            }}
+                            className="px-3 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition"
+                          >
+                            Prepare
+                          </button>
+                        )}
+                        {draftPalletCount > 0 && !isPrepared && (
                           <>
-                            <Button
-                              variant="default"
-                              size="sm"
+                            <button
                               onClick={() => {
                                 setSelectedOrder(order);
                                 setShowPaletModal(true);
                               }}
-                              disabled={isPrepared}
+                              className="px-3 py-2 text-sm font-semibold bg-accent-2 text-white rounded-lg hover:opacity-80 transition"
                             >
                               Prepare
-                            </Button>
-                            {draftPalletCount > 0 && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleMarkPrepared(order.id)}
-                                className="bg-green-600 text-white hover:bg-green-700"
-                              >
-                                Prepared
-                              </Button>
-                            )}
+                            </button>
+                            <button
+                              onClick={() => handleMarkPrepared(order.id)}
+                              className="px-3 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                            >
+                              Prepared
+                            </button>
                           </>
                         )}
                         {isPrepared && (
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button
                             onClick={() => handleUndoPrepared(order.id)}
-                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                            className="px-3 py-2 text-sm font-semibold bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
                           >
                             Undo
-                          </Button>
+                          </button>
                         )}
                       </div>
                     </TableCell>
