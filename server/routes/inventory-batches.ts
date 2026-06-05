@@ -1,5 +1,8 @@
 import { RequestHandler } from "express";
+import { eq } from "drizzle-orm";
 import { InventoryBatch, InventoryBatchItem, CreateInventoryBatchSchema, UpdateInventoryBatchSchema } from "../../shared/api";
+import { db } from "../db";
+import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
 
 const inventoryBatches: InventoryBatch[] = [
   {
@@ -50,8 +53,43 @@ const inventoryBatches: InventoryBatch[] = [
   },
 ];
 
-export const listInventoryBatches: RequestHandler = (_req, res) => {
-  res.json(inventoryBatches);
+export const listInventoryBatches: RequestHandler = async (_req, res) => {
+  try {
+    const dbBatches = await db.query.inventory_batches.findMany({
+      where: eq(inventory_batches.is_archived, false),
+      with: {
+        pallets: {
+          with: {
+            items: true,
+          },
+        },
+      },
+    });
+
+    const result: InventoryBatch[] = dbBatches.map((batch) => ({
+      id: batch.id,
+      name: batch.batch_name,
+      status: "open",
+      created_at: batch.created_at.toISOString(),
+      updated_at: batch.updated_at.toISOString(),
+      items: batch.pallets.flatMap((pallet) =>
+        pallet.items.map((item) => ({
+          id: item.id,
+          batch_id: batch.id,
+          product_id: item.product_id,
+          qty_units: item.qty_units,
+          unit_cost: "0.00",
+          created_at: item.created_at.toISOString(),
+          updated_at: item.updated_at.toISOString(),
+        }))
+      ),
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching inventory batches:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const getInventoryBatch: RequestHandler = (req, res) => {
