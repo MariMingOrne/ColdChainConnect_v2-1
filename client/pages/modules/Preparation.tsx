@@ -321,7 +321,7 @@ export function Preparation() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
-                        variant="primary"
+                        variant="default"
                         size="sm"
                         onClick={() => {
                           setSelectedOrder(order);
