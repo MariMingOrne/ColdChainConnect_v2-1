@@ -13,6 +13,7 @@ export function BookingSummary() {
   const [trucks, setTrucks] = useState<Truck[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
@@ -44,16 +45,18 @@ export function BookingSummary() {
 
   const fetchAll = async () => {
     try {
-      const [bRes, tRes, cRes, pRes] = await Promise.all([
+      const [bRes, tRes, cRes, pRes, invRes] = await Promise.all([
         fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/trucks", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/products/inventory", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (bRes.ok) setBookings(await bRes.json());
       if (tRes.ok) setTrucks(await tRes.json());
       if (cRes.ok) setCustomers(await cRes.json());
       if (pRes.ok) setProducts(await pRes.json());
+      if (invRes.ok) setProductStock(await invRes.json());
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading data");
@@ -129,8 +132,21 @@ export function BookingSummary() {
   const handleRemoveItem = (idx: number) =>
     setOrderItems((prev) => prev.filter((_, i) => i !== idx));
 
-  const handleItemChange = (idx: number, field: "product_id" | "qty_ordered", value: string | number) =>
-    setOrderItems((prev) => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  const handleItemChange = (idx: number, field: "product_id" | "qty_ordered", value: string | number) => {
+    setOrderItems((prev) => prev.map((item, i) => {
+      if (i !== idx) return item;
+      if (field === "qty_ordered") {
+        const maxStock = productStock[item.product_id] || 0;
+        const qty = typeof value === "number" ? value : parseInt(value) || 1;
+        return { ...item, qty_ordered: Math.min(qty, maxStock) };
+      }
+      return { ...item, [field]: value };
+    }));
+  };
+
+  const getMaxQtyForProduct = (productId: string): number => {
+    return productStock[productId] || 0;
+  };
 
   const handleCreateOrder = async () => {
     if (!newCustomerId) return alert("Please select a customer");
@@ -464,36 +480,49 @@ export function BookingSummary() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {orderItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        value={item.product_id}
-                        onChange={(e) => handleItemChange(idx, "product_id", e.target.value)}
-                        className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                      >
-                        <option value="">Select product…</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} (₱{p.price})</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.qty_ordered}
-                        onChange={(e) => handleItemChange(idx, "qty_ordered", parseInt(e.target.value) || 1)}
-                        className="w-20 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
-                        placeholder="Qty"
-                      />
-                      {orderItems.length > 1 && (
-                        <button
-                          onClick={() => handleRemoveItem(idx)}
-                          className="text-red-400 hover:text-red-600 text-lg font-bold px-1"
+                  {orderItems.map((item, idx) => {
+                    const selectedProduct = item.product_id ? products.find((p) => p.id === item.product_id) : null;
+                    const maxQty = getMaxQtyForProduct(item.product_id);
+                    return (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <select
+                          value={item.product_id}
+                          onChange={(e) => handleItemChange(idx, "product_id", e.target.value)}
+                          className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
                         >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                          <option value="">Select product…</option>
+                          {products
+                            .filter((p) => (productStock[p.id] || 0) > 0)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (₱{p.price}) - {productStock[p.id] || 0} in stock
+                              </option>
+                            ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          max={maxQty}
+                          value={item.qty_ordered}
+                          onChange={(e) => handleItemChange(idx, "qty_ordered", parseInt(e.target.value) || 1)}
+                          className="w-20 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+                          placeholder="Qty"
+                          disabled={!item.product_id}
+                        />
+                        {maxQty > 0 && item.product_id && (
+                          <span className="text-xs text-muted whitespace-nowrap">/ {maxQty}</span>
+                        )}
+                        {orderItems.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveItem(idx)}
+                            className="text-red-400 hover:text-red-600 text-lg font-bold px-1"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

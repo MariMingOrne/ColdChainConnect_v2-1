@@ -138,6 +138,12 @@ export const getProductInventory: RequestHandler = (_req, res) => {
   res.json(productInventory);
 };
 
+export const getProductStock: RequestHandler = (req, res) => {
+  const { productId } = req.params;
+  const stock = productInventory[productId] || 0;
+  res.json({ product_id: productId, available_stock: stock });
+};
+
 export const suggestBatches: RequestHandler = async (req, res) => {
   const { orderId } = req.params;
 

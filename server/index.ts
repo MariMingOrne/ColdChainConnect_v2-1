@@ -90,6 +90,7 @@ import {
   approvePallet,
   deletePalletForOrder,
   getProductInventory,
+  getProductStock,
   suggestBatches,
 } from "./routes/pallets";
 import { authMiddleware, requireRole } from "./middleware/auth";
@@ -211,6 +212,7 @@ export function createServer() {
   app.patch("/api/pallets/:id/approve", authMiddleware, approvePallet);
   app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePalletForOrder);
   app.get("/api/products/inventory", authMiddleware, getProductInventory);
+  app.get("/api/products/:productId/stock", authMiddleware, getProductStock);
   app.get("/api/orders/:orderId/suggested-batches", authMiddleware, suggestBatches);
 
   return app;
