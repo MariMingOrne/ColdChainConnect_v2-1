@@ -707,6 +707,9 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
         alert("Failed to create batch: " + (error.error || "Unknown error"));
         return;
       }
+      alert("✓ Batch created successfully!");
+      setItems([]);
+      setAcquisitionDate("");
       onCreateBatch();
     } catch (err) {
       console.error("Failed to create batch:", err);
