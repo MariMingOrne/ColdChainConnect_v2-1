@@ -126,7 +126,7 @@ export function AddOrderModal({
                 onChange={(e) => setProductSearch(e.target.value)}
                 className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 {filteredProducts.map((product) => {
                 const { stock, isOutOfStock } = getStockStatus(product.id);
                 const isSelected = orderItems.some((item) => item.product_id === product.id);
@@ -144,7 +144,7 @@ export function AddOrderModal({
                       }
                     }}
                     disabled={isOutOfStock}
-                    className={`p-4 rounded-lg border-2 transition ${
+                    className={`w-full flex items-center gap-4 p-4 rounded-lg border-2 transition ${
                       isOutOfStock
                         ? "border-red-300 bg-red-50 opacity-60 cursor-not-allowed"
                         : isSelected
@@ -153,7 +153,7 @@ export function AddOrderModal({
                     }`}
                   >
                     {/* Image */}
-                    <div className="w-full aspect-square bg-gray-100 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                    <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
                       <img
                         src={getImageUrl(product.image_filename)}
                         alt={product.name}
@@ -165,26 +165,28 @@ export function AddOrderModal({
                     </div>
 
                     {/* Product Info */}
-                    <h3 className="font-semibold text-sm text-navy mb-1">{product.name}</h3>
-                    <p className="text-lg font-bold text-accent-2 mb-2">₱{product.price}</p>
-
-                    {/* Stock Status */}
-                    <div
-                      className={`px-2 py-1 rounded text-sm font-semibold text-center ${
-                        isOutOfStock
-                          ? "bg-red-200 text-red-700"
-                          : stock < 10
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {isOutOfStock ? "Out of Stock" : `${stock} in stock`}
+                    <div className="flex-1 text-left">
+                      <h3 className="font-semibold text-sm text-navy mb-1">{product.name}</h3>
+                      <div className="flex items-center gap-3">
+                        <p className="text-sm font-bold text-accent-2">₱{product.price}</p>
+                        <div
+                          className={`px-2 py-1 rounded text-xs font-semibold ${
+                            isOutOfStock
+                              ? "bg-red-200 text-red-700"
+                              : stock < 10
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {isOutOfStock ? "Out of Stock" : `${stock} available`}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Selected Indicator */}
                     {isSelected && (
-                      <div className="mt-2 px-2 py-1 bg-accent-2 text-white text-xs font-semibold rounded text-center">
-                        ✓ Added to order
+                      <div className="px-3 py-1 bg-accent-2 text-white text-xs font-semibold rounded">
+                        ✓ Added
                       </div>
                     )}
                   </button>
