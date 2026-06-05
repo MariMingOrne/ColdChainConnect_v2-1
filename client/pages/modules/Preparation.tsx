@@ -329,10 +329,10 @@ export function Preparation() {
                             setShowPaletModal(true);
                           }}
                         >
-                          <Plus className="w-4 h-4" title="Create Pallet" />
+                          <Plus className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" title="View Details" />
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -373,6 +373,18 @@ interface CreatePalletModalProps {
   token: string;
 }
 
+type PalletDraft = {
+  items: Array<{
+    product_id: string;
+    product_name?: string;
+    qty_units: number;
+    batch_item_id: string;
+    batch_name: string;
+    expiry_note?: string;
+  }>;
+  totalQty: number;
+};
+
 function CreatePalletModal({
   order,
   batches,
@@ -382,35 +394,19 @@ function CreatePalletModal({
 }: CreatePalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [mode, setMode] = useState<"automatic" | "manual">("automatic");
-  const [suggestedItems, setSuggestedItems] = useState<Array<{
-    product_id: string;
-    product_name?: string;
-    qty_units: number;
-    batch_item_id: string;
-    batch_name: string;
-    expiry_note?: string;
-  }>>([]);
-  const [manualSelections, setManualSelections] = useState<Array<{
-    product_id: string;
-    batch_item_id: string;
-    qty_units: number;
-  }>>([]);
+  const [suggestedPallets, setSuggestedPallets] = useState<PalletDraft[]>([]);
+  const [manualPallets, setManualPallets] = useState<PalletDraft[]>([
+    { items: [], totalQty: 0 }
+  ]);
   const [error, setError] = useState<string | null>(null);
 
   const PALLET_CAPACITY = 50;
 
   useEffect(() => {
-    // Auto-find matching items from inventory sorted by expiry date
+    // Auto-find matching items from inventory sorted by expiry date, splitting into multiple pallets
     const orderItems = order.booking_items || [];
-    const suggested: Array<{
-      product_id: string;
-      product_name?: string;
-      qty_units: number;
-      batch_item_id: string;
-      batch_name: string;
-      expiry_note?: string;
-    }> = [];
-    let totalItems = 0;
+    const pallets: PalletDraft[] = [];
+    let currentPallet: PalletDraft = { items: [], totalQty: 0 };
 
     for (const orderItem of orderItems) {
       const neededQty = orderItem.qty_ordered;
@@ -435,23 +431,36 @@ function CreatePalletModal({
           return dateA - dateB;
         });
 
-      // Fill pallet with matching items up to capacity and order requirements
+      // Fill pallets with matching items, creating new pallets when capacity is exceeded
       for (const { batchId, batchName, item } of matchingItems) {
-        if (remainingQty <= 0 || totalItems >= PALLET_CAPACITY) break;
+        if (remainingQty <= 0) break;
 
-        const qtyToTake = Math.min(remainingQty, item.qty_units, PALLET_CAPACITY - totalItems);
+        const qtyToTake = Math.min(remainingQty, item.qty_units);
+        let qtyAdded = 0;
 
-        suggested.push({
-          product_id: item.product_id,
-          product_name: orderItem.product?.name,
-          qty_units: qtyToTake,
-          batch_item_id: item.id,
-          batch_name: batchName,
-          expiry_note: item.created_at,
-        });
+        while (qtyAdded < qtyToTake) {
+          const spaceInCurrentPallet = PALLET_CAPACITY - currentPallet.totalQty;
+          const qtyForThisPallet = Math.min(qtyToTake - qtyAdded, spaceInCurrentPallet);
+
+          currentPallet.items.push({
+            product_id: item.product_id,
+            product_name: orderItem.product?.name,
+            qty_units: qtyForThisPallet,
+            batch_item_id: item.id,
+            batch_name: batchName,
+            expiry_note: item.created_at,
+          });
+
+          currentPallet.totalQty += qtyForThisPallet;
+          qtyAdded += qtyForThisPallet;
+
+          if (currentPallet.totalQty >= PALLET_CAPACITY) {
+            pallets.push(currentPallet);
+            currentPallet = { items: [], totalQty: 0 };
+          }
+        }
 
         remainingQty -= qtyToTake;
-        totalItems += qtyToTake;
       }
 
       if (remainingQty > 0) {
@@ -460,50 +469,54 @@ function CreatePalletModal({
       }
     }
 
-    setSuggestedItems(suggested);
+    // Add the last pallet if it has items
+    if (currentPallet.items.length > 0) {
+      pallets.push(currentPallet);
+    }
+
+    setSuggestedPallets(pallets.length > 0 ? pallets : [{ items: [], totalQty: 0 }]);
   }, [order, batches]);
 
   const handleCreatePallet = async () => {
-    const itemsToSubmit = mode === "automatic" ? suggestedItems : manualSelections;
+    const palletsToCreate = mode === "automatic" ? suggestedPallets : manualPallets;
+    const validPallets = palletsToCreate.filter((p) => p.items.length > 0);
 
-    if (itemsToSubmit.length === 0) {
-      setError("Please select items for the pallet");
+    if (validPallets.length === 0) {
+      setError("Please select items for at least one pallet");
       return;
     }
 
     setIsCreating(true);
     setError(null);
     try {
-      const response = await fetch("/api/pallets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          order_id: order.id,
-          items: itemsToSubmit.map((item) => ({
-            product_id: item.product_id,
-            qty_units: item.qty_units,
-            batch_item_id: item.batch_item_id,
-          })),
-        }),
-      });
+      // Create pallets in sequence
+      for (const pallet of validPallets) {
+        const response = await fetch("/api/pallets", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            order_id: order.id,
+            items: pallet.items.map((item) => ({
+              product_id: item.product_id,
+              qty_units: item.qty_units,
+              batch_item_id: item.batch_item_id,
+            })),
+          }),
+        });
 
-      if (!response.ok) throw new Error("Failed to create pallet");
+        if (!response.ok) throw new Error("Failed to create pallet");
+      }
 
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create pallet");
+      setError(err instanceof Error ? err.message : "Failed to create pallets");
     } finally {
       setIsCreating(false);
     }
   };
-
-  const totalQtyForMode = (mode === "automatic" ? suggestedItems : manualSelections).reduce(
-    (sum, item) => sum + item.qty_units,
-    0
-  );
 
   const getAvailableItems = (productId: string) => {
     return batches
@@ -524,24 +537,74 @@ function CreatePalletModal({
       });
   };
 
-  const handleManualSelect = (productId: string, batchItemId: string, qty: number) => {
-    setManualSelections((prev) => {
-      const existing = prev.findIndex(
+  const handleManualSelect = (
+    palletIdx: number,
+    productId: string,
+    batchItemId: string,
+    qty: number
+  ) => {
+    setManualPallets((prev) => {
+      const updated = [...prev];
+      const pallet = updated[palletIdx];
+      const existingIdx = pallet.items.findIndex(
         (s) => s.product_id === productId && s.batch_item_id === batchItemId
       );
 
       if (qty === 0) {
-        if (existing >= 0) prev.splice(existing, 1);
-        return [...prev];
+        if (existingIdx >= 0) {
+          pallet.totalQty -= pallet.items[existingIdx].qty_units;
+          pallet.items.splice(existingIdx, 1);
+        }
+      } else {
+        if (existingIdx >= 0) {
+          const oldQty = pallet.items[existingIdx].qty_units;
+          pallet.items[existingIdx].qty_units = qty;
+          pallet.totalQty += qty - oldQty;
+        } else {
+          const batchItem = batches
+            .flatMap((b) => b.items || [])
+            .find((i) => i.id === batchItemId);
+
+          if (!batchItem) return prev;
+
+          const batchName = batches.find(
+            (b) => b.items?.some((i) => i.id === batchItemId)
+          )?.name || "";
+
+          const orderItem = order.booking_items?.find(
+            (oi) => oi.product_id === productId
+          );
+
+          pallet.items.push({
+            product_id: productId,
+            product_name: orderItem?.product?.name,
+            qty_units: qty,
+            batch_item_id: batchItemId,
+            batch_name: batchName,
+            expiry_note: batchItem.created_at,
+          });
+          pallet.totalQty += qty;
+        }
       }
 
-      if (existing >= 0) {
-        prev[existing].qty_units = qty;
-        return [...prev];
+      // Check if pallet exceeds capacity and split if needed
+      if (pallet.totalQty > PALLET_CAPACITY) {
+        setError(`Pallet would exceed ${PALLET_CAPACITY} unit capacity. Use another pallet.`);
+        // Revert the change
+        return prev;
       }
 
-      return [...prev, { product_id: productId, batch_item_id: batchItemId, qty_units: qty }];
+      setError(null);
+      return updated;
     });
+  };
+
+  const addNewPallet = () => {
+    setManualPallets((prev) => [...prev, { items: [], totalQty: 0 }]);
+  };
+
+  const removePallet = (index: number) => {
+    setManualPallets((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -609,19 +672,25 @@ function CreatePalletModal({
 
           {/* Automatic Mode */}
           {mode === "automatic" && (
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-              <p className="text-xs font-semibold text-blue-800 mb-2">Suggested Pallet (Auto-matched by expiry):</p>
-              {suggestedItems.length > 0 ? (
-                <div className="space-y-1">
-                  {suggestedItems.map((item, idx) => (
-                    <p key={idx} className="text-xs text-blue-700">
-                      • {item.product_name || item.product_id}: {item.qty_units} units (from {item.batch_name})
+            <div className="space-y-3">
+              {suggestedPallets.length > 0 && suggestedPallets[0].items.length > 0 ? (
+                suggestedPallets.map((pallet, palletIdx) => (
+                  <div key={palletIdx} className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-xs font-semibold text-blue-800 mb-2">
+                      Pallet {palletIdx + 1} (Auto-matched by expiry):
                     </p>
-                  ))}
-                  <p className="text-xs font-semibold text-blue-800 mt-2 pt-2 border-t border-blue-200">
-                    Total: {totalQtyForMode}/{PALLET_CAPACITY} items
-                  </p>
-                </div>
+                    <div className="space-y-1">
+                      {pallet.items.map((item, idx) => (
+                        <p key={idx} className="text-xs text-blue-700">
+                          • {item.product_name || item.product_id}: {item.qty_units} units (from {item.batch_name})
+                        </p>
+                      ))}
+                      <p className="text-xs font-semibold text-blue-800 mt-2 pt-2 border-t border-blue-200">
+                        Total: {pallet.totalQty}/{PALLET_CAPACITY} items
+                      </p>
+                    </div>
+                  </div>
+                ))
               ) : (
                 <p className="text-xs text-blue-600">Finding best matches from inventory…</p>
               )}
@@ -631,61 +700,112 @@ function CreatePalletModal({
           {/* Manual Mode */}
           {mode === "manual" && (
             <div className="space-y-4">
-              {order.booking_items && order.booking_items.length > 0 ? (
-                order.booking_items.map((orderItem) => {
-                  const availableItems = getAvailableItems(orderItem.product_id);
-                  return (
-                    <div key={orderItem.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-xs font-semibold text-navy mb-2">
-                        {orderItem.product?.name || orderItem.product_id} <span className="text-gray-500">(need {orderItem.qty_ordered} units)</span>
-                      </p>
-                      {availableItems.length > 0 ? (
-                        <div className="space-y-2">
-                          {availableItems.map((batch) => {
-                            const selected = manualSelections.find(
-                              (s) => s.product_id === orderItem.product_id && s.batch_item_id === batch.batch_item_id
-                            );
-                            return (
-                              <div key={batch.batch_item_id} className="flex items-center gap-2">
-                                <div className="flex-1">
-                                  <p className="text-xs text-gray-700">
-                                    {batch.batch_name}
-                                    <span className="text-gray-500"> ({batch.qty_available} available)</span>
-                                  </p>
-                                </div>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={batch.qty_available}
-                                  value={selected?.qty_units || 0}
-                                  onChange={(e) =>
-                                    handleManualSelect(
-                                      orderItem.product_id,
-                                      batch.batch_item_id,
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                  className="w-16 px-2 py-1 border border-border rounded text-xs text-center"
-                                  placeholder="qty"
-                                />
+              {manualPallets.map((pallet, palletIdx) => (
+                <div key={palletIdx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-navy">Pallet {palletIdx + 1}</p>
+                    {manualPallets.length > 1 && (
+                      <button
+                        onClick={() => removePallet(palletIdx)}
+                        className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  {order.booking_items && order.booking_items.length > 0 ? (
+                    <div className="space-y-3">
+                      {order.booking_items.map((orderItem) => {
+                        const availableItems = getAvailableItems(orderItem.product_id);
+                        const palletUsed = pallet.items
+                          .filter((i) => i.product_id === orderItem.product_id)
+                          .reduce((sum, i) => sum + i.qty_units, 0);
+
+                        return (
+                          <div
+                            key={orderItem.id}
+                            className="p-2 bg-white rounded border border-gray-100"
+                          >
+                            <p className="text-xs font-semibold text-navy mb-2">
+                              {orderItem.product?.name || orderItem.product_id}{" "}
+                              <span className="text-gray-500">
+                                ({palletUsed}/{orderItem.qty_ordered} units used in this pallet)
+                              </span>
+                            </p>
+                            {availableItems.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {availableItems.map((batch) => {
+                                  const selected = pallet.items.find(
+                                    (s) =>
+                                      s.product_id === orderItem.product_id &&
+                                      s.batch_item_id === batch.batch_item_id
+                                  );
+                                  return (
+                                    <div key={batch.batch_item_id} className="flex items-center gap-2">
+                                      <div className="flex-1">
+                                        <p className="text-xs text-gray-700">
+                                          {batch.batch_name}
+                                          <span className="text-gray-500">
+                                            {" "}
+                                            ({batch.qty_available} available)
+                                          </span>
+                                        </p>
+                                      </div>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={Math.min(
+                                          batch.qty_available,
+                                          PALLET_CAPACITY - pallet.totalQty +
+                                            (selected?.qty_units || 0)
+                                        )}
+                                        value={selected?.qty_units || 0}
+                                        onChange={(e) =>
+                                          handleManualSelect(
+                                            palletIdx,
+                                            orderItem.product_id,
+                                            batch.batch_item_id,
+                                            parseInt(e.target.value) || 0
+                                          )
+                                        }
+                                        className="w-16 px-2 py-1 border border-border rounded text-xs text-center"
+                                        placeholder="qty"
+                                      />
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-orange-600">No inventory available for this product</p>
-                      )}
+                            ) : (
+                              <p className="text-xs text-orange-600">
+                                No inventory available for this product
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })
-              ) : (
-                <p className="text-xs text-gray-600">No items to select</p>
-              )}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <p className="text-xs font-semibold text-navy">
-                  Total: {totalQtyForMode}/{PALLET_CAPACITY} items
-                </p>
-              </div>
+                  ) : (
+                    <p className="text-xs text-gray-600">No items to select</p>
+                  )}
+
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs font-semibold text-navy">
+                      Total: {pallet.totalQty}/{PALLET_CAPACITY} items
+                      {pallet.totalQty === PALLET_CAPACITY && (
+                        <span className="text-orange-600 ml-1">(at capacity)</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={addNewPallet}
+                className="w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg text-xs font-semibold text-navy hover:bg-white transition-colors"
+              >
+                + Add Another Pallet
+              </button>
             </div>
           )}
         </div>
@@ -699,10 +819,17 @@ function CreatePalletModal({
           </button>
           <button
             onClick={handleCreatePallet}
-            disabled={isCreating || suggestedItems.length === 0}
+            disabled={
+              isCreating ||
+              (mode === "automatic" ? suggestedPallets.every((p) => p.items.length === 0) : manualPallets.every((p) => p.items.length === 0))
+            }
             className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
           >
-            {isCreating ? "Creating…" : "Create Pallet"}
+            {isCreating
+              ? "Creating…"
+              : mode === "automatic"
+              ? `Create ${suggestedPallets.filter((p) => p.items.length > 0).length} Pallet(s)`
+              : `Create ${manualPallets.filter((p) => p.items.length > 0).length} Pallet(s)`}
           </button>
         </div>
       </div>
