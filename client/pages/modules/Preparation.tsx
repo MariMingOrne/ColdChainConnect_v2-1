@@ -138,6 +138,49 @@ export function Preparation() {
     );
   }).length;
 
+  const isOrderPrepared = (orderId: string): boolean => {
+    const orderPallets = pallets.filter((p) => p.order_id === orderId);
+    return orderPallets.length > 0 && orderPallets.every((p) => p.status === "prepared" || p.status === "approved" || p.status === "shipped");
+  };
+
+  const handleMarkPrepared = async (orderId: string) => {
+    try {
+      const orderPallets = pallets.filter((p) => p.order_id === orderId && p.status === "draft");
+      for (const pallet of orderPallets) {
+        await fetch(`/api/pallets/${pallet.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "prepared" }),
+        });
+      }
+      handleRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to mark pallets as prepared");
+    }
+  };
+
+  const handleUndoPrepared = async (orderId: string) => {
+    try {
+      const orderPallets = pallets.filter((p) => p.order_id === orderId && p.status === "prepared");
+      for (const pallet of orderPallets) {
+        await fetch(`/api/pallets/${pallet.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: "draft" }),
+        });
+      }
+      handleRefresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to undo prepared status");
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -270,6 +313,8 @@ export function Preparation() {
                 const itemCount = order.booking_items?.length ?? 0;
                 const orderPallets = pallets.filter((p) => p.order_id === order.id);
                 const approvedPalletCount = orderPallets.filter((p) => p.status === "approved").length;
+                const draftPalletCount = orderPallets.filter((p) => p.status === "draft").length;
+                const isPrepared = isOrderPrepared(order.id);
 
                 return (
                   <TableRow key={order.id}>
@@ -306,30 +351,63 @@ export function Preparation() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded text-sm font-semibold ${
-                        order.status === "approved"
-                          ? "bg-blue-100 text-blue-800"
-                          : order.status === "ready"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}>
-                        {order.status}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`px-2 py-1 rounded text-sm font-semibold ${
+                          order.status === "approved"
+                            ? "bg-blue-100 text-blue-800"
+                            : order.status === "ready"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {order.status}
+                        </span>
+                        {isPrepared && (
+                          <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                            ✓ Prepared
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setShowPaletModal(true);
-                        }}
-                      >
-                        Prepare
-                      </Button>
+                      <div className="flex gap-2 justify-end">
+                        {!isPrepared && (
+                          <>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setShowPaletModal(true);
+                              }}
+                              disabled={isPrepared}
+                            >
+                              Prepare
+                            </Button>
+                            {draftPalletCount > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleMarkPrepared(order.id)}
+                              >
+                                Mark Prepared
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {isPrepared && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUndoPrepared(order.id)}
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                          >
+                            Undo
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -354,6 +432,7 @@ export function Preparation() {
             setSelectedOrder(null);
           }}
           token={token}
+          isPrepared={isOrderPrepared(selectedOrder.id)}
         />
       )}
     </div>
@@ -366,6 +445,7 @@ interface CreatePalletModalProps {
   onClose: () => void;
   onCreated: () => void;
   token: string;
+  isPrepared?: boolean;
 }
 
 type PalletDraft = {
@@ -387,6 +467,7 @@ function CreatePalletModal({
   onClose,
   onCreated,
   token,
+  isPrepared = false,
 }: CreatePalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [mode, setMode] = useState<"automatic" | "manual">("automatic");
@@ -657,6 +738,37 @@ function CreatePalletModal({
       .filter(([productId]) => !neededProductIds.has(productId))
       .map(([productId, { name, qty }]) => ({ productId, name, qty }));
   };
+
+  if (isPrepared) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl border border-border max-w-md w-full">
+          <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+            <h2 className="font-rajdhani text-lg font-bold text-white">Order Prepared</h2>
+            <button onClick={onClose} className="text-white hover:opacity-70 text-2xl">
+              ×
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-700">
+              This order has already been marked as prepared. You cannot create additional pallets for this order.
+            </p>
+            <p className="text-sm text-gray-600">
+              Click the "Undo" button in the orders table to revert the prepared status if you need to make changes.
+            </p>
+          </div>
+          <div className="bg-off-white px-6 py-4 flex justify-end border-t border-border rounded-b-2xl">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

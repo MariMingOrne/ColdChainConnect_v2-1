@@ -152,7 +152,7 @@ export interface Pallet {
   id: string;
   order_id: string;
   truck_id?: string;
-  status: "draft" | "approved" | "shipped";
+  status: "draft" | "prepared" | "approved" | "shipped";
   created_at: string;
   updated_at: string;
   items?: PalletItem[];
@@ -186,7 +186,7 @@ export const CreatePalletSchema = z.object({
 });
 
 export const UpdatePalletStatusSchema = z.object({
-  status: z.enum(["draft", "approved", "shipped"]),
+  status: z.enum(["draft", "prepared", "approved", "shipped"]),
 });
 
 // Agent types — account-linked staff with login credentials
