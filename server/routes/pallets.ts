@@ -1,5 +1,8 @@
 import { RequestHandler } from "express";
+import { eq } from "drizzle-orm";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
+import { db } from "../db";
+import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
 
 const pallets: Pallet[] = [];
 let productInventory: Record<string, number> = {
@@ -7,6 +10,48 @@ let productInventory: Record<string, number> = {
   "prod-2": 50,
   "prod-3": 200,
 };
+
+async function calculateProductInventory(): Promise<Record<string, number>> {
+  try {
+    if (!process.env.DATABASE_URL) {
+      console.log("[Inventory] No DATABASE_URL, using mock inventory");
+      return productInventory;
+    }
+
+    const result: Record<string, number> = {};
+
+    const batches = await db.query.inventory_batches.findMany({
+      where: eq(inventory_batches.is_archived, false),
+      with: {
+        pallets: {
+          with: {
+            items: true,
+          },
+        },
+      },
+    });
+
+    console.log(`[Inventory] Found ${batches.length} active batches`);
+
+    for (const batch of batches) {
+      for (const pallet of batch.pallets) {
+        for (const item of pallet.items) {
+          const productId = item.product_id;
+          if (!result[productId]) {
+            result[productId] = 0;
+          }
+          result[productId] += item.qty_units;
+        }
+      }
+    }
+
+    console.log("[Inventory] Final calculated inventory:", result);
+    return result;
+  } catch (error) {
+    console.error("Error calculating inventory:", error);
+    return productInventory;
+  }
+}
 
 export const listPallets: RequestHandler = (_req, res) => {
   res.json(pallets);
@@ -134,13 +179,15 @@ export const deletePalletForOrder: RequestHandler = (req, res) => {
   res.json({ message: "Pallet deleted", pallet: deleted });
 };
 
-export const getProductInventory: RequestHandler = (_req, res) => {
-  res.json(productInventory);
+export const getProductInventory: RequestHandler = async (_req, res) => {
+  const inventory = await calculateProductInventory();
+  res.json(inventory);
 };
 
-export const getProductStock: RequestHandler = (req, res) => {
+export const getProductStock: RequestHandler = async (req, res) => {
   const { productId } = req.params;
-  const stock = productInventory[productId] || 0;
+  const inventory = await calculateProductInventory();
+  const stock = inventory[productId] || 0;
   res.json({ product_id: productId, available_stock: stock });
 };
 
