@@ -391,6 +391,15 @@ interface ExpiryGroup {
   total_qty: number;
 }
 
+interface ManualAllocationItem {
+  product_id: string;
+  qty_units: number;
+  batch_item_id: string;
+  batch_name: string;
+  batch_id: string;
+  expiry_date: string;
+}
+
 function CreatePalletModal({
   order,
   batches,
@@ -400,6 +409,7 @@ function CreatePalletModal({
 }: CreatePalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [allocationItems, setAllocationItems] = useState<AllocationItem[]>([]);
+  const [manualItems, setManualItems] = useState<ManualAllocationItem[]>([]);
   const [batchSources, setBatchSources] = useState<BatchSourceGroup[]>([]);
   const [expiryGroups, setExpiryGroups] = useState<ExpiryGroup[]>([]);
   const [insufficiencies, setInsufficiencies] = useState<Array<{
@@ -408,12 +418,15 @@ function CreatePalletModal({
     allocated: number;
     missing: number;
   }>>([]);
+  const [showAddItems, setShowAddItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const PALLET_CAPACITY = 50;
 
   useEffect(() => {
     allocateItemsToPallet();
+    setManualItems([]);
+    setShowAddItems(false);
   }, [order, batches]);
 
   const allocateItemsToPallet = () => {
@@ -549,9 +562,57 @@ function CreatePalletModal({
     );
   };
 
+  const addManualItem = (batchId: string, batchName: string, inventoryItem: InventoryBatchItem, expiryDate: string) => {
+    const PALLET_CAPACITY = 50;
+    const currentTotal = allocationItems.reduce((sum, item) => sum + item.qty_units, 0) +
+                        manualItems.reduce((sum, item) => sum + item.qty_units, 0);
+
+    if (currentTotal >= PALLET_CAPACITY) {
+      setError("Pallet is at capacity (50 items)");
+      return;
+    }
+
+    const maxQtyCanAdd = PALLET_CAPACITY - currentTotal;
+
+    const newItem: ManualAllocationItem = {
+      product_id: inventoryItem.product_id,
+      qty_units: Math.min(inventoryItem.qty_units, maxQtyCanAdd),
+      batch_item_id: inventoryItem.id,
+      batch_name: batchName,
+      batch_id: batchId,
+      expiry_date: expiryDate,
+    };
+
+    setManualItems([...manualItems, newItem]);
+    setError(null);
+  };
+
+  const removeManualItem = (index: number) => {
+    setManualItems(manualItems.filter((_, i) => i !== index));
+  };
+
+  const updateManualItemQty = (index: number, newQty: number) => {
+    const PALLET_CAPACITY = 50;
+    const currentTotal = allocationItems.reduce((sum, item) => sum + item.qty_units, 0) +
+                        manualItems.reduce((sum, item) => sum + item.qty_units, 0);
+    const difference = newQty - manualItems[index].qty_units;
+
+    if (currentTotal + difference > PALLET_CAPACITY) {
+      setError(`Cannot exceed pallet capacity (${PALLET_CAPACITY} items)`);
+      return;
+    }
+
+    const updatedItems = [...manualItems];
+    updatedItems[index].qty_units = newQty;
+    setManualItems(updatedItems);
+    setError(null);
+  };
+
   const handleCreatePallet = async () => {
-    if (allocationItems.length === 0) {
-      setError("No matching inventory items found for this order");
+    const finalItems = [...allocationItems, ...manualItems];
+
+    if (finalItems.length === 0) {
+      setError("No items selected for pallet");
       return;
     }
 
@@ -565,7 +626,7 @@ function CreatePalletModal({
         },
         body: JSON.stringify({
           order_id: order.id,
-          items: allocationItems.map((item) => ({
+          items: finalItems.map((item) => ({
             product_id: item.product_id,
             qty_units: item.qty_units,
             batch_item_id: item.batch_item_id,
@@ -583,7 +644,8 @@ function CreatePalletModal({
     }
   };
 
-  const totalQty = allocationItems.reduce((sum, item) => sum + item.qty_units, 0);
+  const totalQty = allocationItems.reduce((sum, item) => sum + item.qty_units, 0) +
+                  manualItems.reduce((sum, item) => sum + item.qty_units, 0);
   const allItemsAllocated = insufficiencies.length === 0;
   const singleExpiryDate = expiryGroups.length === 1;
 
@@ -707,22 +769,138 @@ function CreatePalletModal({
               ))}
             </div>
           )}
+
+          {/* Manually Added Items */}
+          {manualItems.length > 0 && (
+            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+              <p className="text-xs font-semibold text-purple-800 mb-2">Manually Added Items</p>
+              <div className="space-y-2">
+                {manualItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border border-purple-100">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-gray-800">
+                        {item.batch_name} - Product {item.product_id}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Exp: {new Date(item.expiry_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max={Math.min(50 - totalQty + item.qty_units, 50)}
+                        value={item.qty_units}
+                        onChange={(e) => updateManualItemQty(idx, parseInt(e.target.value) || 0)}
+                        className="w-12 px-1 py-1 text-xs border border-gray-300 rounded text-center"
+                      />
+                      <span className="text-xs text-gray-600 w-8">units</span>
+                      <button
+                        onClick={() => removeManualItem(idx)}
+                        className="text-red-600 hover:text-red-800 font-bold text-xs"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Items Section */}
+          {!showAddItems && insufficiencies.length > 0 && totalQty < PALLET_CAPACITY && (
+            <button
+              onClick={() => setShowAddItems(true)}
+              className="w-full px-4 py-2 bg-purple-100 text-purple-800 rounded-lg font-semibold text-sm hover:bg-purple-200 border border-purple-300"
+            >
+              + Add Items Manually
+            </button>
+          )}
+
+          {showAddItems && (
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-purple-800">Select Items from Batches</p>
+                <button
+                  onClick={() => setShowAddItems(false)}
+                  className="text-purple-800 hover:text-purple-900 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {expiryGroups.map((group, groupIdx) => (
+                  <div key={groupIdx} className="bg-white p-2 rounded border border-purple-100">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">
+                      Expires: {new Date(group.expiry_date).toLocaleDateString()}
+                    </p>
+                    <div className="space-y-1">
+                      {group.batches.map((batch, batchIdx) => {
+                        const correspondingBatch = batches.find((b) => b.id === batch.batch_id);
+                        const inventoryItem = correspondingBatch?.items?.find(
+                          (item) => item.id === batch.product_id.split("-")[0] // This is a simplification
+                        );
+
+                        return (
+                          <div
+                            key={batchIdx}
+                            className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs"
+                          >
+                            <span className="text-gray-700">
+                              {batch.batch_name} - Product {batch.product_id}
+                              <span className="text-gray-500 ml-1">({batch.qty_units} avail)</span>
+                            </span>
+                            <button
+                              onClick={() => {
+                                const correspondingBatch = batches.find((b) => b.id === batch.batch_id);
+                                const itemToAdd = correspondingBatch?.items?.find(
+                                  (item) => item.product_id === batch.product_id
+                                );
+                                if (itemToAdd) {
+                                  addManualItem(
+                                    batch.batch_id,
+                                    batch.batch_name,
+                                    itemToAdd,
+                                    group.expiry_date
+                                  );
+                                  setShowAddItems(false);
+                                }
+                              }}
+                              className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 font-semibold"
+                            >
+                              Add
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border sticky bottom-0 rounded-b-2xl">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleCreatePallet}
-            disabled={isCreating || allocationItems.length === 0}
-            className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
-          >
-            {isCreating ? "Creating…" : "Create Pallet"}
-          </button>
+        <div className="bg-off-white px-6 py-4 flex justify-between gap-2 border-t border-border sticky bottom-0 rounded-b-2xl">
+          <div className="flex items-center text-xs text-gray-600">
+            {totalQty > 0 && <span>{totalQty} items • {PALLET_CAPACITY - totalQty} remaining</span>}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreatePallet}
+              disabled={isCreating || totalQty === 0}
+              className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
+            >
+              {isCreating ? "Creating…" : "Create Pallet"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
