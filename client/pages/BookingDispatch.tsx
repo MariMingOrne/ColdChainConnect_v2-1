@@ -13,7 +13,7 @@ import { useAuth } from "../hooks/useAuth";
 const adminModules = [
   { label: "Order Summary",       path: "/order-summary" },
   { label: "Preparation",         path: "/preparation" },
-  { label: "Inventory",           path: "/inventory" },
+  { label: "Pallets",             path: "/inventory" },
   { label: "Invoicing",           path: "/invoicing" },
   { label: "Delivery",            path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
