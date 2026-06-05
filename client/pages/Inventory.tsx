@@ -258,7 +258,7 @@ export function Inventory() {
             </button>
           </div>
           <button onClick={() => { setNewBatchName(""); setStartBatchCreation(true); setIsBatchModalOpen(true); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
-            ➕ Create New Batch
+            ➕ Add Items
           </button>
         </div>
       </div>
@@ -676,6 +676,7 @@ function BatchModal({ batches, selectedBatchId, onSelectBatch, onDeleteBatch, on
 // ─── CreateBatchForm ──────────────────────────────────────────────────────────
 function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, onCreateBatch, onCancel, products }: { newBatchName: string; setNewBatchName: (n: string) => void; pallets: any[]; setPallets: (p: any[]) => void; onCreateBatch: () => void; onCancel: () => void; products: InventoryProduct[] }) {
   const [dbProducts, setDbProducts] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
 
   useEffect(() => {
     fetch("/api/products", { headers: { Authorization: `Bearer ${localStorage.getItem("auth_token") || ""}` } })
@@ -686,59 +687,34 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
   const getName = (id: string) => dbProducts.find((p) => p.id === id)?.name || products.find((p) => p.id === id)?.description || "";
   const getSku = (id: string) => dbProducts.find((p) => p.id === id)?.sku || products.find((p) => p.id === id)?.sku || "";
 
-  const hasUnpalletted = pallets.some((p) => p.isUnpalletted);
-
-  const addPallet = () => {
-    setPallets([...pallets, { pallet_id: "", supplier_name: "Frabelle Food Corp", received_date: "", temperature_log: "", storage_zone: "", placement_location: "", items: [] }]);
-  };
-
-  const addUnpalletted = () => {
-    if (hasUnpalletted) { alert("There is already an Unpalletted Items group in this batch."); return; }
-    setPallets([...pallets, { pallet_id: "UNPALLETED", isUnpalletted: true, supplier_name: "", received_date: "", temperature_log: "", storage_zone: "", placement_location: "", items: [] }]);
-  };
-
-  const removePallet = (idx: number) => {
-    setPallets(pallets.filter((_, i) => i !== idx));
-  };
-
-  const addItemToPallet = (palletIdx: number, productId: string) => {
-    if (!productId || pallets[palletIdx].items.some((i: any) => i.product_id === productId)) { alert("Product already in this group"); return; }
+  const addItem = (productId: string) => {
+    if (!productId || items.some((i) => i.product_id === productId)) { alert("Product already added"); return; }
     const p = products.find((x) => x.id === productId);
-    const newPallets = [...pallets];
-    newPallets[palletIdx].items.push({ product_id: productId, qty_units: p?.quantity ?? 0, expiration_date_note: "" });
-    setPallets(newPallets);
+    setItems([...items, { product_id: productId, qty_units: p?.quantity ?? 0, expiration_date_note: "" }]);
   };
 
-  const removeItemFromPallet = (palletIdx: number, itemIdx: number) => {
-    const newPallets = [...pallets];
-    newPallets[palletIdx].items.splice(itemIdx, 1);
-    setPallets(newPallets);
+  const removeItem = (itemIdx: number) => {
+    setItems(items.filter((_, i) => i !== itemIdx));
   };
 
-  const updatePallet = (idx: number, field: string, value: any) => {
-    const newPallets = [...pallets];
-    newPallets[idx][field] = value;
-    setPallets(newPallets);
-  };
-
-  const updatePalletItem = (palletIdx: number, itemIdx: number, field: string, value: any) => {
-    const newPallets = [...pallets];
-    newPallets[palletIdx].items[itemIdx][field] = value;
-    setPallets(newPallets);
+  const updateItem = (itemIdx: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[itemIdx][field] = value;
+    setItems(newItems);
   };
 
   const handleCreate = async () => {
-    if (!newBatchName.trim() || pallets.length === 0 || pallets.some((p) => !p.pallet_id || p.items.length === 0)) {
-      alert("Ensure batch name is set, every pallet/group has an ID, and each one has at least one item");
+    if (!newBatchName.trim() || items.length === 0) {
+      alert("Ensure batch name is set and at least one item is added");
       return;
     }
     const token = localStorage.getItem("auth_token") || "";
     try {
-      const payloadPallets = pallets.map(({ isUnpalletted, ...rest }) => rest);
+      const pallet = { pallet_id: "UNPALLETTED", items };
       const res = await fetch("/api/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ batch_name: newBatchName, pallets: payloadPallets }),
+        body: JSON.stringify({ batch_name: newBatchName, pallets: [pallet] }),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -752,6 +728,12 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
     }
   };
 
+  const usedProducts = items.map((i) => i.product_id);
+  const availableProducts = allProducts.filter((p) => {
+    const product = products.find((prod) => prod.id === p.id);
+    return !usedProducts.includes(p.id) && !product?.isDiscontinued;
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -760,94 +742,45 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold text-navy">Pallets *</h3>
-        {pallets.map((pallet, palletIdx) => {
-          const usedProducts = pallet.items.map((i: any) => i.product_id);
-          const availableProducts = allProducts.filter((p) => {
-            const product = products.find((prod) => prod.id === p.id);
-            return !usedProducts.includes(p.id) && !product?.isDiscontinued;
-          });
-          return (
-            <div key={palletIdx} className={`border rounded-xl overflow-hidden ${pallet.isUnpalletted ? "border-accent-2" : "border-border"}`}>
-              <div className={`px-4 py-2 flex items-center justify-between ${pallet.isUnpalletted ? "bg-accent-2" : "bg-navy-mid"}`}>
-                <span className="text-white font-semibold text-sm">
-                  {pallet.isUnpalletted ? "📦 Unpalletted Items" : `Pallet ${palletIdx + 1}`}
-                </span>
-                <button onClick={() => removePallet(palletIdx)} className="px-2 py-0.5 bg-red text-white rounded text-xs font-semibold hover:opacity-90">Remove</button>
-              </div>
+        <h3 className="text-xs font-semibold text-navy">Items *</h3>
 
-              <div className="p-4 space-y-3">
-                {!pallet.isUnpalletted && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-navy mb-1">Pallet ID *</label>
-                      <input type="text" value={pallet.pallet_id} onChange={(e) => updatePallet(palletIdx, "pallet_id", e.target.value)} placeholder="e.g., PLT-001" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-navy mb-1">Supplier</label>
-                      <input type="text" value={pallet.supplier_name || ""} readOnly className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-off-white text-muted cursor-not-allowed" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-navy mb-1">Received Date</label>
-                      <input type="date" value={pallet.received_date || ""} onChange={(e) => updatePallet(palletIdx, "received_date", e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-navy mb-1">Storage Zone</label>
-                      <input type="text" value={pallet.storage_zone || ""} onChange={(e) => updatePallet(palletIdx, "storage_zone", e.target.value)} placeholder="e.g., Zone A" className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-                    </div>
-                  </div>
-                )}
-
-                {pallet.isUnpalletted && (
-                  <p className="text-xs text-muted">These items are not assigned to a physical pallet. They are stored as loose stock under this batch.</p>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-navy mb-2">Add Products {pallet.isUnpalletted ? "" : "to Pallet "}*</label>
-                  <select onChange={(e) => { if (e.target.value) { addItemToPallet(palletIdx, e.target.value); e.target.value = ""; } }} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-                    <option value="">Choose a product...</option>
-                    {availableProducts.map((p) => (
-                      <option key={p.id} value={p.id}>{p.sku ? `${p.sku} - ` : ""}{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {pallet.items.length > 0 && (
-                  <div className="bg-off-white rounded-lg p-3 space-y-2">
-                    <label className="text-xs font-semibold text-navy">Items ({pallet.items.length})</label>
-                    {pallet.items.map((item: any, itemIdx: number) => (
-                      <div key={itemIdx} className="bg-white border border-border rounded p-2 space-y-2">
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
-                            <div className="text-xs text-muted">{getSku(item.product_id)}</div>
-                          </div>
-                          <input type="number" min="1" value={item.qty_units} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
-                          <button onClick={() => removeItemFromPallet(palletIdx, itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-navy mb-1">Expiry Date</label>
-                          <input type="date" value={item.expiration_date_note || ""} onChange={(e) => updatePalletItem(palletIdx, itemIdx, "expiration_date_note", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button onClick={addPallet} className="flex-1 px-4 py-2 border border-accent-2 text-accent-2 rounded-lg font-semibold text-sm hover:bg-accent-2/5">➕ Add Pallet</button>
-          <button onClick={addUnpalletted} disabled={hasUnpalletted} className="flex-1 px-4 py-2 border border-navy text-navy rounded-lg font-semibold text-sm hover:bg-navy/5 disabled:opacity-50 disabled:cursor-not-allowed">➕ Add Unpalletted Items</button>
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-2">Add Products *</label>
+          <select onChange={(e) => { if (e.target.value) { addItem(e.target.value); e.target.value = ""; } }} className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
+            <option value="">Choose a product...</option>
+            {availableProducts.map((p) => (
+              <option key={p.id} value={p.id}>{p.sku ? `${p.sku} - ` : ""}{p.name}</option>
+            ))}
+          </select>
         </div>
+
+        {items.length > 0 && (
+          <div className="bg-off-white rounded-lg p-3 space-y-2">
+            <label className="text-xs font-semibold text-navy">Items ({items.length})</label>
+            {items.map((item, itemIdx) => (
+              <div key={itemIdx} className="bg-white border border-border rounded p-2 space-y-2">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <div className="text-xs font-semibold text-navy">{getName(item.product_id)}</div>
+                    <div className="text-xs text-muted">{getSku(item.product_id)}</div>
+                  </div>
+                  <input type="number" min="1" value={item.qty_units} onChange={(e) => updateItem(itemIdx, "qty_units", parseInt(e.target.value) || 1)} className="w-20 px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                  <button onClick={() => removeItem(itemIdx)} className="px-2 py-1 bg-red text-white rounded text-xs font-semibold hover:opacity-90">✕</button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-navy mb-1">Expiry Date</label>
+                  <input type="date" value={item.expiration_date_note || ""} onChange={(e) => updateItem(itemIdx, "expiration_date_note", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end pt-4 border-t border-border">
         <button onClick={onCancel} className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-off-white">Cancel</button>
-        <button onClick={handleCreate} disabled={!newBatchName.trim() || pallets.length === 0} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
-          ✓ Create Batch
+        <button onClick={handleCreate} disabled={!newBatchName.trim() || items.length === 0} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+          ✓ Add Items
         </button>
       </div>
     </div>
