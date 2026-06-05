@@ -360,6 +360,37 @@ interface CreatePalletModalProps {
   token: string;
 }
 
+interface AllocationItem {
+  product_id: string;
+  qty_units: number;
+  batch_item_id: string;
+  batch_name: string;
+  batch_id: string;
+  expiry_date: string;
+}
+
+interface BatchSourceGroup {
+  batch_name: string;
+  batch_id: string;
+  items: Array<{
+    product_id: string;
+    qty_units: number;
+    expiry_date: string;
+  }>;
+  total_qty: number;
+}
+
+interface ExpiryGroup {
+  expiry_date: string;
+  batches: Array<{
+    batch_id: string;
+    batch_name: string;
+    product_id: string;
+    qty_units: number;
+  }>;
+  total_qty: number;
+}
+
 function CreatePalletModal({
   order,
   batches,
@@ -368,64 +399,65 @@ function CreatePalletModal({
   token,
 }: CreatePalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
-  const [suggestedItems, setSuggestedItems] = useState<Array<{
+  const [allocationItems, setAllocationItems] = useState<AllocationItem[]>([]);
+  const [batchSources, setBatchSources] = useState<BatchSourceGroup[]>([]);
+  const [expiryGroups, setExpiryGroups] = useState<ExpiryGroup[]>([]);
+  const [insufficiencies, setInsufficiencies] = useState<Array<{
     product_id: string;
-    qty_units: number;
-    batch_item_id: string;
-    batch_name: string;
-    expiry_note?: string;
+    ordered: number;
+    allocated: number;
+    missing: number;
   }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   const PALLET_CAPACITY = 50;
 
   useEffect(() => {
-    // Auto-find matching items from inventory sorted by expiry date
+    allocateItemsToPallet();
+  }, [order, batches]);
+
+  const allocateItemsToPallet = () => {
     const orderItems = order.booking_items || [];
-    const suggested: Array<{
-      product_id: string;
-      qty_units: number;
-      batch_item_id: string;
-      batch_name: string;
-      expiry_note?: string;
-    }> = [];
+    const allocated: AllocationItem[] = [];
+    const insufficiencies: typeof insufficiencies = [];
     let totalItems = 0;
 
     for (const orderItem of orderItems) {
       const neededQty = orderItem.qty_ordered;
       let remainingQty = neededQty;
 
-      // Collect all matching inventory items and sort by expiry (nearest first)
-      const matchingItems = batches
+      const matchingInventoryItems = batches
         .flatMap((batch) =>
-          (batch.items || [])
-            .filter((item) => item.product_id === orderItem.product_id)
-            .map((item) => ({
-              batchId: batch.id,
-              batchName: batch.name,
-              item,
-              expiryNote: batch.items?.find(i => i.id === item.id)?.created_at || "",
-            }))
+          (batch.items || []).map((item) => ({
+            batch_id: batch.id,
+            batch_name: batch.name,
+            inventory_item: item,
+            expiry_date: item.created_at,
+          }))
         )
+        .filter((item) => item.inventory_item.product_id === orderItem.product_id)
         .sort((a, b) => {
-          // Sort by expiry date (closer dates first - FIFO)
-          const dateA = new Date(a.expiryNote).getTime();
-          const dateB = new Date(b.expiryNote).getTime();
+          const dateA = new Date(a.expiry_date).getTime();
+          const dateB = new Date(b.expiry_date).getTime();
           return dateA - dateB;
         });
 
-      // Fill pallet with matching items up to capacity and order requirements
-      for (const { batchId, batchName, item } of matchingItems) {
+      for (const source of matchingInventoryItems) {
         if (remainingQty <= 0 || totalItems >= PALLET_CAPACITY) break;
 
-        const qtyToTake = Math.min(remainingQty, item.qty_units, PALLET_CAPACITY - totalItems);
+        const qtyToTake = Math.min(
+          remainingQty,
+          source.inventory_item.qty_units,
+          PALLET_CAPACITY - totalItems
+        );
 
-        suggested.push({
-          product_id: item.product_id,
+        allocated.push({
+          product_id: source.inventory_item.product_id,
           qty_units: qtyToTake,
-          batch_item_id: item.id,
-          batch_name: batchName,
-          expiry_note: item.created_at,
+          batch_item_id: source.inventory_item.id,
+          batch_name: source.batch_name,
+          batch_id: source.batch_id,
+          expiry_date: source.expiry_date,
         });
 
         remainingQty -= qtyToTake;
@@ -433,21 +465,97 @@ function CreatePalletModal({
       }
 
       if (remainingQty > 0) {
-        setError(`Insufficient inventory for product ${orderItem.product_id}: need ${remainingQty} more units`);
+        insufficiencies.push({
+          product_id: orderItem.product_id,
+          ordered: neededQty,
+          allocated: neededQty - remainingQty,
+          missing: remainingQty,
+        });
       }
     }
 
-    setSuggestedItems(suggested);
-  }, [order, batches]);
+    setAllocationItems(allocated);
+    setInsufficiencies(insufficiencies);
+
+    const batchGroups = groupByBatch(allocated);
+    setBatchSources(batchGroups);
+
+    const expiryGroups = groupByExpiry(allocated);
+    setExpiryGroups(expiryGroups);
+
+    if (insufficiencies.length > 0) {
+      const errorMsg = insufficiencies
+        .map((insuf) => `Product ${insuf.product_id}: need ${insuf.missing} more units`)
+        .join("; ");
+      setError(errorMsg);
+    } else {
+      setError(null);
+    }
+  };
+
+  const groupByBatch = (items: AllocationItem[]): BatchSourceGroup[] => {
+    const grouped = new Map<string, BatchSourceGroup>();
+
+    for (const item of items) {
+      const key = item.batch_id;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          batch_name: item.batch_name,
+          batch_id: item.batch_id,
+          items: [],
+          total_qty: 0,
+        });
+      }
+
+      const group = grouped.get(key)!;
+      group.items.push({
+        product_id: item.product_id,
+        qty_units: item.qty_units,
+        expiry_date: item.expiry_date,
+      });
+      group.total_qty += item.qty_units;
+    }
+
+    return Array.from(grouped.values()).sort((a, b) =>
+      a.batch_name.localeCompare(b.batch_name)
+    );
+  };
+
+  const groupByExpiry = (items: AllocationItem[]): ExpiryGroup[] => {
+    const grouped = new Map<string, ExpiryGroup>();
+
+    for (const item of items) {
+      const key = item.expiry_date;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          expiry_date: key,
+          batches: [],
+          total_qty: 0,
+        });
+      }
+
+      const group = grouped.get(key)!;
+      group.batches.push({
+        batch_id: item.batch_id,
+        batch_name: item.batch_name,
+        product_id: item.product_id,
+        qty_units: item.qty_units,
+      });
+      group.total_qty += item.qty_units;
+    }
+
+    return Array.from(grouped.values()).sort((a, b) =>
+      new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime()
+    );
+  };
 
   const handleCreatePallet = async () => {
-    if (suggestedItems.length === 0) {
+    if (allocationItems.length === 0) {
       setError("No matching inventory items found for this order");
       return;
     }
 
     setIsCreating(true);
-    setError(null);
     try {
       const response = await fetch("/api/pallets", {
         method: "POST",
@@ -457,7 +565,7 @@ function CreatePalletModal({
         },
         body: JSON.stringify({
           order_id: order.id,
-          items: suggestedItems.map((item) => ({
+          items: allocationItems.map((item) => ({
             product_id: item.product_id,
             qty_units: item.qty_units,
             batch_item_id: item.batch_item_id,
@@ -475,12 +583,14 @@ function CreatePalletModal({
     }
   };
 
-  const totalQty = suggestedItems.reduce((sum, item) => sum + item.qty_units, 0);
+  const totalQty = allocationItems.reduce((sum, item) => sum + item.qty_units, 0);
+  const allItemsAllocated = insufficiencies.length === 0;
+  const singleExpiryDate = expiryGroups.length === 1;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl border border-border max-w-lg w-full">
-        <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border rounded-t-2xl">
+      <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-navy-mid px-6 py-4 flex items-center justify-between border-b border-border sticky top-0 rounded-t-2xl">
           <h2 className="font-rajdhani text-lg font-bold text-white">Create Pallet</h2>
           <button onClick={onClose} className="text-white hover:opacity-70 text-2xl">
             ×
@@ -497,30 +607,109 @@ function CreatePalletModal({
 
           {error && (
             <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
-              <p className="text-xs text-orange-700">{error}</p>
+              <p className="text-xs text-orange-700 font-semibold mb-1">
+                {allItemsAllocated ? "✓ Full allocation possible" : "⚠ Partial allocation"}
+              </p>
+              {!allItemsAllocated && (
+                <p className="text-xs text-orange-700">{error}</p>
+              )}
             </div>
           )}
 
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="text-xs font-semibold text-blue-800 mb-2">Suggested Pallet (Auto-matched by expiry):</p>
-            {suggestedItems.length > 0 ? (
-              <div className="space-y-1">
-                {suggestedItems.map((item, idx) => (
-                  <p key={idx} className="text-xs text-blue-700">
-                    • Product {item.product_id}: {item.qty_units} units (from {item.batch_name})
-                  </p>
-                ))}
-                <p className="text-xs font-semibold text-blue-800 mt-2 pt-2 border-t border-blue-200">
-                  Total: {totalQty}/{PALLET_CAPACITY} items
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-blue-600">Finding best matches from inventory…</p>
+          {/* Pallet Summary */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <p className="text-xs font-semibold text-blue-800 mb-3">Pallet Summary</p>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-blue-700">Capacity: {totalQty}/{PALLET_CAPACITY} items</span>
+              <span className="text-xs font-semibold text-blue-800">
+                {Math.round((totalQty / PALLET_CAPACITY) * 100)}% full
+              </span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-2">
+              <div
+                className="bg-accent-2 h-2 rounded-full"
+                style={{ width: `${Math.min((totalQty / PALLET_CAPACITY) * 100, 100)}%` }}
+              ></div>
+            </div>
+            {singleExpiryDate && (
+              <p className="text-xs text-blue-700 mt-2 font-semibold">
+                ✓ All items expire on: {new Date(expiryGroups[0].expiry_date).toLocaleDateString()}
+              </p>
             )}
           </div>
+
+          {/* Expiry Date Groups */}
+          {expiryGroups.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-navy">Items by Expiration Date</p>
+              {expiryGroups.map((group, idx) => (
+                <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-700">
+                      {new Date(group.expiry_date).toLocaleDateString()}
+                    </span>
+                    <span className="text-xs font-bold text-gray-900">{group.total_qty} units</span>
+                  </div>
+                  <div className="space-y-1">
+                    {group.batches.map((batch, bIdx) => (
+                      <div key={bIdx} className="text-xs text-gray-600 flex justify-between pl-2">
+                        <span>
+                          {batch.batch_name} - Product {batch.product_id}
+                        </span>
+                        <span className="font-semibold">{batch.qty_units} units</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Batch Source Groups */}
+          {batchSources.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-navy">Items by Batch Source</p>
+              {batchSources.map((source, idx) => (
+                <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-700">{source.batch_name}</span>
+                    <span className="text-xs font-bold text-gray-900">{source.total_qty} units</span>
+                  </div>
+                  <div className="space-y-1">
+                    {source.items.map((item, iIdx) => (
+                      <div key={iIdx} className="text-xs text-gray-600 flex justify-between pl-2">
+                        <span>
+                          Product {item.product_id}
+                          {!singleExpiryDate && (
+                            <span className="text-gray-500 ml-1">
+                              (exp: {new Date(item.expiry_date).toLocaleDateString()})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold">{item.qty_units} units</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Insufficient Items Warning */}
+          {insufficiencies.length > 0 && (
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <p className="text-xs font-semibold text-yellow-800 mb-2">Partially Allocated</p>
+              {insufficiencies.map((insuf, idx) => (
+                <p key={idx} className="text-xs text-yellow-700">
+                  Product {insuf.product_id}: {insuf.allocated}/{insuf.ordered} units
+                  (missing {insuf.missing})
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
+        <div className="bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border sticky bottom-0 rounded-b-2xl">
           <button
             onClick={onClose}
             className="px-4 py-2 border border-border rounded-lg font-semibold text-sm hover:bg-white"
@@ -529,7 +718,7 @@ function CreatePalletModal({
           </button>
           <button
             onClick={handleCreatePallet}
-            disabled={isCreating || suggestedItems.length === 0}
+            disabled={isCreating || allocationItems.length === 0}
             className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"
           >
             {isCreating ? "Creating…" : "Create Pallet"}
