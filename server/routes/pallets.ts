@@ -53,8 +53,55 @@ async function calculateProductInventory(): Promise<Record<string, number>> {
   }
 }
 
-export const listPallets: RequestHandler = (_req, res) => {
-  res.json(pallets);
+export const listPallets: RequestHandler = async (_req, res) => {
+  try {
+    if (process.env.DATABASE_URL) {
+      const dbPallets = await db.query.batch_pallets.findMany({
+        with: {
+          items: true,
+        },
+      });
+
+      if (dbPallets.length === 0) {
+        return res.json(pallets);
+      }
+
+      const formattedPallets: Pallet[] = [];
+      const seenPalletIds = new Set<string>();
+
+      for (const bp of dbPallets) {
+        if (seenPalletIds.has(bp.pallet_id)) continue;
+        seenPalletIds.add(bp.pallet_id);
+
+        const items: PalletItem[] = (bp.items || []).map((item) => ({
+          id: item.id,
+          pallet_id: item.pallet_id,
+          product_id: item.product_id,
+          qty_units: item.qty_units,
+          unit_cost: item.unit_cost || "0.00",
+          batch_item_id: item.batch_item_id,
+          created_at: item.created_at.toISOString(),
+          updated_at: item.updated_at.toISOString(),
+        }));
+
+        formattedPallets.push({
+          id: bp.pallet_id,
+          order_id: bp.pallet_id,
+          status: "draft",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          items,
+          batch_links: [{ pallet_id: bp.pallet_id, batch_id: bp.batch_id, items_from_batch: items.length }],
+        });
+      }
+
+      return res.json([...formattedPallets, ...pallets]);
+    }
+    res.json(pallets);
+  } catch (error) {
+    console.error("Error fetching pallets:", error);
+    res.json(pallets);
+  }
 };
 
 export const getPallet: RequestHandler = (req, res) => {
@@ -64,35 +111,128 @@ export const getPallet: RequestHandler = (req, res) => {
   res.json(pallet);
 };
 
-export const createPallet: RequestHandler = (req, res) => {
+export const createPallet: RequestHandler = async (req, res) => {
   try {
     const { order_id, items } = CreatePalletSchema.parse(req.body);
     const palletId = `pallet-${Date.now()}`;
-    const now = new Date().toISOString();
+    const now = new Date();
 
-    const palletItems: PalletItem[] = items.map((item, idx) => ({
-      id: `pallet-item-${Date.now()}-${idx}`,
-      pallet_id: palletId,
-      product_id: item.product_id,
-      qty_units: item.qty_units,
-      unit_cost: "0.00",
-      batch_item_id: item.batch_item_id,
-      created_at: now,
-      updated_at: now,
-    }));
+    if (process.env.DATABASE_URL) {
+      // Save to database
+      try {
+        for (const item of items) {
+          // Find the batch_item to get batch_id
+          const batchItem = await db.query.inventory_batch_items.findFirst({
+            where: (fields, { eq }) => eq(fields.id, item.batch_item_id),
+          });
 
-    const newPallet: Pallet = {
-      id: palletId,
-      order_id,
-      status: "draft",
-      created_at: now,
-      updated_at: now,
-      items: palletItems,
-      batch_links: [],
-    };
+          if (batchItem) {
+            // Create/link batch pallet
+            const existingBatchPallet = await db.query.batch_pallets.findFirst({
+              where: (fields, { and, eq }) =>
+                and(
+                  eq(fields.batch_id, batchItem.batch_id),
+                  eq(fields.pallet_id, palletId)
+                ),
+            });
 
-    pallets.push(newPallet);
-    res.status(201).json(newPallet);
+            if (!existingBatchPallet) {
+              await db.insert(batch_pallets).values({
+                id: `bp-${Date.now()}-${item.batch_item_id}`,
+                batch_id: batchItem.batch_id,
+                pallet_id: palletId,
+              });
+            }
+
+            // Create pallet item
+            await db.insert(pallet_items).values({
+              id: `pallet-item-${Date.now()}-${item.batch_item_id}`,
+              pallet_id: palletId,
+              product_id: item.product_id,
+              qty_units: item.qty_units,
+              unit_cost: "0.00",
+              batch_item_id: item.batch_item_id,
+              created_at: now,
+              updated_at: now,
+            });
+          }
+        }
+
+        const palletItems: PalletItem[] = items.map((item, idx) => ({
+          id: `pallet-item-${Date.now()}-${idx}`,
+          pallet_id: palletId,
+          product_id: item.product_id,
+          qty_units: item.qty_units,
+          unit_cost: "0.00",
+          batch_item_id: item.batch_item_id,
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        }));
+
+        const newPallet: Pallet = {
+          id: palletId,
+          order_id,
+          status: "draft",
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+          items: palletItems,
+          batch_links: [],
+        };
+
+        res.status(201).json(newPallet);
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+        // Fallback to in-memory for now
+        const palletItems: PalletItem[] = items.map((item, idx) => ({
+          id: `pallet-item-${Date.now()}-${idx}`,
+          pallet_id: palletId,
+          product_id: item.product_id,
+          qty_units: item.qty_units,
+          unit_cost: "0.00",
+          batch_item_id: item.batch_item_id,
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        }));
+
+        const newPallet: Pallet = {
+          id: palletId,
+          order_id,
+          status: "draft",
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+          items: palletItems,
+          batch_links: [],
+        };
+
+        pallets.push(newPallet);
+        res.status(201).json(newPallet);
+      }
+    } else {
+      // No database, use in-memory storage
+      const palletItems: PalletItem[] = items.map((item, idx) => ({
+        id: `pallet-item-${Date.now()}-${idx}`,
+        pallet_id: palletId,
+        product_id: item.product_id,
+        qty_units: item.qty_units,
+        unit_cost: "0.00",
+        batch_item_id: item.batch_item_id,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      }));
+
+      const newPallet: Pallet = {
+        id: palletId,
+        order_id,
+        status: "draft",
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+        items: palletItems,
+        batch_links: [],
+      };
+
+      pallets.push(newPallet);
+      res.status(201).json(newPallet);
+    }
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
