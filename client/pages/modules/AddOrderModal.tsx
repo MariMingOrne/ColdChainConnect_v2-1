@@ -135,7 +135,10 @@ export function AddOrderModal({
                   <button
                     key={product.id}
                     onClick={() => {
-                      if (!isOutOfStock && !isSelected) {
+                      if (isSelected) {
+                        const itemIdx = orderItems.findIndex((item) => item.product_id === product.id);
+                        if (itemIdx !== -1) onRemoveItem(itemIdx);
+                      } else if (!isOutOfStock) {
                         onAddItem();
                         const newIdx = orderItems.length;
                         setTimeout(() => {
