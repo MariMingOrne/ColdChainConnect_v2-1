@@ -14,17 +14,8 @@ interface CustomerForm {
   location: string;
   contact_person: string;
   contact_info: string;
-  payment_type: "" | "cash" | "check" | "bank_transfer" | "cod" | "credit";
   tax_rate: string;
 }
-
-const PAYMENT_OPTIONS: Array<Exclude<CustomerForm["payment_type"], "">> = [
-  "cash",
-  "check",
-  "bank_transfer",
-  "cod",
-  "credit",
-];
 
 function StatsBox({
   label,
@@ -73,10 +64,6 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Info</label>
             <div className="text-sm text-navy">{customer.contact_info || "—"}</div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Payment Type</label>
-            <div className="text-sm text-navy">{customer.payment_type ? customer.payment_type.replace("_", " ").toUpperCase() : "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Tax Rate</label>
@@ -180,29 +167,6 @@ function CustomerModal({
 
           <div>
             <label className="mb-1 block text-xs font-semibold text-navy">
-              Payment Type
-            </label>
-            <select
-              value={formData.payment_type}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  payment_type: e.target.value as CustomerForm["payment_type"],
-                })
-              }
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
-            >
-              <option value="">Select payment type</option>
-              {PAYMENT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option.replace("_", " ").toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy">
               Tax Rate (%)
             </label>
             <input
@@ -255,7 +219,6 @@ export function Customers({ onBack }: CustomersProps) {
     location: "",
     contact_person: "",
     contact_info: "",
-    payment_type: "",
     tax_rate: "",
   });
   const { token } = useAuth();
@@ -297,7 +260,7 @@ export function Customers({ onBack }: CustomersProps) {
         (customer) =>
           customer.store_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           customer.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          customer.payment_type?.toLowerCase().includes(searchQuery.toLowerCase())
+          customer.contact_person?.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [customers, searchQuery]
   );
@@ -308,10 +271,6 @@ export function Customers({ onBack }: CustomersProps) {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  const paymentTypeCount = new Set(
-    customers.map((customer) => customer.payment_type).filter(Boolean)
-  ).size;
 
   const averageTaxRate =
     customers.length > 0
@@ -326,7 +285,6 @@ export function Customers({ onBack }: CustomersProps) {
       location: "",
       contact_person: "",
       contact_info: "",
-      payment_type: "",
       tax_rate: "",
     });
     setIsModalOpen(true);
@@ -339,7 +297,6 @@ export function Customers({ onBack }: CustomersProps) {
       location: customer.location,
       contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
-      payment_type: (customer.payment_type as CustomerForm["payment_type"]) ?? "",
       tax_rate:
         customer.tax_rate !== undefined && customer.tax_rate !== null
           ? String(Number(customer.tax_rate) * 100)
@@ -373,7 +330,6 @@ export function Customers({ onBack }: CustomersProps) {
           location: formData.location,
           contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
-          payment_type: formData.payment_type || undefined,
           tax_rate:
             taxRateValue !== undefined && !Number.isNaN(taxRateValue)
               ? taxRateValue
@@ -427,7 +383,7 @@ export function Customers({ onBack }: CustomersProps) {
             Customer Management
           </h1>
           <p className="mt-1 text-xs text-muted">
-            Manage customer stores, payment terms, and Philippine tax settings
+            Manage customer stores, contacts, and Philippine tax settings
           </p>
         </div>
 
@@ -458,7 +414,6 @@ export function Customers({ onBack }: CustomersProps) {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatsBox label="Total Customers" value={customers.length.toString()} icon="🏪" />
-        <StatsBox label="Payment Types" value={paymentTypeCount.toString()} icon="💳" />
         <StatsBox
           label="Avg Tax Rate"
           value={`${averageTaxRate > 0 ? (averageTaxRate * 100).toFixed(2) : "0.00"}%`}
@@ -479,7 +434,7 @@ export function Customers({ onBack }: CustomersProps) {
             setSearchQuery(value);
             setCurrentPage(1);
           }}
-          placeholder="Search by store, location, or payment type…"
+          placeholder="Search by store, location, or contact person…"
         />
 
         <button
