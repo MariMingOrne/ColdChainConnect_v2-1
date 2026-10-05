@@ -167,6 +167,7 @@ export const bookings = pgTable("bookings", {
     .notNull()
     .references(() => users.id),
   status: bookingStatusEnum("status").default("pending").notNull(),
+  prepared_delivery_date: text("prepared_delivery_date"),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 

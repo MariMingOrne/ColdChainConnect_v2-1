@@ -15,7 +15,9 @@ interface AddOrderModalProps {
   productStock: Record<string, number>;
   orderItems: OrderItem[];
   newCustomerId: string;
+  preparedDeliveryDate: string;
   onCustomerChange: (customerId: string) => void;
+  onPreparedDeliveryDateChange: (date: string) => void;
   onAddItem: (productId: string) => void;
   onRemoveItem: (idx: number) => void;
   onItemChange: (idx: number, field: "product_id" | "qty_ordered", value: string | number) => void;
@@ -31,7 +33,9 @@ export function AddOrderModal({
   productStock,
   orderItems,
   newCustomerId,
+  preparedDeliveryDate,
   onCustomerChange,
+  onPreparedDeliveryDateChange,
   onAddItem,
   onRemoveItem,
   onItemChange,
@@ -89,6 +93,13 @@ export function AddOrderModal({
               </option>
             ))}
           </select>
+          <label className="mt-3 block text-xs font-semibold text-navy mb-2">Prepared Delivery Date</label>
+          <input
+            type="date"
+            value={preparedDeliveryDate}
+            onChange={(e) => onPreparedDeliveryDateChange(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+          />
         </div>
 
         {/* Tabs */}

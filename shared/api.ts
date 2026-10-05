@@ -269,6 +269,7 @@ export interface Booking {
   customer_id: string;
   created_by: string;
   status: "pending" | "approved" | "rejected" | "prep" | "ready";
+  prepared_delivery_date?: string | null;
   created_at: string;
   customer?: Customer;
   creator?: User;
@@ -291,6 +292,7 @@ export const CreateBookingItemSchema = z.object({
 
 export const CreateBookingSchema = z.object({
   customer_id: z.string().min(1, "Customer ID is required"),
+  prepared_delivery_date: z.string().optional(),
   items: z.array(CreateBookingItemSchema).min(1, "At least one item is required"),
 });
 
