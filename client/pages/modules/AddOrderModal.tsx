@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { QuantityStepper } from "./QuantityStepper";
 import { Product, Customer } from "@shared/api";
 
 interface OrderItem {
@@ -247,27 +248,12 @@ export function AddOrderModal({
                           <p className="text-xs text-muted">₱{product.price}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onItemChange(idx, "qty_ordered", Math.max(1, item.qty_ordered - 1))}
-                            disabled={item.qty_ordered <= 1}
-                            className="w-7 h-7 flex items-center justify-center border border-border rounded text-navy hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label="Decrease quantity"
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span className="w-10 text-center text-sm font-semibold text-navy">
-                            {item.qty_ordered}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onItemChange(idx, "qty_ordered", Math.min(maxQty, item.qty_ordered + 1))}
-                            disabled={item.qty_ordered >= maxQty}
-                            className="w-7 h-7 flex items-center justify-center border border-border rounded text-navy hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-                            aria-label="Increase quantity"
-                          >
-                            <Plus size={14} />
-                          </button>
+                          <QuantityStepper
+                            value={item.qty_ordered}
+                            min={1}
+                            max={maxQty}
+                            onChange={(qty) => onItemChange(idx, "qty_ordered", qty)}
+                          />
                           <span className="text-xs text-muted">{maxQty} available</span>
                         </div>
                         <button
