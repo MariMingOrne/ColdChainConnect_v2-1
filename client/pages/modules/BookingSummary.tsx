@@ -531,13 +531,15 @@ export function BookingSummary() {
                           </button>
                         </div>
                       ) : booking.status === "approved" ? (
-                        <button
-                          onClick={() => handleUnapproveBooking(booking)}
-                          className="btn-secondary ml-auto"
-                        >
-                          <XCircle size={14} />
-                          Unapprove
-                        </button>
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => handleUnapproveBooking(booking)}
+                            className="btn-secondary whitespace-nowrap"
+                          >
+                            <XCircle size={14} />
+                            Unapprove
+                          </button>
+                        </div>
                       ) : (
                         <span className="px-3 py-1.5 text-xs font-semibold text-muted bg-off-white rounded-lg capitalize border border-border">{booking.status}</span>
                       )}

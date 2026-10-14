@@ -481,7 +481,7 @@ export function Invoicing() {
                     <TableCell className="text-right">
                       <button
                         onClick={() => setReceiptInvoice(inv)}
-                        className="px-3 py-1.5 bg-accent-2 text-white text-xs font-semibold rounded-lg hover:opacity-80 flex items-center gap-1.5 ml-auto"
+                        className="px-3 py-1.5 bg-accent-2 text-white text-xs font-semibold rounded-lg hover:opacity-80 flex items-center gap-1.5 ml-auto whitespace-nowrap"
                       >
                         <Printer size={14} /> Print
                       </button>
