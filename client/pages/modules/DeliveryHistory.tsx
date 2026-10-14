@@ -209,7 +209,7 @@ export function DeliveryHistory() {
                       <td className="px-3 py-3">
                         <button
                           onClick={() => setViewReceipt(r)}
-                          className="px-3 py-1 border border-border rounded text-xs font-semibold hover:bg-off-white transition-colors"
+                          className="px-3 py-1 border border-border rounded text-xs font-semibold whitespace-nowrap hover:bg-off-white transition-colors"
                         >
                           🧾 View OR
                         </button>

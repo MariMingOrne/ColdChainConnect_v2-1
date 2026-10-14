@@ -372,7 +372,7 @@ export function Preparation() {
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end items-center">
+                      <div className="flex gap-2 justify-end items-center whitespace-nowrap">
                         {/* Prepare: only show when no pallets created yet and not prepared */}
                         {draftPalletCount === 0 && !isPrepared && (
                           <button

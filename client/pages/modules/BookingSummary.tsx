@@ -517,14 +517,14 @@ export function BookingSummary() {
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => openApproveModal(booking)}
-                            className="btn-accent"
+                            className="btn-accent whitespace-nowrap"
                           >
                             <CheckCircle size={14} />
                             Approve
                           </button>
                           <button
                             onClick={() => openRejectModal(booking)}
-                            className="btn-danger"
+                            className="btn-danger whitespace-nowrap"
                           >
                             <XCircle size={14} />
                             Reject
