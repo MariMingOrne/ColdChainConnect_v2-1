@@ -447,6 +447,7 @@ export interface AgentReturn {
 export interface AuditLog {
   id: string;
   user_id: string;
+  user_name?: string | null;
   action: string;
   resource_type: string;
   resource_id?: string;

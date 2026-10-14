@@ -38,6 +38,7 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
       const haystack = [
         describeLog(log),
         log.user_id,
+        log.user_name,
         log.action,
         log.resource_type,
         log.resource_id ?? "",
@@ -107,7 +108,12 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
                       {new Date(log.created_at).toLocaleString()}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{log.user_id.slice(0, 8)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-navy">{log.user_name || "Unknown user"}</span>
+                      <span className="font-mono text-xs text-gray-500">({log.user_id.slice(0, 8)})</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs font-semibold ${ACTION_COLORS[log.action] ?? "bg-gray-100 text-gray-800"}`}>
                       {log.action.toUpperCase()}
