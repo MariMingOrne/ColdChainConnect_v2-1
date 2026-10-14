@@ -28,6 +28,18 @@ export interface LogoutResponse {
   message: string;
 }
 
+export interface CreateAccountRequest {
+  username: string;
+  password: string;
+  role: "admin" | "agent";
+}
+
+export interface CreateAccountResponse {
+  id: string;
+  username: string;
+  role: "admin" | "agent";
+}
+
 // User types
 export interface User {
   id: string;

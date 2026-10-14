@@ -7,9 +7,9 @@ import {
   handleLogin,
   handleLogout,
   handleRefresh,
-  handleCreateUser,
-  updateUserPassword,   // ← add this
+  updateUserPassword,
 } from "./routes/auth";
+import { handleCreateAccount } from "./routes/users";
 import {
   listCustomers,
   createCustomer,
@@ -134,7 +134,7 @@ export function createServer() {
   app.post("/api/auth/login", handleLogin);
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/refresh", authMiddleware, handleRefresh);
-  app.post("/api/auth/users", handleCreateUser);
+  app.post("/api/users", authMiddleware, requireRole("admin"), handleCreateAccount);
   app.patch("/api/users/:userId/password", authMiddleware, requireRole("admin"), updateUserPassword);
 
   // Customers routes
