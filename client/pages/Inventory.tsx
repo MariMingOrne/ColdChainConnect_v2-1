@@ -36,6 +36,7 @@ export function Inventory() {
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [newBatchName, setNewBatchName] = useState("");
   const [startBatchCreation, setStartBatchCreation] = useState(false);
+  const [batchSearch, setBatchSearch] = useState("");
 
   const emptyForm = (): InventoryProduct => ({
     id: "", sku: "", description: "", unitPrice: 0, supplierId: "",
@@ -92,6 +93,16 @@ export function Inventory() {
   }, [batches]);
 
   const currentBatch = batches.find((b) => b.id === selectedBatchId);
+  const activeBatches = batches.filter((b) => !b.isArchived && b.id !== "batch-all");
+  const batchSearchTerm = batchSearch.trim().toLowerCase();
+  const visibleBatches = activeBatches.filter((b) =>
+    !batchSearchTerm || b.name.toLowerCase().includes(batchSearchTerm) || b.pallets.some((p) => p.palletId.toLowerCase().includes(batchSearchTerm))
+  );
+  const visiblePallets = currentBatch && currentBatch.id !== "batch-all"
+    ? currentBatch.pallets.filter((p) => !batchSearchTerm || currentBatch.name.toLowerCase().includes(batchSearchTerm) || p.palletId.toLowerCase().includes(batchSearchTerm))
+    : [];
+  const selectBatch = (id: string) => { setSelectedBatchId(id); setSelectedPalletId(null); setCurrentPage(1); };
+  const selectPallet = (id: string | null) => { setSelectedPalletId(id); setCurrentPage(1); };
 
   const getBatchProducts = (): (InventoryProduct & { batchQuantity: number; batchExpiryDate: string; itemId?: string })[] => {
     if (!currentBatch || currentBatch.id === "batch-all") {
@@ -99,7 +110,8 @@ export function Inventory() {
     }
 
     const itemsByProduct: Record<string, { quantity: number; expiryDates: string[]; itemId?: string }> = {};
-    for (const pallet of currentBatch.pallets) {
+    const scopedPallets = currentBatch.pallets.filter((pallet) => !selectedPalletId || pallet.id === selectedPalletId);
+    for (const pallet of scopedPallets) {
       for (const item of pallet.items) {
         if (!itemsByProduct[item.productId]) {
           itemsByProduct[item.productId] = { quantity: 0, expiryDates: [], itemId: item.id };
@@ -237,19 +249,49 @@ export function Inventory() {
       {/* Products Section */}
       <div className="space-y-6">
 
-      {/* Batch Selector Card */}
+      {/* Batch & Pallet Selector Card */}
       <div className="bg-white rounded-2xl border border-border p-6 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-navy">Current Batch</label>
-            <button onClick={() => setIsBatchModalOpen(true)} className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
-              📦 {currentBatch?.name || "All Products"}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center bg-off-white border border-border rounded-lg px-3 gap-2 w-full md:max-w-sm">
+            <span className="text-muted">🔍</span>
+            <input type="text" placeholder="Find a batch or pallet…" value={batchSearch}
+              onChange={(e) => setBatchSearch(e.target.value)}
+              className="flex-1 bg-transparent border-none text-navy placeholder-muted py-2 outline-none text-sm" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setIsBatchModalOpen(true)} className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white w-fit">⚙ Manage Batches</button>
+            <button onClick={() => { setNewBatchName(""); setStartBatchCreation(true); setIsBatchModalOpen(true); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
+              ➕ Add Items
             </button>
           </div>
-          <button onClick={() => { setNewBatchName(""); setStartBatchCreation(true); setIsBatchModalOpen(true); }} className="px-4 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 w-fit">
-            ➕ Add Items
-          </button>
         </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-2">Batch</label>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-visible">
+            <FilterChip label="📦 All Products" meta={`${products.length} SKUs`} active={selectedBatchId === "batch-all"} onClick={() => selectBatch("batch-all")} />
+            {visibleBatches.map((batch) => {
+              const itemCount = batch.pallets.reduce((sum: number, p) => sum + p.items.length, 0);
+              return (
+                <FilterChip key={batch.id} label={batch.name} meta={`${batch.pallets.length} pallets · ${itemCount} items`} active={selectedBatchId === batch.id} onClick={() => selectBatch(batch.id)} />
+              );
+            })}
+            {visibleBatches.length === 0 && <span className="text-xs text-muted self-center whitespace-nowrap">No batches match “{batchSearch}”</span>}
+          </div>
+        </div>
+
+        {currentBatch && currentBatch.id !== "batch-all" && (
+          <div className="border-t border-border pt-4">
+            <label className="block text-xs font-semibold text-navy mb-2">Pallets in {currentBatch.name}</label>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-visible">
+              <FilterChip label="All pallets" meta={`${currentBatch.pallets.length} total`} active={!selectedPalletId} onClick={() => selectPallet(null)} />
+              {visiblePallets.map((pallet) => (
+                <FilterChip key={pallet.id} label={pallet.palletId} meta={`${pallet.items.length} item${pallet.items.length !== 1 ? "s" : ""}`} active={selectedPalletId === pallet.id} onClick={() => selectPallet(pallet.id)} />
+              ))}
+              {visiblePallets.length === 0 && <span className="text-xs text-muted self-center whitespace-nowrap">No pallets match “{batchSearch}”</span>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search + Delete Toggle */}
@@ -409,7 +451,7 @@ export function Inventory() {
       {isBatchModalOpen && (
         <BatchModal
           batches={batches} selectedBatchId={selectedBatchId}
-          onSelectBatch={(id) => { setSelectedBatchId(id); setIsBatchModalOpen(false); }}
+          onSelectBatch={(id) => { selectBatch(id); setIsBatchModalOpen(false); }}
           onDeleteBatch={deleteBatch}
           onCreateBatch={createNewBatch}
           onEditBatch={() => {}}
@@ -421,6 +463,16 @@ export function Inventory() {
       )}
       </div>
     </div>
+  );
+}
+
+// ─── FilterChip ───────────────────────────────────────────────────────────────
+function FilterChip({ label, meta, active, onClick }: { label: string; meta: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className={`shrink-0 text-left px-3 py-2 rounded-lg border transition-colors ${active ? "bg-navy text-white border-navy" : "bg-white text-navy border-border hover:bg-off-white"}`}>
+      <div className="text-sm font-semibold whitespace-nowrap">{label}</div>
+      <div className={`text-xs whitespace-nowrap ${active ? "text-white/70" : "text-muted"}`}>{meta}</div>
+    </button>
   );
 }
 
