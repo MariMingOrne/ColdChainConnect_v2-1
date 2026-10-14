@@ -18,6 +18,17 @@ function DetailField({ label, value, mono = false }: { label: string; value: str
   );
 }
 
+function ValueBlock({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-off-white p-2 font-sans text-sm text-navy">
+        {formatFieldValue(value)}
+      </pre>
+    </div>
+  );
+}
+
 export function AuditLogDetailDialog({ log, onClose }: AuditLogDetailDialogProps) {
   if (!log) return null;
 
@@ -49,25 +60,18 @@ export function AuditLogDetailDialog({ log, onClose }: AuditLogDetailDialogProps
           {changes.length === 0 ? (
             <p className="text-sm text-gray-500">No field-level changes were recorded for this entry.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-navy-mid text-left text-xs uppercase tracking-wide text-white">
-                    <th className="px-3 py-2">Field</th>
-                    <th className="px-3 py-2">Before</th>
-                    <th className="px-3 py-2">After</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changes.map((change) => (
-                    <tr key={change.field} className="border-b border-border last:border-b-0">
-                      <td className="px-3 py-2 font-semibold text-navy">{change.field.replace(/_/g, " ")}</td>
-                      <td className="px-3 py-2 text-gray-600 break-all">{formatFieldValue(change.before)}</td>
-                      <td className="px-3 py-2 text-navy break-all">{formatFieldValue(change.after)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {changes.map((change) => (
+                <div key={change.field} className="rounded-lg border border-border">
+                  <div className="border-b border-border bg-off-white px-3 py-2 text-sm font-semibold capitalize text-navy">
+                    {change.field.replace(/_/g, " ")}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
+                    <ValueBlock label="Before" value={change.before} />
+                    <ValueBlock label="After" value={change.after} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           <p className="text-xs text-gray-500">Password hashes and last-updated timestamps are hidden.</p>
