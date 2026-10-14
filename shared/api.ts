@@ -184,7 +184,6 @@ export interface Pallet {
   created_at: string;
   updated_at: string;
   items?: PalletItem[];
-  batch_links?: PalletBatchLink[];
 }
 
 export interface PalletItem {
@@ -196,12 +195,6 @@ export interface PalletItem {
   batch_item_id: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface PalletBatchLink {
-  pallet_id: string;
-  batch_id: string;
-  items_from_batch: number;
 }
 
 export const CreatePalletSchema = z.object({
