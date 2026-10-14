@@ -107,7 +107,7 @@ export function SalesForecastWidget() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 md:bottom-4 animate-fade-in-up"
+        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 md:bottom-4 animate-pop-out"
         aria-label="Open sales forecast"
       >
         <TrendingUp className="h-4 w-4" />
