@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
 import { SalesForecastResponse } from "@shared/api";
 import { useAuth } from "@/hooks/useAuth";
 import { SalesForecastChart } from "./SalesForecastChart";
 import { SalesForecastProducts } from "./SalesForecastProducts";
+
+const FORECAST_PATHS = ["/", "/information-management", "/booking-dispatch", "/audit"];
+
+const isForecastPath = (pathname: string) =>
+  FORECAST_PATHS.some((path) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/"));
 
 const fetchSalesForecast = async (token: string): Promise<SalesForecastResponse> => {
   const response = await fetch("/api/sales/forecast", {
@@ -84,6 +90,7 @@ function ForecastBody({ isLoading, isError, data }: {
 
 export function SalesForecastWidget() {
   const token = useAuth((state) => state.token);
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
@@ -93,7 +100,7 @@ export function SalesForecastWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!token) return null;
+  if (!token || !isForecastPath(pathname)) return null;
 
   if (!isOpen) {
     return (

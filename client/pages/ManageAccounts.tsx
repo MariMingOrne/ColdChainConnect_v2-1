@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Routes, Route } from "react-router-dom";
+import { UserPlus } from "lucide-react";
 import { HubSidebar } from "@/components/HubSidebar";
 import { CreateAccountDialog } from "@/components/CreateAccountDialog";
 import { Agents } from "./modules/Agents";
@@ -17,20 +18,21 @@ export function ManageAccounts() {
     <div className="flex h-full">
       <HubSidebar modules={modules} basePath="/manage-accounts" />
       <div className="flex-1 overflow-auto flex flex-col">
-        <div className="px-4 md:px-6 lg:px-7 pt-4 md:pt-6 flex justify-end">
-          <button
-            onClick={() => setShowCreateAccount(true)}
-            className="px-4 py-2 bg-navy text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
-          >
-            Create Accounts
-          </button>
-        </div>
         <Routes>
           <Route path="/agents" element={<Agents />} />
           <Route path="/drivers" element={<Drivers />} />
           <Route path="/" element={<Agents />} />
         </Routes>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setShowCreateAccount(true)}
+        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg md:bottom-4"
+      >
+        <UserPlus className="h-4 w-4" />
+        <span>Create Accounts</span>
+      </button>
 
       <CreateAccountDialog open={showCreateAccount} onOpenChange={setShowCreateAccount} />
     </div>
