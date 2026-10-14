@@ -39,81 +39,96 @@ const PATHS = {
   trucks: "/booking-dispatch/delivery",
 };
 
+const MODULE_KEYWORDS = {
+  products: ["product", "products", "price", "pricing"],
+  customers: ["customer", "customers", "client", "clients"],
+  inventory: ["inventory", "batch", "batches", "stock"],
+  orders: ["booking", "bookings", "order", "orders"],
+  invoices: ["invoice", "invoices", "invoicing", "receipt"],
+  trucks: ["delivery", "deliveries", "truck", "trucks", "dispatch"],
+};
+
 const includesQuery = (query: string, values: (string | null | undefined)[]) =>
   values.some((value) => value?.toLowerCase().includes(query));
+
+// A module keyword match (e.g. "booking") returns every record in that module.
+const matchesModule = (query: string, keywords: string[]) =>
+  query.length >= 3 && keywords.some((keyword) => keyword.includes(query));
+
+function selectRecords<T>(
+  items: T[],
+  query: string,
+  keywords: string[],
+  fields: (item: T) => (string | null | undefined)[]
+): T[] {
+  if (matchesModule(query, keywords)) return items;
+  return items.filter((item) => includesQuery(query, fields(item)));
+}
 
 export function searchAll(data: SearchData, rawQuery: string): SearchGroup[] {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return [];
 
   const customerNameById = new Map(data.customers.map((c) => [c.id, c.store_name]));
+  const bookingRows = data.bookings.map((booking) => ({
+    booking,
+    customerName: customerNameById.get(booking.customer_id) ?? booking.customer?.store_name ?? "",
+  }));
+
   const groups: SearchGroup[] = [
     {
       label: "Products",
-      hits: data.products
-        .filter((p) => includesQuery(query, [p.name, p.sku, p.manufacturer]))
-        .map((p) => ({
-          id: p.id,
-          title: p.name,
-          subtitle: [p.sku, p.manufacturer].filter(Boolean).join(" · "),
-          path: PATHS.products,
-        })),
+      hits: selectRecords(data.products, query, MODULE_KEYWORDS.products, (p) => [p.name, p.sku, p.manufacturer]).map((p) => ({
+        id: p.id,
+        title: p.name,
+        subtitle: [p.sku, p.manufacturer].filter(Boolean).join(" · "),
+        path: PATHS.products,
+      })),
     },
     {
       label: "Customers",
-      hits: data.customers
-        .filter((c) => includesQuery(query, [c.store_name, c.location, c.contact_person]))
-        .map((c) => ({
-          id: c.id,
-          title: c.store_name,
-          subtitle: c.location,
-          path: PATHS.customers,
-        })),
+      hits: selectRecords(data.customers, query, MODULE_KEYWORDS.customers, (c) => [c.store_name, c.location, c.contact_person]).map((c) => ({
+        id: c.id,
+        title: c.store_name,
+        subtitle: c.location,
+        path: PATHS.customers,
+      })),
     },
     {
       label: "Inventory",
-      hits: data.inventoryBatches
-        .filter((b) => includesQuery(query, [b.name]))
-        .map((b) => ({
-          id: b.id,
-          title: b.name,
-          subtitle: b.status,
-          path: PATHS.inventory,
-        })),
+      hits: selectRecords(data.inventoryBatches, query, MODULE_KEYWORDS.inventory, (b) => [b.name]).map((b) => ({
+        id: b.id,
+        title: b.name,
+        subtitle: b.status,
+        path: PATHS.inventory,
+      })),
     },
     {
       label: "Order Summary",
-      hits: data.bookings
-        .map((b) => ({ booking: b, customerName: customerNameById.get(b.customer_id) ?? b.customer?.store_name ?? "" }))
-        .filter(({ booking, customerName }) => includesQuery(query, [customerName, booking.status]))
-        .map(({ booking, customerName }) => ({
-          id: booking.id,
-          title: customerName || "Unknown customer",
-          subtitle: `${booking.status} · ${new Date(booking.created_at).toLocaleDateString()}`,
-          path: PATHS.orders,
-        })),
+      hits: selectRecords(bookingRows, query, MODULE_KEYWORDS.orders, (row) => [row.customerName, row.booking.status]).map(({ booking, customerName }) => ({
+        id: booking.id,
+        title: customerName || "Unknown customer",
+        subtitle: `${booking.status} · ${new Date(booking.created_at).toLocaleDateString()}`,
+        path: PATHS.orders,
+      })),
     },
     {
       label: "Invoicing",
-      hits: data.invoices
-        .filter((i) => includesQuery(query, [i.receipt_number, i.customer_name, i.status]))
-        .map((i) => ({
-          id: i.id,
-          title: i.receipt_number ?? i.customer_name ?? "Invoice",
-          subtitle: [i.customer_name, i.status].filter(Boolean).join(" · "),
-          path: PATHS.invoices,
-        })),
+      hits: selectRecords(data.invoices, query, MODULE_KEYWORDS.invoices, (i) => [i.receipt_number, i.customer_name, i.status]).map((i) => ({
+        id: i.id,
+        title: i.receipt_number ?? i.customer_name ?? "Invoice",
+        subtitle: [i.customer_name, i.status].filter(Boolean).join(" · "),
+        path: PATHS.invoices,
+      })),
     },
     {
       label: "Delivery",
-      hits: data.trucks
-        .filter((t) => includesQuery(query, [t.name, t.district, t.status]))
-        .map((t) => ({
-          id: t.id,
-          title: t.name,
-          subtitle: `${t.district} · ${t.status}`,
-          path: PATHS.trucks,
-        })),
+      hits: selectRecords(data.trucks, query, MODULE_KEYWORDS.trucks, (t) => [t.name, t.district, t.status]).map((t) => ({
+        id: t.id,
+        title: t.name,
+        subtitle: `${t.district} · ${t.status}`,
+        path: PATHS.trucks,
+      })),
     },
   ];
 
