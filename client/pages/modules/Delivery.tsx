@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
-import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent } from "@shared/api";
+import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
 
@@ -399,8 +399,8 @@ export function DeliveryDispatch() {
                               {statusLabel(item.status)}
                             </span>
                           </div>
-                          {item.customer?.location && (
-                            <p className="text-xs text-muted">{item.customer.location}</p>
+                          {item.customer && (
+                            <p className="text-xs text-muted">{formatCustomerAddress(item.customer)}</p>
                           )}
                           <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
                             <span className="font-mono">Invoice: {item.invoice_id.slice(0, 8)}…</span>
@@ -462,8 +462,8 @@ export function DeliveryDispatch() {
                               </td>
                               <td className="px-3 py-3 text-navy font-semibold">
                                 {item.customer?.store_name ?? item.destination_customer_id.slice(0, 8)}
-                                {item.customer?.location && (
-                                  <p className="text-muted font-normal">{item.customer.location}</p>
+                                {item.customer && (
+                                  <p className="text-muted font-normal">{formatCustomerAddress(item.customer)}</p>
                                 )}
                               </td>
                               <td className="px-3 py-3 whitespace-nowrap">
@@ -1003,8 +1003,8 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
                   {resolvedCustomer?.contact_person && (
                     <p>Contact: {resolvedCustomer.contact_person}</p>
                   )}
-                  {(resolvedCustomer?.location || selectedInv.customer_address) && (
-                    <p>{resolvedCustomer?.location || selectedInv.customer_address}</p>
+                  {(resolvedCustomer ? formatCustomerAddress(resolvedCustomer) : selectedInv.customer_address) && (
+                    <p>{resolvedCustomer ? formatCustomerAddress(resolvedCustomer) : selectedInv.customer_address}</p>
                   )}
                   <p className="font-mono pt-0.5">
                     Receipt: {selectedInv.receipt_number || selectedInv.id.slice(0, 8).toUpperCase()}
@@ -1089,7 +1089,7 @@ function PaymentConfirmationModal({
         <div className="bg-off-white rounded-lg p-4 space-y-2">
           <p className="text-xs font-semibold text-muted uppercase tracking-wider">Delivery Details</p>
           <p className="font-semibold text-navy">{customer?.store_name || "Customer"}</p>
-          <p className="text-xs text-muted">{customer?.location || "—"}</p>
+          <p className="text-xs text-muted">{customer ? formatCustomerAddress(customer) : "—"}</p>
           {invoice && (
             <p className="text-xs text-muted">Invoice: {invoice.id.slice(0, 8)}…</p>
           )}

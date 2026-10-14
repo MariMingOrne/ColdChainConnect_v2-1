@@ -54,6 +54,10 @@ export interface Customer {
   id: string;
   store_name: string;
   location: string;
+  street_number?: string | null;
+  street_address?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
   contact_person?: string;
   contact_info?: string;
   agent_id?: string;
@@ -63,9 +67,21 @@ export interface Customer {
   updated_at: string;
 }
 
+export function formatCustomerAddress(
+  customer: Pick<Customer, "location" | "street_number" | "street_address" | "state" | "postal_code">
+): string {
+  const streetLine = [customer.street_number, customer.street_address].filter(Boolean).join(" ");
+  const parts = [streetLine, customer.location, customer.state, customer.postal_code].filter(Boolean);
+  return parts.join(", ");
+}
+
 export const CreateCustomerSchema = z.object({
   store_name: z.string().min(1, "Store name is required"),
   location: z.string().min(1, "Location is required"),
+  street_number: z.string().optional(),
+  street_address: z.string().optional(),
+  state: z.string().optional(),
+  postal_code: z.string().optional(),
   contact_person: z.string().optional(),
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),

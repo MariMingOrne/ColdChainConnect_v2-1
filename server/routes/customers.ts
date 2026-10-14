@@ -27,7 +27,7 @@ export const createCustomer: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { store_name, location, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
+  const { store_name, location, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
 
   if (!store_name || !location) {
     return res
@@ -46,6 +46,10 @@ export const createCustomer: RequestHandler = async (
       id,
       store_name,
       location,
+      street_number,
+      street_address,
+      state,
+      postal_code,
       contact_person,
       contact_info,
       agent_id,
@@ -80,7 +84,7 @@ export const updateCustomer: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { store_name, location, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
+  const { store_name, location, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
 
   try {
     const existing = await db.query.customers.findFirst({
@@ -96,6 +100,10 @@ export const updateCustomer: RequestHandler = async (
       .set({
         store_name: store_name || existing.store_name,
         location: location || existing.location,
+        street_number: street_number ?? existing.street_number,
+        street_address: street_address ?? existing.street_address,
+        state: state ?? existing.state,
+        postal_code: postal_code ?? existing.postal_code,
         contact_person: contact_person ?? existing.contact_person,
         contact_info: contact_info ?? existing.contact_info,
         agent_id: agent_id ?? existing.agent_id,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { Customer } from "@shared/api";
+import { Customer, formatCustomerAddress } from "@shared/api";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -11,7 +11,11 @@ interface CustomersProps {
 
 interface CustomerForm {
   store_name: string;
+  street_number: string;
+  street_address: string;
   location: string;
+  state: string;
+  postal_code: string;
   contact_person: string;
   contact_info: string;
   tax_rate: string;
@@ -54,8 +58,8 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
             <div className="text-sm text-navy font-semibold">{customer.store_name}</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Location</label>
-            <div className="text-sm text-navy">{customer.location || "—"}</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Delivery Address</label>
+            <div className="text-sm text-navy">{formatCustomerAddress(customer) || "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Person</label>
@@ -120,19 +124,60 @@ function CustomerModal({
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy">
-              Location *
-            </label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
-              }
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
-              placeholder="e.g., Makati City"
-            />
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Street No.</label>
+              <input
+                type="text"
+                value={formData.street_number}
+                onChange={(e) => setFormData({ ...formData, street_number: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., 123"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-navy">Street Address</label>
+              <input
+                type="text"
+                value={formData.street_address}
+                onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Ayala Avenue"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <label className="mb-1 block text-xs font-semibold text-navy">City *</label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Makati City"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">State / Province</label>
+              <input
+                type="text"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Metro Manila"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Postal Code</label>
+              <input
+                type="text"
+                value={formData.postal_code}
+                onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., 1226"
+              />
+            </div>
           </div>
 
           <div>
@@ -216,7 +261,11 @@ export function Customers({ onBack }: CustomersProps) {
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<CustomerForm>({
     store_name: "",
+    street_number: "",
+    street_address: "",
     location: "",
+    state: "",
+    postal_code: "",
     contact_person: "",
     contact_info: "",
     tax_rate: "",
@@ -282,7 +331,11 @@ export function Customers({ onBack }: CustomersProps) {
     setEditingCustomer(null);
     setFormData({
       store_name: "",
+      street_number: "",
+      street_address: "",
       location: "",
+      state: "",
+      postal_code: "",
       contact_person: "",
       contact_info: "",
       tax_rate: "",
@@ -294,7 +347,11 @@ export function Customers({ onBack }: CustomersProps) {
     setEditingCustomer(customer);
     setFormData({
       store_name: customer.store_name,
+      street_number: customer.street_number ?? "",
+      street_address: customer.street_address ?? "",
       location: customer.location,
+      state: customer.state ?? "",
+      postal_code: customer.postal_code ?? "",
       contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
       tax_rate:
@@ -327,7 +384,11 @@ export function Customers({ onBack }: CustomersProps) {
         },
         body: JSON.stringify({
           store_name: formData.store_name,
+          street_number: formData.street_number || undefined,
+          street_address: formData.street_address || undefined,
           location: formData.location,
+          state: formData.state || undefined,
+          postal_code: formData.postal_code || undefined,
           contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
           tax_rate:
@@ -465,7 +526,7 @@ export function Customers({ onBack }: CustomersProps) {
                   Store Name
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-                  Location
+                  Delivery Address
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap hidden md:table-cell">
                   Contact Person
@@ -499,7 +560,7 @@ export function Customers({ onBack }: CustomersProps) {
                     <td className="px-3 py-3 font-semibold text-navy">
                       {customer.store_name}
                     </td>
-                    <td className="px-3 py-3 text-navy">{customer.location}</td>
+                    <td className="px-3 py-3 text-navy">{formatCustomerAddress(customer)}</td>
                     <td className="hidden px-3 py-3 text-navy md:table-cell">
                       {customer.contact_person || <span className="text-muted">—</span>}
                     </td>

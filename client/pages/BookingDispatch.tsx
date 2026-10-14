@@ -16,7 +16,7 @@ const adminModules = [
   { label: "Order Summary",       path: "/order-summary" },
   { label: "Delivery Schedule",   path: "/delivery-schedule" },
   { label: "Preparation",         path: "/preparation" },
-  { label: "Pallets",             path: "/inventory" },
+  { label: "Delivery Schedule",   path: "/inventory" },
   { label: "Invoicing",           path: "/invoicing" },
   { label: "Delivery",            path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
