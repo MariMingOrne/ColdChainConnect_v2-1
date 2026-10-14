@@ -52,6 +52,7 @@ export function CreateAccountFields({ accountType, form, onChange }: CreateAccou
         label="Username"
         value={form.username}
         onChange={(value) => update({ username: value })}
+        placeholder="e.g., maria.santos"
         required
       />
       <TextField
@@ -74,9 +75,9 @@ export function CreateAccountFields({ accountType, form, onChange }: CreateAccou
     return (
       <div className="space-y-4">
         {credentials}
-        <TextField id="agent-full-name" label="Full Name" value={form.full_name} onChange={(value) => update({ full_name: value })} required />
-        <TextField id="agent-email" label="Email" type="email" value={form.email} onChange={(value) => update({ email: value })} />
-        <TextField id="agent-contact" label="Contact" value={form.contact_info} onChange={(value) => update({ contact_info: value })} />
+        <TextField id="agent-full-name" label="Full Name" value={form.full_name} onChange={(value) => update({ full_name: value })} placeholder="e.g., Maria Santos" required />
+        <TextField id="agent-email" label="Email" type="email" value={form.email} onChange={(value) => update({ email: value })} placeholder="e.g., maria.santos@coldchain.com" />
+        <TextField id="agent-contact" label="Contact" value={form.contact_info} onChange={(value) => update({ contact_info: value })} placeholder="e.g., 09171234567" />
         <TextField id="agent-emergency-contact" label="Emergency Contact" value={form.emergency_contact} onChange={(value) => update({ emergency_contact: value })} />
         <TextField id="agent-hire-date" label="Hire Date" type="date" value={form.hire_date} onChange={(value) => update({ hire_date: value })} />
         <ActiveToggle id="agent-is-active" checked={form.is_active} onChange={(checked) => update({ is_active: checked })} />
@@ -86,9 +87,9 @@ export function CreateAccountFields({ accountType, form, onChange }: CreateAccou
 
   return (
     <div className="space-y-4">
-      <TextField id="driver-full-name" label="Full Name" value={form.full_name} onChange={(value) => update({ full_name: value })} required />
-      <TextField id="driver-contact" label="Contact" value={form.contact_info} onChange={(value) => update({ contact_info: value })} />
-      <TextField id="driver-license" label="License Number" value={form.license} onChange={(value) => update({ license: value })} />
+      <TextField id="driver-full-name" label="Full Name" value={form.full_name} onChange={(value) => update({ full_name: value })} placeholder="e.g., Pedro Reyes" required />
+      <TextField id="driver-contact" label="Contact" value={form.contact_info} onChange={(value) => update({ contact_info: value })} placeholder="e.g., 09181234567" />
+      <TextField id="driver-license" label="License Number" value={form.license} onChange={(value) => update({ license: value })} placeholder="e.g., N01-23-111111" />
       <TextField id="driver-hire-date" label="Hire Date" type="date" value={form.hire_date} onChange={(value) => update({ hire_date: value })} />
       <div className="space-y-2">
         <Label htmlFor="driver-employment-type">Employment Type</Label>
@@ -116,6 +117,7 @@ function TextField({
   value,
   onChange,
   type = "text",
+  placeholder,
   required,
   minLength,
 }: {
@@ -124,6 +126,7 @@ function TextField({
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  placeholder?: string;
   required?: boolean;
   minLength?: number;
 }) {
@@ -135,6 +138,7 @@ function TextField({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
         required={required}
         minLength={minLength}
       />
