@@ -24,7 +24,7 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
   const role = useAuth((state) => state.user?.role);
 
   return (
-    <header className="bg-navy px-6 md:px-8 py-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-10 shadow-sm gap-4 md:gap-6">
+    <header className="bg-navy px-6 md:px-8 py-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-10 shadow-sm gap-4 md:gap-6 animate-slide-down">
       {/* Left Section - Logo & Back Button */}
       <div className="flex items-center gap-3 flex-shrink-0">
         {!agentMode && (

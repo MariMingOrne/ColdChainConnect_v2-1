@@ -41,7 +41,7 @@ export function Dashboard() {
   return (
     <div className="flex-1 flex flex-col p-6 md:p-8 gap-8 max-w-6xl mx-auto w-full">
       {/* Header */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 animate-fade-in-up">
         <h1 className="text-3xl md:text-4xl font-bold text-navy">
           Cold Chain Connect
         </h1>
@@ -49,7 +49,7 @@ export function Dashboard() {
       </div>
 
       {/* 3-Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-children">
         {hubCards.map((card) => {
           const Icon = card.icon;
           return (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { UserPlus } from "lucide-react";
 import { HubSidebar } from "@/components/HubSidebar";
 import { CreateAccountDialog } from "@/components/CreateAccountDialog";
@@ -12,17 +12,20 @@ const modules = [
 ];
 
 export function ManageAccounts() {
+  const location = useLocation();
   const [showCreateAccount, setShowCreateAccount] = useState(false);
 
   return (
     <div className="flex h-full">
       <HubSidebar modules={modules} basePath="/manage-accounts" />
       <div className="flex-1 overflow-auto flex flex-col">
-        <Routes>
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/drivers" element={<Drivers />} />
-          <Route path="/" element={<Agents />} />
-        </Routes>
+        <div key={location.pathname} className="h-full animate-fade-in-up">
+          <Routes>
+            <Route path="/agents" element={<Agents />} />
+            <Route path="/drivers" element={<Drivers />} />
+            <Route path="/" element={<Agents />} />
+          </Routes>
+        </div>
       </div>
 
       <button

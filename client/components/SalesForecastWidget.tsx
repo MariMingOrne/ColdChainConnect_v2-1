@@ -107,7 +107,7 @@ export function SalesForecastWidget() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg md:bottom-4"
+        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 md:bottom-4 animate-fade-in-up"
         aria-label="Open sales forecast"
       >
         <TrendingUp className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function SalesForecastWidget() {
   }
 
   return (
-    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px]">
+    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px] animate-fade-in-up">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">Sales Forecast</h2>

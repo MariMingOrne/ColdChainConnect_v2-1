@@ -27,7 +27,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex flex-col min-h-screen">
       <Topbar userName={user?.username || "User"} onLogout={logout} />
       <div className="flex flex-1">
-        <div className="flex-1 flex flex-col bg-off-white min-w-0 pb-32 md:pb-0">
+        <div className="flex-1 flex flex-col bg-off-white min-w-0 pb-32 md:pb-0 animate-fade-in">
           {children}
         </div>
       </div>
@@ -42,7 +42,7 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex flex-col min-h-screen">
       <Topbar userName={user?.username || "User"} onLogout={logout} agentMode />
-      <div className="flex-1 flex flex-col bg-off-white min-w-0">
+      <div className="flex-1 flex flex-col bg-off-white min-w-0 animate-fade-in">
         {children}
       </div>
     </div>
