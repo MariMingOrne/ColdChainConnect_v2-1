@@ -3,6 +3,7 @@ import { and, eq, gte, ne } from "drizzle-orm";
 import { db } from "../db";
 import { invoice_items, invoices } from "../db/schema";
 import { SalesForecastPoint, SalesForecastResponse, SalesProductInsight } from "@shared/api";
+import { generateSalesSummary } from "../services/sales-summary";
 
 const HISTORY_DAYS = 30;
 const FORECAST_DAYS = 14;
@@ -134,6 +135,7 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
         history_days_with_sales: daysWithSales,
         note: `Need sales on at least ${MIN_DAYS_WITH_SALES} days to estimate a trend. Found ${daysWithSales}.`,
         product_insights: productInsights,
+        ai_summary: null,
       };
       return res.json(response);
     }
@@ -157,6 +159,13 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
     const trend =
       trendPercent > TREND_THRESHOLD_PERCENT ? "up" : trendPercent < -TREND_THRESHOLD_PERCENT ? "down" : "flat";
 
+    const aiSummary = await generateSalesSummary({
+      projected_7_day_total: projected7DayTotal,
+      trend,
+      trend_percent: trendPercent,
+      product_insights: productInsights,
+    });
+
     const response: SalesForecastResponse = {
       history,
       forecast,
@@ -167,6 +176,7 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
       history_days_with_sales: daysWithSales,
       note: `Linear trend over the last ${HISTORY_DAYS} days (${daysWithSales} with sales). An estimate, not a guaranteed figure.`,
       product_insights: productInsights,
+      ai_summary: aiSummary,
     };
     res.json(response);
   } catch (error) {

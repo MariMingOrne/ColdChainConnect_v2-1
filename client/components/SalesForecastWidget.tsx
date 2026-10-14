@@ -71,6 +71,12 @@ function ForecastBody({ isLoading, isError, data }: {
       <SalesForecastChart data={data} />
       <ForecastSummary data={data} />
       <p className="text-xs text-gray-500">{data.note}</p>
+      {data.ai_summary && (
+        <div className="rounded-md border bg-gray-50 p-3">
+          <p className="mb-1 text-xs font-semibold text-gray-500">AI summary</p>
+          <p className="text-sm">{data.ai_summary}</p>
+        </div>
+      )}
       <SalesForecastProducts insights={data.product_insights} />
     </div>
   );

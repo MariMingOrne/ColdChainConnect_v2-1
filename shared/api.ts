@@ -483,4 +483,5 @@ export interface SalesForecastResponse {
   history_days_with_sales: number;
   note: string;
   product_insights: SalesProductInsight[];
+  ai_summary: string | null;
 }
