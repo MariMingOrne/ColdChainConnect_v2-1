@@ -13,6 +13,7 @@ import { InformationManagement } from "./pages/InformationManagement";
 import { ManageAccounts } from "./pages/ManageAccounts";
 import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
+import { SearchResults } from "./pages/SearchResults";
 import { Topbar } from "./components/Topbar";
 import { BottomNavBar } from "./components/BottomNavBar";
 import { SalesForecastWidget } from "./components/SalesForecastWidget";
@@ -66,6 +67,7 @@ const AppContent = () => {
             </AgentLayout>
           }
         />
+        <Route path="/search" element={<AgentLayout><SearchResults /></AgentLayout>} />
         {/* Everything else → booking-dispatch */}
         <Route path="*" element={<Navigate to="/booking-dispatch/order-summary" replace />} />
       </Routes>
@@ -81,6 +83,7 @@ const AppContent = () => {
       <Route path="/manage-accounts/*" element={isAuthenticated ? <AppLayout><ManageAccounts /></AppLayout> : <Login />} />
       <Route path="/booking-dispatch/*" element={isAuthenticated ? <AppLayout><BookingDispatch /></AppLayout> : <Login />} />
       <Route path="/audit" element={isAuthenticated ? <AppLayout><AuditLogPage /></AppLayout> : <Login />} />
+      <Route path="/search" element={isAuthenticated ? <AppLayout><SearchResults /></AppLayout> : <Login />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
