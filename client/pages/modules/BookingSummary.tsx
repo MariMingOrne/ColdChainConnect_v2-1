@@ -438,7 +438,7 @@ export function BookingSummary() {
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="whitespace-nowrap">
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Agent</TableHead>
