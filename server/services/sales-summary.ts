@@ -1,6 +1,6 @@
 import { SalesForecastResponse } from "@shared/api";
 
-const DEFAULT_MODEL = "gemini-3.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 const REQUEST_TIMEOUT_MS = 8000;
 
 type SummaryInput = Pick<
