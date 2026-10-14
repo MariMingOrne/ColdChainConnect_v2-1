@@ -14,6 +14,7 @@ import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
 import { Topbar } from "./components/Topbar";
 import { BottomNavBar } from "./components/BottomNavBar";
+import { SalesForecastWidget } from "./components/SalesForecastWidget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -90,6 +91,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppContent />
+        <SalesForecastWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

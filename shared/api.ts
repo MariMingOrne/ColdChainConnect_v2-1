@@ -459,3 +459,19 @@ export interface AuditLog {
 export interface DemoResponse {
   message: string;
 }
+
+export interface SalesForecastPoint {
+  date: string;
+  total: number;
+}
+
+export interface SalesForecastResponse {
+  history: SalesForecastPoint[];
+  forecast: SalesForecastPoint[];
+  projected_7_day_total: number;
+  trend: "up" | "down" | "flat";
+  trend_percent: number;
+  has_enough_data: boolean;
+  history_days_with_sales: number;
+  note: string;
+}
