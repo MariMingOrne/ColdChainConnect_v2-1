@@ -465,6 +465,14 @@ export interface SalesForecastPoint {
   total: number;
 }
 
+export interface SalesProductInsight {
+  product_name: string;
+  days_sold: number;
+  consistency_percent: number;
+  avg_daily_qty: number;
+  suggested_restock_qty: number;
+}
+
 export interface SalesForecastResponse {
   history: SalesForecastPoint[];
   forecast: SalesForecastPoint[];
@@ -474,4 +482,5 @@ export interface SalesForecastResponse {
   has_enough_data: boolean;
   history_days_with_sales: number;
   note: string;
+  product_insights: SalesProductInsight[];
 }

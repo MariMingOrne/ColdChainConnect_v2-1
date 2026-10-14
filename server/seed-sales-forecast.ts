@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
-import { bookings, customers, invoices, users } from "./db/schema";
+import { bookings, customers, invoice_items, invoices, products, users } from "./db/schema";
 
 const HISTORY_DAYS = 30;
 const DAY_MS = 86_400_000;
@@ -16,10 +16,15 @@ async function seedSalesForecast() {
     .where(eq(users.role, "admin"))
     .limit(1);
   const [customer] = await db.select({ id: customers.id }).from(customers).limit(1);
+  const sampleProducts = await db
+    .select({ id: products.id, name: products.name, sku: products.sku, price: products.price })
+    .from(products)
+    .limit(3);
 
-  if (!admin || !customer) {
-    throw new Error("Needs an admin user and a customer. Run `pnpm db:seed` first.");
+  if (!admin || !customer || sampleProducts.length < 3) {
+    throw new Error("Needs an admin user, a customer, and 3 products. Run `pnpm db:seed` first.");
   }
+
 
   const anchor = new Date();
   anchor.setUTCHours(12, 0, 0, 0);
@@ -69,6 +74,32 @@ async function seedSalesForecast() {
         updated_at: createdAt,
       })
       .onConflictDoNothing();
+
+    // Sold on every day, on 80% of days, and on 40% of days respectively.
+    const soldToday = [
+      sampleProducts[0],
+      dayIndex % 5 !== 0 ? sampleProducts[1] : null,
+      dayIndex % 5 < 2 ? sampleProducts[2] : null,
+    ].filter((product): product is (typeof sampleProducts)[number] => product !== null);
+
+    for (const [lineIndex, product] of soldToday.entries()) {
+      const qty = 4 + ((dayIndex * 3 + lineIndex * 5) % 9);
+      const unitPrice = parseFloat(product.price);
+      await db
+        .insert(invoice_items)
+        .values({
+          id: `mock-forecast-item-${dateKey}-${lineIndex}`,
+          invoice_id: invoiceId,
+          product_id: product.id,
+          product_name: product.name,
+          product_sku: product.sku,
+          qty_ordered: qty,
+          unit_price: unitPrice.toFixed(2),
+          amount: (qty * unitPrice).toFixed(2),
+          created_at: createdAt,
+        })
+        .onConflictDoNothing();
+    }
   }
 
   console.log(`Added mock invoices for the last ${HISTORY_DAYS} days (re-runs skip existing rows).`);

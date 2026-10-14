@@ -1,14 +1,17 @@
 import { RequestHandler } from "express";
-import { and, gte, ne } from "drizzle-orm";
+import { and, eq, gte, ne } from "drizzle-orm";
 import { db } from "../db";
-import { invoices } from "../db/schema";
-import { SalesForecastPoint, SalesForecastResponse } from "@shared/api";
+import { invoice_items, invoices } from "../db/schema";
+import { SalesForecastPoint, SalesForecastResponse, SalesProductInsight } from "@shared/api";
 
 const HISTORY_DAYS = 30;
 const FORECAST_DAYS = 14;
 const WEEK_DAYS = 7;
 const MIN_DAYS_WITH_SALES = 7;
 const TREND_THRESHOLD_PERCENT = 5;
+const CONSISTENT_SALES_PERCENT = 80;
+const RESTOCK_COVER_DAYS = 14;
+const TOP_PRODUCTS = 5;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -40,6 +43,42 @@ function buildHistory(
   return { history, daysWithSales };
 }
 
+type ProductSaleRow = { product_id: string; product_name: string; qty: number; created_at: Date };
+
+function buildProductInsights(rows: ProductSaleRow[]): SalesProductInsight[] {
+  const byProduct = new Map<string, { name: string; qty: number; days: Set<string> }>();
+
+  for (const row of rows) {
+    const entry = byProduct.get(row.product_id) ?? {
+      name: row.product_name,
+      qty: 0,
+      days: new Set<string>(),
+    };
+    entry.qty += row.qty;
+    entry.days.add(toIsoDate(row.created_at));
+    byProduct.set(row.product_id, entry);
+  }
+
+  return [...byProduct.values()]
+    .map((entry) => {
+      const consistencyPercent = Math.round((entry.days.size / HISTORY_DAYS) * 1000) / 10;
+      const avgDailyQty = entry.qty / HISTORY_DAYS;
+      return {
+        product_name: entry.name,
+        days_sold: entry.days.size,
+        consistency_percent: consistencyPercent,
+        avg_daily_qty: roundCurrency(avgDailyQty),
+        suggested_restock_qty: Math.ceil(avgDailyQty * RESTOCK_COVER_DAYS),
+      };
+    })
+    .filter((insight) => insight.consistency_percent >= CONSISTENT_SALES_PERCENT)
+    .sort(
+      (a, b) =>
+        b.consistency_percent - a.consistency_percent || b.avg_daily_qty - a.avg_daily_qty
+    )
+    .slice(0, TOP_PRODUCTS);
+}
+
 function fitLinearTrend(values: number[]): { slope: number; intercept: number; mean: number } {
   const n = values.length;
   const xMean = (n - 1) / 2;
@@ -64,11 +103,24 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
     today.setUTCHours(0, 0, 0, 0);
     const windowStart = new Date(today.getTime() - (HISTORY_DAYS - 1) * DAY_MS);
 
-    const rows = await db
-      .select({ total: invoices.total_amount, created_at: invoices.created_at })
-      .from(invoices)
-      .where(and(gte(invoices.created_at, windowStart), ne(invoices.status, "draft")));
+    const [rows, itemRows] = await Promise.all([
+      db
+        .select({ total: invoices.total_amount, created_at: invoices.created_at })
+        .from(invoices)
+        .where(and(gte(invoices.created_at, windowStart), ne(invoices.status, "draft"))),
+      db
+        .select({
+          product_id: invoice_items.product_id,
+          product_name: invoice_items.product_name,
+          qty: invoice_items.qty_ordered,
+          created_at: invoices.created_at,
+        })
+        .from(invoice_items)
+        .innerJoin(invoices, eq(invoice_items.invoice_id, invoices.id))
+        .where(and(gte(invoices.created_at, windowStart), ne(invoices.status, "draft"))),
+    ]);
 
+    const productInsights = buildProductInsights(itemRows);
     const { history, daysWithSales } = buildHistory(rows, today);
 
     if (daysWithSales < MIN_DAYS_WITH_SALES) {
@@ -81,6 +133,7 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
         has_enough_data: false,
         history_days_with_sales: daysWithSales,
         note: `Need sales on at least ${MIN_DAYS_WITH_SALES} days to estimate a trend. Found ${daysWithSales}.`,
+        product_insights: productInsights,
       };
       return res.json(response);
     }
@@ -113,6 +166,7 @@ export const getSalesForecast: RequestHandler = async (_req, res) => {
       has_enough_data: true,
       history_days_with_sales: daysWithSales,
       note: `Linear trend over the last ${HISTORY_DAYS} days (${daysWithSales} with sales). An estimate, not a guaranteed figure.`,
+      product_insights: productInsights,
     };
     res.json(response);
   } catch (error) {

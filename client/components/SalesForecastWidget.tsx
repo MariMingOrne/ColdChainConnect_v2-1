@@ -4,6 +4,7 @@ import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
 import { SalesForecastResponse } from "@shared/api";
 import { useAuth } from "@/hooks/useAuth";
 import { SalesForecastChart } from "./SalesForecastChart";
+import { SalesForecastProducts } from "./SalesForecastProducts";
 
 const fetchSalesForecast = async (token: string): Promise<SalesForecastResponse> => {
   const response = await fetch("/api/sales/forecast", {
@@ -58,13 +59,19 @@ function ForecastBody({ isLoading, isError, data }: {
     return <p className="py-10 text-center text-sm text-red-600">Could not load the forecast.</p>;
   }
   if (!data.has_enough_data) {
-    return <p className="py-10 text-center text-sm text-gray-500">{data.note}</p>;
+    return (
+      <div className="space-y-4">
+        <p className="py-6 text-center text-sm text-gray-500">{data.note}</p>
+        <SalesForecastProducts insights={data.product_insights} />
+      </div>
+    );
   }
   return (
     <div className="space-y-4">
       <SalesForecastChart data={data} />
       <ForecastSummary data={data} />
       <p className="text-xs text-gray-500">{data.note}</p>
+      <SalesForecastProducts insights={data.product_insights} />
     </div>
   );
 }
@@ -97,7 +104,7 @@ export function SalesForecastWidget() {
   }
 
   return (
-    <div className="fixed bottom-20 left-2 right-2 z-50 rounded-lg border bg-card p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px]">
+    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px]">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">Sales Forecast</h2>
