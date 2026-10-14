@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   ClipboardList,
+  CalendarDays,
   Package,
   FileText,
   Truck,
@@ -22,6 +23,7 @@ interface HubSidebarProps {
 
 const moduleIcons: Record<string, React.ElementType> = {
   "/order-summary":    ClipboardList,
+  "/delivery-schedule": CalendarDays,
   "/inventory":        Package,
   "/invoicing":        FileText,
   "/delivery":         Truck,

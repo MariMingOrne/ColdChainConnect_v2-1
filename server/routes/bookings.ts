@@ -71,7 +71,7 @@ export const listBookings: RequestHandler = async (req, res) => {
 };
 
 export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
-  const { customer_id, items } = req.body;
+  const { customer_id, prepared_delivery_date, items } = req.body;
 
   if (!customer_id || !items || !Array.isArray(items)) {
     return res.status(400).json({ error: "Customer ID and items array are required" });
@@ -83,7 +83,13 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
 
   // Demo mode: no real DB, skip insert and return a stub
   if (!process.env.DATABASE_URL) {
-    return res.status(201).json({ id: randomUUID(), customer_id, status: "pending", booking_items: [] });
+    return res.status(201).json({
+      id: randomUUID(),
+      customer_id,
+      prepared_delivery_date: prepared_delivery_date || null,
+      status: "pending",
+      booking_items: [],
+    });
   }
 
   try {
@@ -103,6 +109,7 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
       customer_id,
       created_by: req.user.userId,
       status: "pending",
+      prepared_delivery_date: prepared_delivery_date || null,
     });
 
     for (const item of items) {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { QuantityStepper } from "./QuantityStepper";
 import { Product, Customer } from "@shared/api";
 
 interface OrderItem {
@@ -15,7 +16,9 @@ interface AddOrderModalProps {
   productStock: Record<string, number>;
   orderItems: OrderItem[];
   newCustomerId: string;
+  preparedDeliveryDate: string;
   onCustomerChange: (customerId: string) => void;
+  onPreparedDeliveryDateChange: (date: string) => void;
   onAddItem: (productId: string) => void;
   onRemoveItem: (idx: number) => void;
   onItemChange: (idx: number, field: "product_id" | "qty_ordered", value: string | number) => void;
@@ -31,7 +34,9 @@ export function AddOrderModal({
   productStock,
   orderItems,
   newCustomerId,
+  preparedDeliveryDate,
   onCustomerChange,
+  onPreparedDeliveryDateChange,
   onAddItem,
   onRemoveItem,
   onItemChange,
@@ -89,6 +94,13 @@ export function AddOrderModal({
               </option>
             ))}
           </select>
+          <label className="mt-3 block text-xs font-semibold text-navy mb-2">Prepared Delivery Date</label>
+          <input
+            type="date"
+            value={preparedDeliveryDate}
+            onChange={(e) => onPreparedDeliveryDateChange(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2"
+          />
         </div>
 
         {/* Tabs */}
@@ -236,15 +248,11 @@ export function AddOrderModal({
                           <p className="text-xs text-muted">₱{product.price}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
+                          <QuantityStepper
+                            value={item.qty_ordered}
                             min={1}
                             max={maxQty}
-                            value={item.qty_ordered}
-                            onChange={(e) =>
-                              onItemChange(idx, "qty_ordered", parseInt(e.target.value) || 1)
-                            }
-                            className="w-16 px-2 py-1 border border-border rounded text-sm text-center focus:outline-none focus:border-accent-2"
+                            onChange={(qty) => onItemChange(idx, "qty_ordered", qty)}
                           />
                           <span className="text-xs text-muted">{maxQty} available</span>
                         </div>

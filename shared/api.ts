@@ -28,6 +28,18 @@ export interface LogoutResponse {
   message: string;
 }
 
+export interface CreateAccountRequest {
+  username: string;
+  password: string;
+  role: "admin" | "agent";
+}
+
+export interface CreateAccountResponse {
+  id: string;
+  username: string;
+  role: "admin" | "agent";
+}
+
 // User types
 export interface User {
   id: string;
@@ -269,6 +281,7 @@ export interface Booking {
   customer_id: string;
   created_by: string;
   status: "pending" | "approved" | "rejected" | "prep" | "ready";
+  prepared_delivery_date?: string | null;
   created_at: string;
   customer?: Customer;
   creator?: User;
@@ -291,6 +304,7 @@ export const CreateBookingItemSchema = z.object({
 
 export const CreateBookingSchema = z.object({
   customer_id: z.string().min(1, "Customer ID is required"),
+  prepared_delivery_date: z.string().optional(),
   items: z.array(CreateBookingItemSchema).min(1, "At least one item is required"),
 });
 
@@ -445,6 +459,7 @@ export interface AgentReturn {
 export interface AuditLog {
   id: string;
   user_id: string;
+  user_name?: string | null;
   action: string;
   resource_type: string;
   resource_id?: string;
@@ -455,4 +470,30 @@ export interface AuditLog {
 
 export interface DemoResponse {
   message: string;
+}
+
+export interface SalesForecastPoint {
+  date: string;
+  total: number;
+}
+
+export interface SalesProductInsight {
+  product_name: string;
+  days_sold: number;
+  consistency_percent: number;
+  avg_daily_qty: number;
+  suggested_restock_qty: number;
+}
+
+export interface SalesForecastResponse {
+  history: SalesForecastPoint[];
+  forecast: SalesForecastPoint[];
+  projected_7_day_total: number;
+  trend: "up" | "down" | "flat";
+  trend_percent: number;
+  has_enough_data: boolean;
+  history_days_with_sales: number;
+  note: string;
+  product_insights: SalesProductInsight[];
+  ai_summary: string | null;
 }

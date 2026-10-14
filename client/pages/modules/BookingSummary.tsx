@@ -44,6 +44,7 @@ export function BookingSummary() {
   // Add order modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCustomerId, setNewCustomerId] = useState("");
+  const [preparedDeliveryDate, setPreparedDeliveryDate] = useState("");
   const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -172,7 +173,11 @@ export function BookingSummary() {
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ customer_id: newCustomerId, items: orderItems }),
+        body: JSON.stringify({
+          customer_id: newCustomerId,
+          prepared_delivery_date: preparedDeliveryDate || undefined,
+          items: orderItems,
+        }),
       });
       if (res.status === 401) {
         alert("Your session has expired or your account was not found. Please log in again.");
@@ -187,6 +192,7 @@ export function BookingSummary() {
       setBookings((prev) => [created, ...prev]);
       setShowAddModal(false);
       setNewCustomerId("");
+      setPreparedDeliveryDate("");
       setOrderItems([]);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create order");
@@ -438,6 +444,7 @@ export function BookingSummary() {
               <TableHead>Agent</TableHead>
               <TableHead>Approval</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Prepared Delivery Date</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -445,7 +452,7 @@ export function BookingSummary() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted">
+                <TableCell colSpan={8} className="text-center py-8 text-muted">
                   {bookings.length === 0 ? "No orders found" : "No orders match your search"}
                 </TableCell>
               </TableRow>
@@ -497,6 +504,11 @@ export function BookingSummary() {
                         {booking.status}
                       </span>
                     </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {booking.prepared_delivery_date
+                        ? new Date(`${booking.prepared_delivery_date}T00:00:00`).toLocaleDateString()
+                        : <span className="text-muted">—</span>}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {new Date(booking.created_at).toLocaleDateString()}
                     </TableCell>
@@ -544,6 +556,7 @@ export function BookingSummary() {
         onClose={() => {
           setShowAddModal(false);
           setNewCustomerId("");
+          setPreparedDeliveryDate("");
           setOrderItems([{ product_id: "", qty_ordered: 1 }]);
         }}
         customers={customers}
@@ -551,7 +564,9 @@ export function BookingSummary() {
         productStock={productStock}
         orderItems={orderItems}
         newCustomerId={newCustomerId}
+        preparedDeliveryDate={preparedDeliveryDate}
         onCustomerChange={setNewCustomerId}
+        onPreparedDeliveryDateChange={setPreparedDeliveryDate}
         onAddItem={handleAddItem}
         onRemoveItem={handleRemoveItem}
         onItemChange={handleItemChange}

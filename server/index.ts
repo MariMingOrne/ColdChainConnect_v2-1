@@ -7,9 +7,9 @@ import {
   handleLogin,
   handleLogout,
   handleRefresh,
-  handleCreateUser,
-  updateUserPassword,   // ← add this
+  updateUserPassword,
 } from "./routes/auth";
+import { handleCreateAccount } from "./routes/users";
 import {
   listCustomers,
   createCustomer,
@@ -102,6 +102,7 @@ import {
   getProductStock,
   suggestBatches,
 } from "./routes/pallets";
+import { getSalesForecast } from "./routes/forecast";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
 export function createServer() {
@@ -133,7 +134,7 @@ export function createServer() {
   app.post("/api/auth/login", handleLogin);
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/refresh", authMiddleware, handleRefresh);
-  app.post("/api/auth/users", handleCreateUser);
+  app.post("/api/users", authMiddleware, requireRole("admin"), handleCreateAccount);
   app.patch("/api/users/:userId/password", authMiddleware, requireRole("admin"), updateUserPassword);
 
   // Customers routes
@@ -186,6 +187,9 @@ export function createServer() {
   app.post("/api/invoices", authMiddleware, requireRole("admin"), createInvoice);
   app.patch("/api/invoices/:id/status", authMiddleware, requireRole("admin"), updateInvoiceStatus);
   app.patch("/api/invoices/:id/payment-status", authMiddleware, requireRole("admin"), updateInvoicePaymentStatus);
+
+  // Sales forecast routes
+  app.get("/api/sales/forecast", authMiddleware, getSalesForecast);
 
   // Deliveries routes
   app.get("/api/deliveries", authMiddleware, listDeliveries);

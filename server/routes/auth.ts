@@ -1,5 +1,4 @@
 import { RequestHandler } from "express";
-import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../db/schema";
@@ -81,45 +80,6 @@ export const handleRefresh: RequestHandler = (req: AuthRequest, res) => {
 
   const newToken = signToken(req.user);
   res.json({ token: newToken });
-};
-
-export const handleCreateUser: RequestHandler = async (req, res) => {
-  const { username, password, role } = req.body;
-
-  if (!username || !password || !role) {
-    return res
-      .status(400)
-      .json({ error: "Username, password, and role required" });
-  }
-
-  try {
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.username, username),
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists" });
-    }
-
-    const hashedPassword = await hashPassword(password);
-    const userId = randomUUID();
-
-    await db.insert(users).values({
-      id: userId,
-      username,
-      password_hash: hashedPassword,
-      role,
-    });
-
-    res.status(201).json({
-      id: userId,
-      username,
-      role,
-    });
-  } catch (error) {
-    console.error("User creation error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
 };
 
 /**

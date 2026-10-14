@@ -12,8 +12,10 @@ import { Dashboard } from "./pages/Dashboard";
 import { InformationManagement } from "./pages/InformationManagement";
 import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
+import { AccountCreation } from "./pages/AccountCreation";
 import { Topbar } from "./components/Topbar";
 import { BottomNavBar } from "./components/BottomNavBar";
+import { SalesForecastWidget } from "./components/SalesForecastWidget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +80,7 @@ const AppContent = () => {
       <Route path="/information-management/*" element={isAuthenticated ? <AppLayout><InformationManagement /></AppLayout> : <Login />} />
       <Route path="/booking-dispatch/*" element={isAuthenticated ? <AppLayout><BookingDispatch /></AppLayout> : <Login />} />
       <Route path="/audit" element={isAuthenticated ? <AppLayout><AuditLogPage /></AppLayout> : <Login />} />
+      <Route path="/settings/accounts" element={isAuthenticated ? <AppLayout><AccountCreation /></AppLayout> : <Login />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -90,6 +93,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppContent />
+        <SalesForecastWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
