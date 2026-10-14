@@ -90,6 +90,7 @@ function ForecastBody({ isLoading, isError, data }: {
 
 export function SalesForecastWidget() {
   const token = useAuth((state) => state.token);
+  const role = useAuth((state) => state.user?.role);
   const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -100,7 +101,7 @@ export function SalesForecastWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!token || !isForecastPath(pathname)) return null;
+  if (!token || role === "agent" || !isForecastPath(pathname)) return null;
 
   if (!isOpen) {
     return (
