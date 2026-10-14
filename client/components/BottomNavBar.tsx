@@ -11,6 +11,7 @@ import {
   FileText,
   Users2,
   ClipboardList,
+  CalendarDays,
   History,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const hubModulesByPath: Record<string, Array<{ path: string; label: string; icon
   ],
   "/booking-dispatch": [
     { path: "/order-summary", label: "Order Summary", icon: ClipboardList },
+    { path: "/delivery-schedule", label: "Schedule", icon: CalendarDays },
     { path: "/inventory", label: "Delivery Schedule", icon: Package },
     { path: "/invoicing", label: "Invoicing", icon: FileText },
     { path: "/delivery", label: "Delivery", icon: Truck },
