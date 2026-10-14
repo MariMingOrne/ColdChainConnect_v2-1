@@ -17,7 +17,7 @@ export const listDrivers: RequestHandler = async (_req, res) => {
 };
 
 export const createDriver: RequestHandler = async (req: AuthRequest, res) => {
-  const { full_name, contact_info, license, hire_date, employment_type } = req.body;
+  const { full_name, contact_info, license, hire_date, employment_type, is_active = true } = req.body;
 
   if (!full_name) {
     return res.status(400).json({ error: "Full name is required" });
@@ -32,7 +32,7 @@ export const createDriver: RequestHandler = async (req: AuthRequest, res) => {
       license,
       hire_date,
       employment_type,
-      is_active: true,
+      is_active,
     });
 
     const newDriver = await db.query.drivers.findFirst({

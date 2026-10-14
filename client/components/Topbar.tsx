@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "./NotificationPanel";
+import { CreateAccountDialog } from "./CreateAccountDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,7 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount] = useState(4);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
   const role = useAuth((state) => state.user?.role);
 
   return (
@@ -88,11 +90,15 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-navy text-white border-white/20">
             {role === "admin" && (
-              <DropdownMenuItem onClick={() => navigate("/settings/accounts")} className="focus:bg-white/10 focus:text-white cursor-pointer">Create Account</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowCreateAccount(true)} className="focus:bg-white/10 focus:text-white cursor-pointer">Create Account</DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={onLogout} className="focus:bg-white/10 focus:text-white cursor-pointer">Log Out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {role === "admin" && (
+          <CreateAccountDialog open={showCreateAccount} onOpenChange={setShowCreateAccount} />
+        )}
 
         {/* Notification Panel */}
         {showNotifications && (
