@@ -204,8 +204,8 @@ export function Preparation() {
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Preparation</h1>
-          <p className="page-subtitle">Prepare pallets for customer orders</p>
+          <h1 className="page-title">Pallet Preparation</h1>
+          <p className="page-subtitle">Build pallets for approved customer orders</p>
         </div>
         <button
           onClick={handleRefresh}

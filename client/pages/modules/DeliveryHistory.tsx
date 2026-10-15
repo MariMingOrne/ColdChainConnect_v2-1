@@ -121,7 +121,7 @@ export function DeliveryHistory() {
             Delivery History
           </h1>
           <p className="page-subtitle">
-            All completed deliveries with Original Receipts
+            Completed deliveries and their original receipts
           </p>
         </div>
         <button

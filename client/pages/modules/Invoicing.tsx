@@ -311,8 +311,8 @@ export function Invoicing() {
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-navy">Invoicing</h1>
-          <p className="text-gray-600">View and print delivery receipts</p>
+          <h1 className="text-3xl font-bold text-navy">Receipts</h1>
+          <p className="text-gray-600">Print and review delivery receipts</p>
         </div>
         <button
           onClick={handleRefresh}

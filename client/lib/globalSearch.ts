@@ -104,7 +104,7 @@ export function searchAll(data: SearchData, rawQuery: string): SearchGroup[] {
       })),
     },
     {
-      label: "Order Summary",
+      label: "Orders",
       hits: selectRecords(bookingRows, query, MODULE_KEYWORDS.orders, (row) => [row.customerName, row.booking.status]).map(({ booking, customerName }) => ({
         id: booking.id,
         title: customerName || "Unknown customer",
@@ -113,7 +113,7 @@ export function searchAll(data: SearchData, rawQuery: string): SearchGroup[] {
       })),
     },
     {
-      label: "Invoicing",
+      label: "Receipts",
       hits: selectRecords(data.invoices, query, MODULE_KEYWORDS.invoices, (i) => [i.receipt_number, i.customer_name, i.status]).map((i) => ({
         id: i.id,
         title: i.receipt_number ?? i.customer_name ?? "Invoice",
@@ -122,7 +122,7 @@ export function searchAll(data: SearchData, rawQuery: string): SearchGroup[] {
       })),
     },
     {
-      label: "Delivery",
+      label: "Truck Dispatch",
       hits: selectRecords(data.trucks, query, MODULE_KEYWORDS.trucks, (t) => [t.license_plate, t.district, t.status]).map((t) => ({
         id: t.id,
         title: t.license_plate,

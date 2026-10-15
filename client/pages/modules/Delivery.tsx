@@ -520,8 +520,8 @@ export function DeliveryDispatch() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
         <div>
-          <h1 className="font-rajdhani text-2xl md:text-3xl font-bold text-navy">Delivery & Dispatch</h1>
-          <p className="text-xs text-muted mt-0.5">Assign invoices to trucks and track deliveries</p>
+          <h1 className="font-rajdhani text-2xl md:text-3xl font-bold text-navy">Truck Dispatch</h1>
+          <p className="text-xs text-muted mt-0.5">Assign receipts to trucks and track each stop</p>
         </div>
         <div className="flex gap-2">
           <button

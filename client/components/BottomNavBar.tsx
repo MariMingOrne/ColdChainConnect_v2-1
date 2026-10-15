@@ -21,11 +21,11 @@ interface BottomNavBarProps {
 const globalNavItems = [
   { path: "/",          label: "Dashboard",   icon: LayoutDashboard },
   { path: "/inventory", label: "Inventory",   icon: Package },
-  { path: "/sales",     label: "Sales",       icon: TrendingUp },
+  { path: "/sales",     label: "Sales Tracking", icon: TrendingUp },
   { path: "/customers", label: "Customers",   icon: Users },
-  { path: "/trucks",    label: "Dispatch",    icon: Truck },
+  { path: "/trucks",    label: "Trucks in Transit", icon: Truck },
   { path: "/payroll",   label: "Payroll",     icon: Wallet },
-  { path: "/expenses",  label: "Finance",     icon: BarChart3 },
+  { path: "/expenses",  label: "Expenses & Finance", icon: BarChart3 },
   { path: "/reports",   label: "Reports",     icon: FileText },
   { path: "/employees", label: "Employees",   icon: Users2 },
 ];
@@ -41,17 +41,17 @@ const hubModulesByPath: Record<string, Array<{ path: string; label: string; icon
   ],
   "/booking-dispatch": [
     { path: "/order-summary", label: "Orders", icon: ClipboardList },
-    { path: "/inventory", label: "Deliveries", icon: Package },
+    { path: "/inventory", label: "Pallet Tracking", icon: Package },
     { path: "/invoicing", label: "Receipts", icon: FileText },
-    { path: "/delivery", label: "Dispatch", icon: Truck },
-    { path: "/accounts", label: "Accounts", icon: Wallet },
-    { path: "/delivery-history", label: "History", icon: History },
+    { path: "/delivery", label: "Truck Dispatch", icon: Truck },
+    { path: "/accounts", label: "Accounts Receivable", icon: Wallet },
+    { path: "/delivery-history", label: "Delivery History", icon: History },
   ],
 };
 
 const hubMainModules = [
   { path: "/information-management", label: "Information Management", icon: Package },
-  { path: "/booking-dispatch", label: "Booking Dispatch", icon: ClipboardList },
+  { path: "/booking-dispatch", label: "Booking & Dispatch", icon: ClipboardList },
 ];
 
 export function BottomNavBar({ onLogout }: BottomNavBarProps) {

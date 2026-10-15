@@ -75,14 +75,14 @@ export function BookingInventory() {
 
   const selected = entries.find((entry) => entry.pallet.id === selectedPalletId) ?? null;
 
-  if (isLoading) return <div className="p-6 text-gray-500">Loading deliveries…</div>;
+  if (isLoading) return <div className="p-6 text-gray-500">Loading pallets…</div>;
 
   return (
     <div className="flex-1 flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">Deliveries</h1>
-          <p className="page-subtitle">Order pallets from Preparation, with product cost and value</p>
+          <h1 className="page-title">Pallet Tracking</h1>
+          <p className="page-subtitle">Track the status, contents, and value of every pallet</p>
         </div>
         <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
           <RefreshCw size={16} />

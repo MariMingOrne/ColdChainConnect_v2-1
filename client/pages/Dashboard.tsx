@@ -17,14 +17,14 @@ export function Dashboard() {
   const hubCards = [
     {
       title: "Information Management",
-      description: "Manage pricing, inventory, customers, and agents",
+      description: "Maintain products, inventory, customers, agents, and drivers",
       icon: Settings,
       path: "/information-management/pricing",
       color: "border-blue-200 bg-blue-50",
     },
     {
       title: "Booking & Dispatch",
-      description: "Create orders, invoice, and manage deliveries",
+      description: "Take orders, prepare pallets, issue receipts, and dispatch trucks",
       icon: BarChart3,
       path: "/booking-dispatch/order-summary",
       color: "border-green-200 bg-green-50",

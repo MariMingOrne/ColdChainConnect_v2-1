@@ -21,7 +21,7 @@ const navItems = [
   { id: "inventory",  label: "Inventory Management", icon: Package },
   { id: "sales",      label: "Sales Tracking",       icon: TrendingUp },
   { id: "customers",  label: "Customers",            icon: Users },
-  { id: "trucks",     label: "Dispatch",             icon: Truck },
+  { id: "trucks",     label: "Trucks in Transit",    icon: Truck },
   { id: "payroll",    label: "Payroll",              icon: Wallet },
   { id: "expenses",   label: "Expenses & Finance",   icon: BarChart3 },
   { id: "reports",    label: "Reports",              icon: FileText },

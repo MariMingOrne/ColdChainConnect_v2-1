@@ -332,7 +332,7 @@ export function BookingSummary() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Order Summary</h1>
-          <p className="page-subtitle">View and manage customer bookings</p>
+          <p className="page-subtitle">Review, approve, and reject customer orders</p>
         </div>
         <div className="flex items-center gap-2">
           <button
