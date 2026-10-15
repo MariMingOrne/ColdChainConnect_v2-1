@@ -283,21 +283,21 @@ async function seed() {
     await db.insert(trucks).values([
       {
         id: truck1,
-        name: "Truck A - Metro Manila",
+        license_plate: "MNL 4821",
         district: "Metro Manila",
         driver_id: driverProfile1,
         status: "available",
       },
       {
         id: truck2,
-        name: "Truck B - Cavite",
+        license_plate: "CAV 7315",
         district: "Cavite",
         driver_id: driverProfile2,
         status: "available",
       },
       {
         id: truck3,
-        name: "Truck C - Tagaytay",
+        license_plate: "TGY 3186",
         district: "Tagaytay",
         driver_id: driverProfile3,
         status: "available",

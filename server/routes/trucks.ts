@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { trucks } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
+import { CreateTruckSchema, UpdateTruckSchema } from "../../shared/api";
 import { logAction } from "../middleware/audit-logger";
 import { demoTrucks } from "../demo-data";
 
@@ -23,19 +24,18 @@ export const listTrucks: RequestHandler = async (_req, res) => {
 };
 
 export const createTruck: RequestHandler = async (req: AuthRequest, res) => {
-  const { name, district, driver_id } = req.body;
-
-  if (!name || !district) {
-    return res
-      .status(400)
-      .json({ error: "Name and district are required" });
+  const parsed = CreateTruckSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
   }
+
+  const { license_plate, district, driver_id } = parsed.data;
 
   try {
     const id = randomUUID();
     await db.insert(trucks).values({
       id,
-      name,
+      license_plate,
       district,
       driver_id,
       status: "available",
@@ -65,7 +65,12 @@ export const createTruck: RequestHandler = async (req: AuthRequest, res) => {
 
 export const updateTruck: RequestHandler = async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const { name, district, driver_id, status } = req.body;
+  const parsed = UpdateTruckSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+
+  const { license_plate, district, driver_id, status } = parsed.data;
 
   try {
     const existing = await db.query.trucks.findFirst({
@@ -79,7 +84,7 @@ export const updateTruck: RequestHandler = async (req: AuthRequest, res) => {
     await db
       .update(trucks)
       .set({
-        name: name || existing.name,
+        license_plate: license_plate || existing.license_plate,
         district: district || existing.district,
         driver_id: driver_id ?? existing.driver_id,
         status: status || existing.status,

@@ -267,7 +267,7 @@ export const UpdateDriverSchema = CreateDriverSchema.partial();
 // Truck types
 export interface Truck {
   id: string;
-  name: string;
+  license_plate: string;
   district: string;
   driver_id?: string;
   status: "available" | "in_transit" | "maintenance";
@@ -276,7 +276,9 @@ export interface Truck {
 }
 
 export const CreateTruckSchema = z.object({
-  name: z.string().min(1, "Truck name is required"),
+  license_plate: z
+    .string()
+    .regex(/^[A-Z]{3} \d{3,4}$/, "License plate must look like ABC 1234"),
   district: z.string().min(1, "District is required"),
   driver_id: z.string().optional(),
   status: z.enum(["available", "in_transit", "maintenance"]).default("available"),

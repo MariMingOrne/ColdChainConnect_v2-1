@@ -697,8 +697,8 @@ export function BookingSummary() {
                   <h3 className="text-sm font-semibold text-navy mb-3">Assigned Truck</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-muted mb-1 block">Truck Name</label>
-                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.name || "N/A"}</p>
+                      <label className="text-xs font-semibold text-muted mb-1 block">License Plate</label>
+                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.license_plate || "N/A"}</p>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted mb-1 block">District</label>

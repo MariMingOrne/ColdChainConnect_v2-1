@@ -123,9 +123,9 @@ export function searchAll(data: SearchData, rawQuery: string): SearchGroup[] {
     },
     {
       label: "Delivery",
-      hits: selectRecords(data.trucks, query, MODULE_KEYWORDS.trucks, (t) => [t.name, t.district, t.status]).map((t) => ({
+      hits: selectRecords(data.trucks, query, MODULE_KEYWORDS.trucks, (t) => [t.license_plate, t.district, t.status]).map((t) => ({
         id: t.id,
-        title: t.name,
+        title: t.license_plate,
         subtitle: `${t.district} · ${t.status}`,
         path: PATHS.trucks,
       })),

@@ -251,7 +251,7 @@ export function DeliveryDispatch() {
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wider">Truck</p>
-            <p className="font-rajdhani font-bold text-navy text-lg mt-0.5">{selectedTruck!.name}</p>
+            <p className="font-rajdhani font-bold text-navy text-lg mt-0.5">{selectedTruck!.license_plate}</p>
             <p className="text-xs text-muted">{selectedTruck!.district}</p>
           </div>
           <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadgeClass(selectedTruck!.status)}`}>
@@ -563,7 +563,7 @@ export function DeliveryDispatch() {
                         <TruckIcon size={18} className="text-navy" />
                       </div>
                       <div>
-                        <p className="font-rajdhani font-bold text-navy">{truck.name}</p>
+                        <p className="font-rajdhani font-bold text-navy">{truck.license_plate}</p>
                         <p className="text-xs text-muted">{truck.district}</p>
                         <p className="text-xs text-muted mt-0.5">{active} active · {td.length} total</p>
                       </div>
@@ -606,7 +606,7 @@ export function DeliveryDispatch() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-rajdhani font-bold text-navy leading-tight truncate">{truck.name}</p>
+                      <p className="font-rajdhani font-bold text-navy leading-tight truncate">{truck.license_plate}</p>
                       <p className="text-xs text-muted mt-0.5">{truck.district}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${statusBadgeClass(truck.status)}`}>
@@ -732,7 +732,7 @@ function ChangeTruckDriverModal({ truck, drivers, token, onClose, onSave }: {
   };
 
   return (
-    <ModalShell title={`Assign Driver — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Assign Driver — ${truck.license_plate}`} onClose={onClose}>
       <div>
         <label className="block text-xs font-semibold text-navy mb-2">Select Driver</label>
         <select
@@ -783,23 +783,25 @@ function ChangeTruckDriverModal({ truck, drivers, token, onClose, onSave }: {
 
 // ─── Add New Truck Modal ──────────────────────────────────────────────────────
 
+const PLATE_PATTERN = /^[A-Z]{3} \d{3,4}$/;
+
 function AddTruckModal({ drivers, token, onClose, onCreated }: {
   drivers: Driver[]; token: string; onClose: () => void; onCreated: () => Promise<void>;
 }) {
-  const [truckName, setTruckName]           = useState("");
+  const [licensePlate, setLicensePlate]     = useState("");
   const [truckDistrict, setTruckDistrict]   = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [truckStatus, setTruckStatus]       = useState<"available" | "in_transit" | "maintenance">("available");
   const [saving, setSaving]                 = useState(false);
 
   const handleSave = async () => {
-    if (!truckName || !truckDistrict) { alert("Fill in truck name and district."); return; }
+    if (!PLATE_PATTERN.test(licensePlate) || !truckDistrict) { alert("Enter a license plate like ABC 1234 and a district."); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/trucks", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: truckName, district: truckDistrict, driver_id: selectedDriverId || undefined, status: truckStatus }),
+        body: JSON.stringify({ license_plate: licensePlate, district: truckDistrict, driver_id: selectedDriverId || undefined, status: truckStatus }),
       });
       if (!res.ok) throw new Error(await res.text());
       await onCreated();
@@ -814,7 +816,7 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
     <ModalShell title="Add New Truck" onClose={onClose}>
       <div className="space-y-4">
         {[
-          { label: "Truck Name *", value: truckName, onChange: setTruckName, placeholder: "e.g., Truck A" },
+          { label: "License Plate *", value: licensePlate, onChange: (v: string) => setLicensePlate(v.toUpperCase()), placeholder: "e.g., ABC 1234" },
           { label: "District *",   value: truckDistrict, onChange: setTruckDistrict, placeholder: "e.g., Metro Manila" },
         ].map(({ label, value, onChange, placeholder }) => (
           <div key={label}>
@@ -845,7 +847,7 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
       </div>
       <div className="flex justify-end gap-2 pt-4 border-t border-border">
         <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white">Cancel</button>
-        <button onClick={handleSave} disabled={!truckName || !truckDistrict || saving}
+        <button onClick={handleSave} disabled={!PLATE_PATTERN.test(licensePlate) || !truckDistrict || saving}
           className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {saving ? "Adding…" : "Add Truck"}
         </button>
@@ -870,7 +872,7 @@ function ChangeDriverModal({ truck, drivers, token, onClose, onSave }: {
   };
 
   return (
-    <ModalShell title={`Change Agent — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Change Agent — ${truck.license_plate}`} onClose={onClose}>
       <div>
         <label className="block text-xs font-semibold text-navy mb-2">Select Agent *</label>
         <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}
@@ -955,7 +957,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   };
 
   return (
-    <ModalShell title={`Add Delivery — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Add Delivery — ${truck.license_plate}`} onClose={onClose}>
       <div className="space-y-3">
 
         <div className="flex items-center justify-between">

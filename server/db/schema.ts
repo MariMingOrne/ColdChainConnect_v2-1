@@ -153,7 +153,7 @@ export const drivers = pgTable("drivers", {
 // Trucks table
 export const trucks = pgTable("trucks", {
   id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
+  license_plate: text("license_plate").notNull().unique(),
   district: text("district").notNull(),
   driver_id: text("driver_id").references(() => drivers.id),
   status: truckStatusEnum("status").default("available"),
