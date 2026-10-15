@@ -9,7 +9,7 @@ export function palletTotal(pallet: Pallet): number {
 }
 
 export function formatMoney(amount: number): string {
-  return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export const palletStatusStyles: Record<Pallet["status"], string> = {
