@@ -23,7 +23,7 @@ export function PalletDetail({ pallet, order, customer, getProductName, onBack }
         className="flex items-center gap-1 text-sm font-semibold text-accent-2 hover:text-accent-1"
       >
         <ArrowLeft size={16} />
-        Back to delivery schedule
+        Back to deliveries
       </button>
 
       <Card className="p-6">

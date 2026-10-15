@@ -14,7 +14,7 @@ import { useAuth } from "../hooks/useAuth";
 const adminModules = [
   { label: "Order Summary",       path: "/order-summary" },
   { label: "Preparation",         path: "/preparation" },
-  { label: "Delivery Schedule",   path: "/inventory" },
+  { label: "Deliveries",           path: "/inventory" },
   { label: "Invoicing",           path: "/invoicing" },
   { label: "Delivery",            path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
@@ -24,7 +24,7 @@ const adminModules = [
 
 const agentModules = [
   { label: "Order Summary",     path: "/order-summary" },
-  { label: "Delivery Schedule", path: "/inventory" },
+  { label: "Deliveries",        path: "/inventory" },
   { label: "Preparation",       path: "/preparation" },
   { label: "Delivery",      path: "/delivery" },
 ];
