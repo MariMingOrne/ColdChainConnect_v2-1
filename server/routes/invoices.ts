@@ -5,7 +5,7 @@ import { db } from "../db";
 import { invoices, invoice_items, bookings, booking_items, customers, products, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
-import { totalDiscountRate } from "@shared/api";
+import { totalDiscountRate } from "../../shared/api";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

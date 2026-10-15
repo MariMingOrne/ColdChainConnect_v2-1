@@ -5,7 +5,7 @@ import { db } from "../db";
 import { bookings, booking_items, invoices, invoice_items, agents, trucks, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
-import { totalDiscountRate } from "@shared/api";
+import { totalDiscountRate } from "../../shared/api";
 
 // Returns the truck serving the given district, preferring an available truck.
 function findTruckForDistrict(
