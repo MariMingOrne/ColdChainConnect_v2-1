@@ -61,6 +61,7 @@ export function DeliveryDispatch() {
   const [selectedTruck,        setSelectedTruck]        = useState<Truck | null>(null);
   const [selectedDelivery,     setSelectedDelivery]     = useState<DeliveryExt | null>(null);
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
+  const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
   const [showChangeDriverModal,setShowChangeDriverModal]= useState(false);
   const [showChangeTruckDriverModal, setShowChangeTruckDriverModal] = useState(false);
@@ -254,9 +255,14 @@ export function DeliveryDispatch() {
             <p className="font-rajdhani font-bold text-navy text-lg mt-0.5">{selectedTruck!.license_plate}</p>
             <p className="text-xs text-muted">{selectedTruck!.district}</p>
           </div>
-          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadgeClass(selectedTruck!.status)}`}>
-            {truckStatusLabel(selectedTruck!.status)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadgeClass(selectedTruck!.status)}`}>
+              {truckStatusLabel(selectedTruck!.status)}
+            </span>
+            <button onClick={() => setShowEditTruckModal(true)} className="text-xs font-semibold text-accent-2 hover:opacity-70">
+              Edit
+            </button>
+          </div>
         </div>
 
         {/* Agent */}
@@ -645,6 +651,15 @@ export function DeliveryDispatch() {
         />
       )}
 
+      {showEditTruckModal && selectedTruck && (
+        <EditTruckModal
+          truck={selectedTruck}
+          token={token!}
+          onClose={() => setShowEditTruckModal(false)}
+          onSaved={async () => { await fetchAll(); setShowEditTruckModal(false); }}
+        />
+      )}
+
       {showChangeDriverModal && selectedTruck && (
         <ChangeDriverModal
           truck={selectedTruck}
@@ -850,6 +865,68 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
         <button onClick={handleSave} disabled={!PLATE_PATTERN.test(licensePlate) || !truckDistrict || saving}
           className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {saving ? "Adding…" : "Add Truck"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Edit Truck Modal ─────────────────────────────────────────────────────────
+
+function EditTruckModal({ truck, token, onClose, onSaved }: {
+  truck: Truck; token: string; onClose: () => void; onSaved: () => Promise<void>;
+}) {
+  const [licensePlate, setLicensePlate]   = useState(truck.license_plate);
+  const [truckDistrict, setTruckDistrict] = useState(truck.district);
+  const [truckStatus, setTruckStatus]     = useState(truck.status);
+  const [saving, setSaving]               = useState(false);
+
+  const handleSave = async () => {
+    if (!PLATE_PATTERN.test(licensePlate) || !truckDistrict) { alert("Enter a license plate like ABC 1234 and a district."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/trucks/${truck.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ license_plate: licensePlate, district: truckDistrict, status: truckStatus }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await onSaved();
+    } catch (err) {
+      alert("Failed to update truck: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell title={`Edit Truck — ${truck.license_plate}`} onClose={onClose}>
+      <div className="space-y-4">
+        {[
+          { label: "License Plate *", value: licensePlate, onChange: (v: string) => setLicensePlate(v.toUpperCase()), placeholder: "e.g., ABC 1234" },
+          { label: "District *", value: truckDistrict, onChange: setTruckDistrict, placeholder: "e.g., Metro Manila" },
+        ].map(({ label, value, onChange, placeholder }) => (
+          <div key={label}>
+            <label className="block text-xs font-semibold text-navy mb-1">{label}</label>
+            <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+          </div>
+        ))}
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Status</label>
+          <select value={truckStatus} onChange={(e) => setTruckStatus(e.target.value as Truck["status"])}
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
+            <option value="available">Available</option>
+            <option value="in_transit">In Transit</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white">Cancel</button>
+        <button onClick={handleSave} disabled={!PLATE_PATTERN.test(licensePlate) || !truckDistrict || saving}
+          className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </ModalShell>
