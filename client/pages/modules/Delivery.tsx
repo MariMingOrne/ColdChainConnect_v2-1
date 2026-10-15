@@ -983,17 +983,15 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [saving, setSaving] = useState(false);
 
-  const districtInvoices = eligibleInvoices.filter((inv) =>
-    customers.find((c) => c.store_name === inv.customer_name)?.district === truck.district
-  );
+  function customerFor(inv: Invoice): Customer | undefined {
+    return inv.booking?.customer ?? customers.find((c) => c.store_name === inv.customer_name);
+  }
+
+  const districtInvoices = eligibleInvoices.filter((inv) => customerFor(inv)?.district === truck.district);
 
   // Build a label for each eligible invoice: "Store Name — Contact Person"
   function orderLabel(inv: Invoice): string {
-    // Prefer snapshot customer_name; fall back to looking up from customers list
-    const customer = customers.find((c) => {
-      // match via booking's destination_customer or via customer_name snapshot
-      return c.store_name === inv.customer_name;
-    });
+    const customer = customerFor(inv);
     const storeName    = inv.customer_name    || customer?.store_name    || inv.id.slice(0, 8).toUpperCase();
     const contactPerson = customer?.contact_person || "";
     return contactPerson ? `${storeName} — ${contactPerson}` : storeName;
@@ -1001,8 +999,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
 
   // Given an invoice, resolve the destination_customer_id
   function resolveCustomerId(inv: Invoice): string {
-    const matched = customers.find((c) => c.store_name === inv.customer_name);
-    return matched?.id ?? "";
+    return customerFor(inv)?.id ?? "";
   }
 
   const addStop    = () => setStops((s) => [...s, { invoice_id: "" }]);
@@ -1047,7 +1044,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
         </div>
         {stops.map((stop, i) => {
           const selectedInv = districtInvoices.find((inv) => inv.id === stop.invoice_id);
-          const resolvedCustomer = selectedInv ? customers.find((c) => c.store_name === selectedInv.customer_name) : null;
+          const resolvedCustomer = selectedInv ? customerFor(selectedInv) : null;
           return (
             <div key={i} className="bg-off-white rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
