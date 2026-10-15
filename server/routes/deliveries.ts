@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { deliveries, delivery_items, accounts_receivable, invoices, agents } from "../db/schema";
+import { deliveries, delivery_items, accounts_receivable, invoices, agents, customers, trucks } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 
@@ -72,6 +72,22 @@ export const createDelivery: RequestHandler = async (
   }
 
   try {
+    const [truck] = await db.select().from(trucks).where(eq(trucks.id, truck_id));
+    if (!truck) {
+      return res.status(404).json({ error: "Truck not found" });
+    }
+
+    for (const dest of destinations) {
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, dest.destination_customer_id),
+      });
+      if (!customer || customer.district !== truck.district) {
+        return res.status(400).json({
+          error: `Stops must be customers in ${truck.district}. ${customer?.store_name ?? "This customer"} is not in that district.`,
+        });
+      }
+    }
+
     const deliveryId = randomUUID();
 
     // If the caller is an agent, resolve their agent profile id and lock it in.

@@ -983,6 +983,10 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [saving, setSaving] = useState(false);
 
+  const districtInvoices = eligibleInvoices.filter((inv) =>
+    customers.find((c) => c.store_name === inv.customer_name)?.district === truck.district
+  );
+
   // Build a label for each eligible invoice: "Store Name — Contact Person"
   function orderLabel(inv: Invoice): string {
     // Prefer snapshot customer_name; fall back to looking up from customers list
@@ -1009,7 +1013,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   // Build the final payload: resolve customer from the selected invoice
   const buildPayload = () =>
     stops.map((s) => {
-      const inv = eligibleInvoices.find((i) => i.id === s.invoice_id);
+      const inv = districtInvoices.find((i) => i.id === s.invoice_id);
       return {
         invoice_id: s.invoice_id,
         destination_customer_id: inv ? resolveCustomerId(inv) : "",
@@ -1018,7 +1022,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
 
   const valid = stops.every((s) => {
     if (!s.invoice_id) return false;
-    const inv = eligibleInvoices.find((i) => i.id === s.invoice_id);
+    const inv = districtInvoices.find((i) => i.id === s.invoice_id);
     if (!inv) return false;
     return !!resolveCustomerId(inv);
   });
@@ -1042,7 +1046,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
           <button onClick={addStop} className="text-xs text-accent-2 font-semibold hover:opacity-80">+ Add Stop</button>
         </div>
         {stops.map((stop, i) => {
-          const selectedInv = eligibleInvoices.find((inv) => inv.id === stop.invoice_id);
+          const selectedInv = districtInvoices.find((inv) => inv.id === stop.invoice_id);
           const resolvedCustomer = selectedInv ? customers.find((c) => c.store_name === selectedInv.customer_name) : null;
           return (
             <div key={i} className="bg-off-white rounded-lg p-3 space-y-2">
@@ -1061,7 +1065,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
                   className="w-full px-3 py-2 border border-border rounded-lg text-xs focus:outline-none focus:border-accent-2 bg-white"
                 >
                   <option value="">Select order…</option>
-                  {eligibleInvoices.map((inv) => {
+                  {districtInvoices.map((inv) => {
                     const disabled = pickedIds.has(inv.id) && inv.id !== stop.invoice_id;
                     return (
                       <option key={inv.id} value={inv.id} disabled={disabled}>

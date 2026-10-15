@@ -144,6 +144,17 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
     // - If a truck was passed explicitly (driver_id), honor it.
     // - Otherwise, when approving, auto-assign the truck serving the customer's district.
     let resolvedTruckId: string | null = driver_id || null;
+    if (driver_id) {
+      const [explicitTruck] = await db.select().from(trucks).where(eq(trucks.id, driver_id));
+      if (!explicitTruck) {
+        return res.status(404).json({ error: "Truck not found" });
+      }
+      if (explicitTruck.district !== existing.customer?.district) {
+        return res.status(400).json({
+          error: `${explicitTruck.license_plate} serves ${explicitTruck.district}, but this customer is in ${existing.customer?.district || "no district"}.`,
+        });
+      }
+    }
     if (!resolvedTruckId && status === "approved") {
       const customerDistrict = existing.customer?.district;
       if (!customerDistrict) {
