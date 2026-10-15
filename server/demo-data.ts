@@ -175,7 +175,7 @@ export const demoTrucks = [
   {
     id: "truck-2",
     license_plate: "CAV 7315",
-    district: "District B",
+    district: "District C",
     driver_id: null,
     status: "available" as const,
     created_at: new Date().toISOString(),
@@ -184,7 +184,7 @@ export const demoTrucks = [
   {
     id: "truck-3",
     license_plate: "TGY 3186",
-    district: "District C",
+    district: "District B",
     driver_id: null,
     status: "available" as const,
     created_at: new Date().toISOString(),

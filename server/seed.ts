@@ -296,14 +296,14 @@ async function seed() {
       {
         id: truck2,
         license_plate: "CAV 7315",
-        district: "District B",
+        district: "District C",
         driver_id: driverProfile2,
         status: "available",
       },
       {
         id: truck3,
         license_plate: "TGY 3186",
-        district: "District C",
+        district: "District B",
         driver_id: driverProfile3,
         status: "available",
       },
