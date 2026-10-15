@@ -614,7 +614,7 @@ export function BookingSummary() {
                 </div>
               ) : (
                 <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                  The truck will be automatically assigned based on the customer's location.
+                  The truck will be automatically assigned based on the customer's truck district.
                 </div>
               )}
             </div>

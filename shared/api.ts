@@ -54,6 +54,7 @@ export interface Customer {
   id: string;
   store_name: string;
   location: string;
+  district?: string | null;
   street_number?: string | null;
   street_address?: string | null;
   state?: string | null;
@@ -78,6 +79,7 @@ export function formatCustomerAddress(
 export const CreateCustomerSchema = z.object({
   store_name: z.string().min(1, "Store name is required"),
   location: z.string().min(1, "Location is required"),
+  district: z.string().optional(),
   street_number: z.string().optional(),
   street_address: z.string().optional(),
   state: z.string().optional(),

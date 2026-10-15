@@ -52,6 +52,7 @@ export const customers = pgTable("customers", {
   id: text("id").primaryKey(),
   store_name: text("store_name").notNull(),
   location: text("location").notNull(),
+  district: text("district"),
   street_number: text("street_number"),
   street_address: text("street_address"),
   state: text("state"),

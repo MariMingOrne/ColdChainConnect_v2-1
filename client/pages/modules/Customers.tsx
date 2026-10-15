@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { Customer, formatCustomerAddress } from "@shared/api";
+import { Customer, Truck, formatCustomerAddress } from "@shared/api";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { ActionButtons } from "@/components/ActionButtons";
@@ -14,6 +14,7 @@ interface CustomerForm {
   street_number: string;
   street_address: string;
   location: string;
+  district: string;
   state: string;
   postal_code: string;
   contact_person: string;
@@ -62,6 +63,10 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
             <div className="text-sm text-navy">{formatCustomerAddress(customer) || "—"}</div>
           </div>
           <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Truck District</label>
+            <div className="text-sm text-navy">{customer.district || "—"}</div>
+          </div>
+          <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Person</label>
             <div className="text-sm text-navy">{customer.contact_person || "—"}</div>
           </div>
@@ -89,15 +94,21 @@ function CustomerModal({
   title,
   formData,
   setFormData,
+  districts,
   onClose,
   onSave,
 }: {
   title: string;
   formData: CustomerForm;
   setFormData: (data: CustomerForm) => void;
+  districts: string[];
   onClose: () => void;
   onSave: () => void;
 }) {
+  const districtOptions =
+    formData.district && !districts.includes(formData.district)
+      ? [...districts, formData.district]
+      : districts;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-white">
@@ -181,6 +192,23 @@ function CustomerModal({
           </div>
 
           <div>
+            <label className="mb-1 block text-xs font-semibold text-navy">Truck District</label>
+            <select
+              value={formData.district}
+              onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+            >
+              <option value="">No district</option>
+              {districtOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted">Approved orders for this customer are dispatched to the truck serving this district.</p>
+          </div>
+
+          <div>
             <label className="mb-1 block text-xs font-semibold text-navy">
               Contact Person
             </label>
@@ -259,11 +287,13 @@ export function Customers({ onBack }: CustomersProps) {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const [truckDistricts, setTruckDistricts] = useState<string[]>([]);
   const [formData, setFormData] = useState<CustomerForm>({
     store_name: "",
     street_number: "",
     street_address: "",
     location: "",
+    district: "",
     state: "",
     postal_code: "",
     contact_person: "",
@@ -298,9 +328,12 @@ export function Customers({ onBack }: CustomersProps) {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchCustomers();
-    }
+    if (!token) return;
+    fetchCustomers();
+    fetch("/api/trucks", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((trucks: Truck[]) => setTruckDistricts([...new Set(trucks.map((t) => t.district))].sort()))
+      .catch(() => setTruckDistricts([]));
   }, [token]);
 
   const filteredCustomers = useMemo(
@@ -334,6 +367,7 @@ export function Customers({ onBack }: CustomersProps) {
       street_number: "",
       street_address: "",
       location: "",
+      district: "",
       state: "",
       postal_code: "",
       contact_person: "",
@@ -350,6 +384,7 @@ export function Customers({ onBack }: CustomersProps) {
       street_number: customer.street_number ?? "",
       street_address: customer.street_address ?? "",
       location: customer.location,
+      district: customer.district ?? "",
       state: customer.state ?? "",
       postal_code: customer.postal_code ?? "",
       contact_person: customer.contact_person ?? "",
@@ -387,6 +422,7 @@ export function Customers({ onBack }: CustomersProps) {
           street_number: formData.street_number || undefined,
           street_address: formData.street_address || undefined,
           location: formData.location,
+          district: formData.district || undefined,
           state: formData.state || undefined,
           postal_code: formData.postal_code || undefined,
           contact_person: formData.contact_person || undefined,
@@ -631,6 +667,7 @@ export function Customers({ onBack }: CustomersProps) {
           title={editingCustomer ? "Edit Customer" : "Add New Customer"}
           formData={formData}
           setFormData={setFormData}
+          districts={truckDistricts}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
         />
