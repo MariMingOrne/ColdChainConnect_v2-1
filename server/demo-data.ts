@@ -166,7 +166,7 @@ export const demoTrucks = [
   {
     id: "truck-1",
     license_plate: "MNL 4821",
-    district: "Metro Manila",
+    district: "District A",
     driver_id: null,
     status: "available" as const,
     created_at: new Date().toISOString(),
@@ -175,7 +175,7 @@ export const demoTrucks = [
   {
     id: "truck-2",
     license_plate: "CAV 7315",
-    district: "Cavite",
+    district: "District B",
     driver_id: null,
     status: "available" as const,
     created_at: new Date().toISOString(),
@@ -184,7 +184,7 @@ export const demoTrucks = [
   {
     id: "truck-3",
     license_plate: "TGY 3186",
-    district: "Tagaytay",
+    district: "District C",
     driver_id: null,
     status: "available" as const,
     created_at: new Date().toISOString(),

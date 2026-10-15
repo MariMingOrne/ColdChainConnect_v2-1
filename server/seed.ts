@@ -289,21 +289,21 @@ async function seed() {
       {
         id: truck1,
         license_plate: "MNL 4821",
-        district: "Metro Manila",
+        district: "District A",
         driver_id: driverProfile1,
         status: "available",
       },
       {
         id: truck2,
         license_plate: "CAV 7315",
-        district: "Cavite",
+        district: "District B",
         driver_id: driverProfile2,
         status: "available",
       },
       {
         id: truck3,
         license_plate: "TGY 3186",
-        district: "Tagaytay",
+        district: "District C",
         driver_id: driverProfile3,
         status: "available",
       },
@@ -354,7 +354,7 @@ async function seed() {
     console.log("   ✓ 4 Products (Chicken, Pork, Fish, Beef)");
     console.log("   ✓ 3 Customers (Makati, BGC, Tagaytay)");
     console.log("   ✓ 3 Drivers (Pedro, Carlos, Jose — no login)");
-    console.log("   ✓ 3 Trucks (Metro Manila, Cavite, Tagaytay)");
+    console.log("   ✓ 3 Trucks (District A, B, C)");
     console.log("   ✓ Inventory Batches/Pallets");
 
     process.exit(0);
