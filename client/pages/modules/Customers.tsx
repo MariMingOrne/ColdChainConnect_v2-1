@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { Customer, Truck, formatCustomerAddress } from "@shared/api";
+import { Customer, Truck, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { ActionButtons } from "@/components/ActionButtons";
+import {
+  CustomerDiscountEditor,
+  DiscountRow,
+  formatPercent,
+} from "@/components/CustomerDiscountEditor";
 
 interface CustomersProps {
   onBack?: () => void;
@@ -19,7 +24,7 @@ interface CustomerForm {
   postal_code: string;
   contact_person: string;
   contact_info: string;
-  tax_rate: string;
+  discounts: DiscountRow[];
 }
 
 function StatsBox({
@@ -75,8 +80,21 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
             <div className="text-sm text-navy">{customer.contact_info || "—"}</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Tax Rate</label>
-            <div className="text-sm text-navy">{customer.tax_rate ? `${(Number(customer.tax_rate) * 100).toFixed(2)}%` : "—"}</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Discounts</label>
+            {customer.discounts && customer.discounts.length > 0 ? (
+              <ul className="space-y-1 text-sm text-navy">
+                {customer.discounts.map((discount) => (
+                  <li key={discount.id ?? discount.label}>
+                    {discount.label}: {formatPercent(Number(discount.rate))}%
+                  </li>
+                ))}
+                <li className="font-semibold">
+                  Total: {formatPercent(totalDiscountRate(customer.discounts))}%
+                </li>
+              </ul>
+            ) : (
+              <div className="text-sm text-navy">—</div>
+            )}
           </div>
         </div>
 
@@ -239,22 +257,11 @@ function CustomerModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-navy">
-              Tax Rate (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={formData.tax_rate}
-              onChange={(e) =>
-                setFormData({ ...formData, tax_rate: e.target.value })
-              }
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
-              placeholder="12"
+            <label className="mb-1 block text-xs font-semibold text-navy">Discounts</label>
+            <CustomerDiscountEditor
+              rows={formData.discounts}
+              onChange={(discounts) => setFormData({ ...formData, discounts })}
             />
-            <p className="mt-1 text-xs text-muted">Use Philippine VAT or store-specific tax rate.</p>
           </div>
         </div>
 
@@ -298,7 +305,7 @@ export function Customers({ onBack }: CustomersProps) {
     postal_code: "",
     contact_person: "",
     contact_info: "",
-    tax_rate: "",
+    discounts: [],
   });
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -354,9 +361,9 @@ export function Customers({ onBack }: CustomersProps) {
     currentPage * itemsPerPage
   );
 
-  const averageTaxRate =
+  const averageDiscountRate =
     customers.length > 0
-      ? customers.reduce((sum, customer) => sum + Number(customer.tax_rate ?? 0), 0) /
+      ? customers.reduce((sum, customer) => sum + totalDiscountRate(customer.discounts), 0) /
         customers.length
       : 0;
 
@@ -372,7 +379,7 @@ export function Customers({ onBack }: CustomersProps) {
       postal_code: "",
       contact_person: "",
       contact_info: "",
-      tax_rate: "",
+      discounts: [],
     });
     setIsModalOpen(true);
   };
@@ -389,10 +396,10 @@ export function Customers({ onBack }: CustomersProps) {
       postal_code: customer.postal_code ?? "",
       contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
-      tax_rate:
-        customer.tax_rate !== undefined && customer.tax_rate !== null
-          ? String(Number(customer.tax_rate) * 100)
-          : "",
+      discounts: (customer.discounts ?? []).map((discount) => ({
+        label: discount.label,
+        percent: String(Number(discount.rate) * 100),
+      })),
     });
     setIsModalOpen(true);
   };
@@ -406,10 +413,12 @@ export function Customers({ onBack }: CustomersProps) {
         : "/api/customers";
       const method = editingCustomer ? "PATCH" : "POST";
 
-      const taxRateValue =
-        formData.tax_rate.trim() === ""
-          ? undefined
-          : Number(formData.tax_rate) / 100;
+      const discounts = formData.discounts
+        .filter((discount) => discount.label.trim() && Number(discount.percent) > 0)
+        .map((discount) => ({
+          label: discount.label.trim(),
+          rate: Number(discount.percent) / 100,
+        }));
 
       const response = await fetch(url, {
         method,
@@ -427,10 +436,7 @@ export function Customers({ onBack }: CustomersProps) {
           postal_code: formData.postal_code || undefined,
           contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
-          tax_rate:
-            taxRateValue !== undefined && !Number.isNaN(taxRateValue)
-              ? taxRateValue
-              : undefined,
+          discounts,
         }),
       });
 
@@ -480,7 +486,7 @@ export function Customers({ onBack }: CustomersProps) {
             Customer Management
           </h1>
           <p className="mt-1 text-xs text-muted">
-            Manage customer stores, contacts, and Philippine tax settings
+            Manage customer stores, contacts, and discount settings
           </p>
         </div>
 
@@ -512,13 +518,13 @@ export function Customers({ onBack }: CustomersProps) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatsBox label="Total Customers" value={customers.length.toString()} icon="🏪" />
         <StatsBox
-          label="Avg Tax Rate"
-          value={`${averageTaxRate > 0 ? (averageTaxRate * 100).toFixed(2) : "0.00"}%`}
+          label="Avg Discount"
+          value={`${formatPercent(averageDiscountRate)}%`}
           icon="🧾"
         />
         <StatsBox
-          label="With Tax Data"
-          value={customers.filter((customer) => customer.tax_rate !== undefined).length.toString()}
+          label="With Discounts"
+          value={customers.filter((customer) => (customer.discounts?.length ?? 0) > 0).length.toString()}
           icon="📊"
           color="gold"
         />
@@ -571,7 +577,7 @@ export function Customers({ onBack }: CustomersProps) {
                   Contact Info
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-                  Tax Rate
+                  Discounts
                 </th>
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 border-b border-border bg-navy-mid px-3 py-3 text-center font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap shadow-left">
                   Actions
@@ -604,9 +610,9 @@ export function Customers({ onBack }: CustomersProps) {
                       {customer.contact_info || <span className="text-muted">—</span>}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
-                      {customer.tax_rate !== undefined && customer.tax_rate !== null ? (
+                      {customer.discounts && customer.discounts.length > 0 ? (
                         <span className="inline-block rounded bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
-                          {(Number(customer.tax_rate) * 100).toFixed(2)}%
+                          {formatPercent(totalDiscountRate(customer.discounts))}% · {customer.discounts.length}
                         </span>
                       ) : (
                         <span className="text-muted">—</span>

@@ -137,7 +137,7 @@ async function seed() {
         contact_info: "09171234501",
         agent_id: agent1UserId,
         payment_type: "cash",
-        tax_rate: "12.00",
+
       },
       {
         id: customer2,
@@ -152,7 +152,7 @@ async function seed() {
         contact_info: "09171234502",
         agent_id: agent2UserId,
         payment_type: "bank_transfer",
-        tax_rate: "12.00",
+
       },
       {
         id: customer3,
@@ -167,7 +167,7 @@ async function seed() {
         contact_info: "09171234503",
         agent_id: agent3UserId,
         payment_type: "cod",
-        tax_rate: "0.00",
+
       },
       {
         id: customer4,
@@ -182,7 +182,7 @@ async function seed() {
         contact_info: "09171234504",
         agent_id: agent1UserId,
         payment_type: "cash",
-        tax_rate: "12.00",
+
       },
       {
         id: customer5,
@@ -197,7 +197,7 @@ async function seed() {
         contact_info: "09171234505",
         agent_id: agent2UserId,
         payment_type: "bank_transfer",
-        tax_rate: "12.00",
+
       },
       {
         id: customer6,
@@ -211,7 +211,7 @@ async function seed() {
         contact_info: "09171234506",
         agent_id: agent3UserId,
         payment_type: "cod",
-        tax_rate: "12.00",
+
       },
       {
         id: customer7,
@@ -225,7 +225,7 @@ async function seed() {
         contact_info: "09171234507",
         agent_id: agent1UserId,
         payment_type: "bank_transfer",
-        tax_rate: "12.00",
+
       },
       {
         id: customer8,
@@ -239,7 +239,7 @@ async function seed() {
         contact_info: "09171234508",
         agent_id: agent2UserId,
         payment_type: "cash",
-        tax_rate: "0.00",
+
       },
     ]).onConflictDoNothing();
 

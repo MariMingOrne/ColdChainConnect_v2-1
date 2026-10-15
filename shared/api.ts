@@ -50,6 +50,12 @@ export interface User {
 }
 
 // Customer types
+export interface CustomerDiscount {
+  id?: string;
+  label: string;
+  rate: number | string;
+}
+
 export interface Customer {
   id: string;
   store_name: string;
@@ -63,9 +69,13 @@ export interface Customer {
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
-  tax_rate?: number;
+  discounts?: CustomerDiscount[];
   created_at: string;
   updated_at: string;
+}
+
+export function totalDiscountRate(discounts: CustomerDiscount[] | undefined): number {
+  return (discounts ?? []).reduce((sum, discount) => sum + Number(discount.rate), 0);
 }
 
 export function formatCustomerAddress(
@@ -88,7 +98,9 @@ export const CreateCustomerSchema = z.object({
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
-  tax_rate: z.number().min(0).max(1).optional(),
+  discounts: z
+    .array(z.object({ label: z.string().min(1), rate: z.number().gt(0).max(1) }))
+    .optional(),
 });
 
 export const UpdateCustomerSchema = CreateCustomerSchema.partial();

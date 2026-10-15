@@ -5,6 +5,7 @@ import { db } from "../db";
 import { bookings, booking_items, invoices, invoice_items, agents, trucks, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+import { totalDiscountRate } from "@shared/api";
 
 // Returns the truck serving the given district, preferring an available truck.
 function findTruckForDistrict(
@@ -184,7 +185,7 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
           const bookingForInvoice = await db.query.bookings.findFirst({
             where: eq(bookings.id, id),
             with: {
-              customer: true,
+              customer: { with: { discounts: true } },
               booking_items: { with: { product: true } },
             },
           });
@@ -197,7 +198,7 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
             where: eq(users.id, agentId),
           });
 
-          const DISCOUNT_RATE = 0.02;
+          const DISCOUNT_RATE = totalDiscountRate(bookingForInvoice?.customer?.discounts);
           let gross = 0;
           const lineItems: Array<{
             product_id: string; product_name: string; product_sku: string | null;

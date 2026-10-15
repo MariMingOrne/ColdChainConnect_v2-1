@@ -13,7 +13,7 @@ export const demoCustomers = [
     contact_info: "09171234501",
     agent_id: null,
     payment_type: "cash",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -30,7 +30,7 @@ export const demoCustomers = [
     contact_info: "09171234502",
     agent_id: null,
     payment_type: "bank_transfer",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -47,7 +47,7 @@ export const demoCustomers = [
     contact_info: "09171234503",
     agent_id: null,
     payment_type: "cod",
-    tax_rate: "0.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -64,7 +64,7 @@ export const demoCustomers = [
     contact_info: "09171234504",
     agent_id: null,
     payment_type: "cash",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -81,7 +81,7 @@ export const demoCustomers = [
     contact_info: "09171234505",
     agent_id: null,
     payment_type: "bank_transfer",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -97,7 +97,7 @@ export const demoCustomers = [
     contact_info: "09171234506",
     agent_id: null,
     payment_type: "cod",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -113,7 +113,7 @@ export const demoCustomers = [
     contact_info: "09171234507",
     agent_id: null,
     payment_type: "bank_transfer",
-    tax_rate: "12.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -129,7 +129,7 @@ export const demoCustomers = [
     contact_info: "09171234508",
     agent_id: null,
     payment_type: "cash",
-    tax_rate: "0.00",
+
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },

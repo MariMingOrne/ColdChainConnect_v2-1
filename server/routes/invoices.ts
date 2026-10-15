@@ -5,6 +5,7 @@ import { db } from "../db";
 import { invoices, invoice_items, bookings, booking_items, customers, products, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+import { totalDiscountRate } from "@shared/api";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export const createInvoice: RequestHandler = async (req: AuthRequest, res) => {
     const booking = await db.query.bookings.findFirst({
       where: eq(bookings.id, booking_id),
       with: {
-        customer: true,
+        customer: { with: { discounts: true } },
         booking_items: { with: { product: true } },
         creator: true,
       },
@@ -123,7 +124,7 @@ export const createInvoice: RequestHandler = async (req: AuthRequest, res) => {
     });
 
     // Compute totals from booking items
-    const DISCOUNT_RATE = 0.02;
+    const DISCOUNT_RATE = totalDiscountRate(booking.customer?.discounts);
     let gross = 0;
     const lineItems: Array<{
       product_id: string;

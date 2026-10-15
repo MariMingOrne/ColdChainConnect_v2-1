@@ -188,7 +188,7 @@ function ReceiptModal({ invoice, onClose }: ReceiptModalProps) {
               <tr>
                 <td className="border-r border-black px-2 py-1" colSpan={5}></td>
                 <td className="border-r border-black px-2 py-1 text-right font-bold">
-                  LESS {Math.round(parseFloat(invoice.discount_rate || "0.02") * 100)}%
+                  LESS {Number((parseFloat(invoice.discount_rate || "0.02") * 100).toFixed(2))}%
                 </td>
                 <td className="px-2 py-1 text-right">{fmt(discount)}</td>
               </tr>
