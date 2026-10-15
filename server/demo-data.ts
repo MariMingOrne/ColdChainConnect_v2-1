@@ -38,7 +38,7 @@ export const demoCustomers = [
     id: "cust-3",
     store_name: "Tagaytay Highlands Grocery - Tagaytay",
     location: "Tagaytay City",
-    district: "District B",
+    district: "District C",
     street_number: "45",
     street_address: "Aguinaldo Hwy, Brgy. Sungay",
     state: "Cavite",
