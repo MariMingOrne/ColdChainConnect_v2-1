@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Booking, Customer, Pallet, formatCustomerAddress } from "@shared/api";
+import { Booking, Customer, Pallet, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { Card } from "@/components/ui/card";
 import { formatMoney, palletItemTotal, palletTotal } from "./palletUtils";
 import { PalletStatusBadge } from "./PalletTable";
@@ -15,6 +15,8 @@ interface PalletDetailProps {
 export function PalletDetail({ pallet, order, customer, getProductName, onBack }: PalletDetailProps) {
   const items = pallet.items ?? [];
   const units = items.reduce((sum, item) => sum + item.qty_units, 0);
+  const discountRate = totalDiscountRate(order?.customer?.discounts);
+  const totalValue = palletTotal(pallet);
 
   return (
     <div className="space-y-4">
@@ -88,8 +90,20 @@ export function PalletDetail({ pallet, order, customer, getProductName, onBack }
         <Card className="flex flex-col justify-center gap-4 p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Total value</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-navy">{formatMoney(palletTotal(pallet))}</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-navy">{formatMoney(totalValue)}</p>
           </div>
+          {discountRate > 0 && (
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted">Customer discount ({Number((discountRate * 100).toFixed(2))}%)</span>
+                <span className="tabular-nums text-red">-{formatMoney(totalValue * discountRate)}</span>
+              </div>
+              <div className="flex justify-between border-t border-border pt-1">
+                <span className="font-semibold text-navy">Net after discount</span>
+                <span className="font-bold tabular-nums text-navy">{formatMoney(totalValue * (1 - discountRate))}</span>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Products</p>

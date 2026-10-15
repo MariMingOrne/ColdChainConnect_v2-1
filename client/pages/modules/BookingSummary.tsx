@@ -8,6 +8,7 @@ import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AddOrderModal } from "./AddOrderModal";
+import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
 
 export function BookingSummary() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -733,6 +734,8 @@ export function BookingSummary() {
                   <p className="text-sm text-muted italic">No items in this order</p>
                 )}
               </div>
+
+              <OrderTotalsBreakdown booking={detailBooking} products={products} />
 
               {/* Timestamps */}
               <div className="border-t border-border pt-4">

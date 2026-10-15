@@ -32,7 +32,7 @@ export const listBookings: RequestHandler = async (req, res) => {
             product: true,
           },
         },
-        customer: true,
+        customer: { with: { discounts: true } },
         creator: true,
       },
     });
@@ -106,7 +106,7 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
             product: true,
           },
         },
-        customer: true,
+        customer: { with: { discounts: true } },
         creator: true,
       },
     });

@@ -100,6 +100,9 @@ export const CreateCustomerSchema = z.object({
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
   discounts: z
     .array(z.object({ label: z.string().min(1), rate: z.number().gt(0).max(1) }))
+    .refine((list) => list.reduce((sum, d) => sum + d.rate, 0) <= 1 + 1e-9, {
+      message: "Combined discounts cannot exceed 100%",
+    })
     .optional(),
 });
 
