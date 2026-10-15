@@ -12,21 +12,21 @@ import { InventoryProvider } from "../context/InventoryContext";
 import { useAuth } from "../hooks/useAuth";
 
 const adminModules = [
-  { label: "Order Summary",       path: "/order-summary" },
-  { label: "Preparation",         path: "/preparation" },
+  { label: "Orders",              path: "/order-summary" },
+  { label: "Pallet Preparation", path: "/preparation" },
   { label: "Deliveries",           path: "/inventory" },
-  { label: "Invoicing",           path: "/invoicing" },
-  { label: "Delivery",            path: "/delivery" },
+  { label: "Receipts",            path: "/invoicing" },
+  { label: "Truck Dispatch",      path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
   { label: "Delivery History",    path: "/delivery-history" },
   { label: "Agent Returns",       path: "/agent-returns" },
 ];
 
 const agentModules = [
-  { label: "Order Summary",     path: "/order-summary" },
+  { label: "Orders",            path: "/order-summary" },
   { label: "Deliveries",        path: "/inventory" },
-  { label: "Preparation",       path: "/preparation" },
-  { label: "Delivery",      path: "/delivery" },
+  { label: "Pallet Preparation", path: "/preparation" },
+  { label: "Truck Dispatch",    path: "/delivery" },
 ];
 
 export function BookingDispatch() {

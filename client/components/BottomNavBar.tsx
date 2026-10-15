@@ -40,10 +40,10 @@ const hubModulesByPath: Record<string, Array<{ path: string; label: string; icon
     { path: "/drivers", label: "Drivers", icon: Truck },
   ],
   "/booking-dispatch": [
-    { path: "/order-summary", label: "Order Summary", icon: ClipboardList },
+    { path: "/order-summary", label: "Orders", icon: ClipboardList },
     { path: "/inventory", label: "Deliveries", icon: Package },
-    { path: "/invoicing", label: "Invoicing", icon: FileText },
-    { path: "/delivery", label: "Delivery", icon: Truck },
+    { path: "/invoicing", label: "Receipts", icon: FileText },
+    { path: "/delivery", label: "Dispatch", icon: Truck },
     { path: "/accounts", label: "Accounts", icon: Wallet },
     { path: "/delivery-history", label: "History", icon: History },
   ],
