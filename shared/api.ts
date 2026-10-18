@@ -24,6 +24,22 @@ export interface LoginResponse {
   };
 }
 
+export interface MfaChallengeResponse {
+  mfa: "setup" | "verify";
+  challenge_token: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  otpauth_url: string;
+  qr_data_url: string;
+}
+
+export interface MfaVerifyRequest {
+  challenge_token: string;
+  code: string;
+}
+
 export interface LogoutResponse {
   message: string;
 }

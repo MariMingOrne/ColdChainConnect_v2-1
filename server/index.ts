@@ -5,6 +5,8 @@ import { handleDemo } from "./routes/demo";
 import { uploadMiddleware, handleUpload } from "./routes/upload";
 import {
   handleLogin,
+  handleMfaSetup,
+  handleMfaVerify,
   handleLogout,
   handleRefresh,
   updateUserPassword,
@@ -133,6 +135,8 @@ export function createServer() {
 
   // Auth routes (no auth required)
   app.post("/api/auth/login", handleLogin);
+  app.post("/api/auth/mfa/setup", handleMfaSetup);
+  app.post("/api/auth/mfa/verify", handleMfaVerify);
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/refresh", authMiddleware, handleRefresh);
   app.post("/api/users", authMiddleware, requireRole("admin"), handleCreateAccount);

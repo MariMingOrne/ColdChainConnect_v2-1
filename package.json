@@ -26,8 +26,10 @@
     "jsonwebtoken": "^9.0.3",
     "jsqr": "^1.4.0",
     "multer": "^2.1.1",
+    "otplib": "^13.5.0",
     "pg": "^8.21.0",
     "qr-scanner": "^1.4.2",
+    "qrcode": "^1.5.4",
     "zod": "^3.25.76",
     "zustand": "^5.0.13"
   },
@@ -69,6 +71,7 @@
     "@types/express": "^5.0.3",
     "@types/multer": "^2.1.0",
     "@types/node": "^24.2.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@types/three": "^0.176.0",

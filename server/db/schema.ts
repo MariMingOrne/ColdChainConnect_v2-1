@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password_hash: text("password_hash").notNull(),
+  mfa_secret: text("mfa_secret"),
+  mfa_enabled: boolean("mfa_enabled").default(false).notNull(),
   role: userRoleEnum("role").default("agent").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),

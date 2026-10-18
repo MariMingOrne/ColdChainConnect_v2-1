@@ -32,6 +32,19 @@ export function verifyToken(token: string): TokenPayload | null {
   }
 }
 
+export function signMfaChallenge(userId: string): string {
+  return jwt.sign({ userId, purpose: "mfa" }, JWT_SECRET, { expiresIn: "5m" });
+}
+
+export function verifyMfaChallenge(token: string): string | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; purpose: string };
+    return payload.purpose === "mfa" ? payload.userId : null;
+  } catch {
+    return null;
+  }
+}
+
 export function refreshToken(token: string): string | null {
   const payload = verifyToken(token);
   if (!payload) return null;
