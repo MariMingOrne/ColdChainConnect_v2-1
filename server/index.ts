@@ -10,6 +10,7 @@ import {
   handleLogout,
   handleRefresh,
   updateUserPassword,
+  resetUserMfa,
 } from "./routes/auth";
 import { handleCreateAccount } from "./routes/users";
 import {
@@ -141,6 +142,7 @@ export function createServer() {
   app.post("/api/auth/refresh", authMiddleware, handleRefresh);
   app.post("/api/users", authMiddleware, requireRole("admin"), handleCreateAccount);
   app.patch("/api/users/:userId/password", authMiddleware, requireRole("admin"), updateUserPassword);
+  app.post("/api/users/:userId/mfa/reset", authMiddleware, requireRole("admin"), resetUserMfa);
 
   // Customers routes
   app.get("/api/customers", authMiddleware, listCustomers);

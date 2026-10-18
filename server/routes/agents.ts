@@ -10,7 +10,7 @@ import { hashPassword } from "../auth";
 export const listAgents: RequestHandler = async (_req, res) => {
   try {
     const allAgents = await db.query.agents.findMany({
-      with: { user: true },
+      with: { user: { columns: { password_hash: false, mfa_secret: false } } },
     });
     res.json(allAgents);
   } catch (error) {
@@ -71,7 +71,7 @@ export const createAgent: RequestHandler = async (req: AuthRequest, res) => {
 
     const newAgent = await db.query.agents.findFirst({
       where: eq(agents.id, agentId),
-      with: { user: true },
+      with: { user: { columns: { password_hash: false, mfa_secret: false } } },
     });
 
     if (req.user) {
@@ -100,7 +100,7 @@ export const updateAgent: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const existing = await db.query.agents.findFirst({
       where: eq(agents.id, id),
-      with: { user: true },
+      with: { user: { columns: { password_hash: false, mfa_secret: false } } },
     });
 
     if (!existing) {
@@ -120,7 +120,7 @@ export const updateAgent: RequestHandler = async (req: AuthRequest, res) => {
 
     const updated = await db.query.agents.findFirst({
       where: eq(agents.id, id),
-      with: { user: true },
+      with: { user: { columns: { password_hash: false, mfa_secret: false } } },
     });
 
     if (req.user) {

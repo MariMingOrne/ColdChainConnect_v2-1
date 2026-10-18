@@ -18,7 +18,44 @@ interface AgentForm {
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
 
-function ViewAgentModal({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+function ViewAgentModal({
+  agent,
+  onClose,
+  onMfaReset,
+}: {
+  agent: Agent;
+  onClose: () => void;
+  onMfaReset: (userId: string) => void;
+}) {
+  const { token } = useAuth();
+  const [isResettingMfa, setIsResettingMfa] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState<string | null>(null);
+  const mfaEnabled = agent.user?.mfa_enabled ?? false;
+
+  const handleResetMfa = async () => {
+    if (!agent.user_id) return;
+    if (!confirm(`Reset MFA for ${agent.user?.username}? They will need to set up their authenticator app again at next sign-in.`)) return;
+
+    setIsResettingMfa(true);
+    setMfaMessage(null);
+    try {
+      const res = await fetch(`/api/users/${agent.user_id}/mfa/reset`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Failed to reset MFA");
+      }
+      onMfaReset(agent.user_id);
+      setMfaMessage("MFA reset. The next sign-in will ask them to set up a new authenticator.");
+    } catch (err) {
+      setMfaMessage(err instanceof Error ? err.message : "Failed to reset MFA");
+    } finally {
+      setIsResettingMfa(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -47,6 +84,24 @@ function ViewAgentModal({ agent, onClose }: { agent: Agent; onClose: () => void 
             <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${agent.is_active ? "badge-green" : "badge-red"}`}>
               {agent.is_active ? "Active" : "Inactive"}
             </span>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Authenticator (MFA)</label>
+            <div className="flex items-center gap-3">
+              <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${mfaEnabled ? "badge-green" : "badge-red"}`}>
+                {mfaEnabled ? "Enabled" : "Not set up"}
+              </span>
+              {mfaEnabled && (
+                <button
+                  onClick={handleResetMfa}
+                  disabled={isResettingMfa}
+                  className="px-3 py-1 text-xs font-semibold border border-red/30 bg-red/10 text-red rounded-lg hover:bg-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResettingMfa ? "Resetting…" : "Reset MFA"}
+                </button>
+              )}
+            </div>
+            {mfaMessage && <p className="text-xs text-muted mt-2">{mfaMessage}</p>}
           </div>
         </div>
 
@@ -391,6 +446,13 @@ export function Agents() {
     }
   };
 
+  const handleMfaReset = (userId: string) => {
+    const clearMfa = (a: Agent): Agent =>
+      a.user_id === userId && a.user ? { ...a, user: { ...a.user, mfa_enabled: false } } : a;
+    setAgents((prev) => prev.map(clearMfa));
+    setViewingAgent((prev) => (prev ? clearMfa(prev) : prev));
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this agent? This will also remove their login account.")) return;
     try {
@@ -510,7 +572,11 @@ export function Agents() {
       </div>
 
       {viewingAgent && (
-        <ViewAgentModal agent={viewingAgent} onClose={() => setViewingAgent(null)} />
+        <ViewAgentModal
+          agent={viewingAgent}
+          onClose={() => setViewingAgent(null)}
+          onMfaReset={handleMfaReset}
+        />
       )}
 
       {isModalOpen && (

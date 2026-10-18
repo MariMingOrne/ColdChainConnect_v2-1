@@ -22,6 +22,7 @@ import {
   MfaVerifyRequest,
 } from "@shared/api";
 import { AuthRequest } from "../middleware/auth";
+import { logAction } from "../middleware/audit-logger";
 
 export const handleLogin: RequestHandler<{}, LoginResponse | object> = async (
   req,
@@ -192,6 +193,45 @@ export const updateUserPassword: RequestHandler = async (req: AuthRequest, res) 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
     console.error("Password update error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * POST /api/users/:userId/mfa/reset
+ * Admin-only: clear a user's authenticator enrollment so they set up MFA again at next login.
+ */
+export const resetUserMfa: RequestHandler = async (req: AuthRequest, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await db
+      .update(users)
+      .set({ mfa_enabled: false, mfa_secret: null })
+      .where(eq(users.id, userId));
+
+    if (req.user) {
+      await logAction(
+        req.user.userId,
+        "update",
+        "user_mfa",
+        userId,
+        { mfa_enabled: user.mfa_enabled },
+        { mfa_enabled: false }
+      );
+    }
+
+    res.json({ id: user.id, username: user.username, mfa_enabled: false });
+  } catch (error) {
+    console.error("MFA reset error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -61,6 +61,7 @@ export interface User {
   id: string;
   username: string;
   role: "admin" | "agent";
+  mfa_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
