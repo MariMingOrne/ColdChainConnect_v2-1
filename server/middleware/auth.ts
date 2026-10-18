@@ -21,11 +21,20 @@ export function authMiddleware(
     return res.status(401).json({ error: "Invalid token" });
   }
 
+  if (payload.role === "driver" && !DRIVER_ALLOWED_PATHS.has(req.path)) {
+    return res.status(403).json({ error: "Insufficient permissions" });
+  }
+
   req.user = payload;
   next();
 }
 
-export function requireRole(...roles: Array<"admin" | "agent">) {
+const DRIVER_ALLOWED_PATHS = new Set([
+  "/api/driver-schedule",
+  "/api/auth/refresh",
+]);
+
+export function requireRole(...roles: Array<"admin" | "agent" | "driver">) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });

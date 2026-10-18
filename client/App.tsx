@@ -14,6 +14,7 @@ import { ManageAccounts } from "./pages/ManageAccounts";
 import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
 import { SearchResults } from "./pages/SearchResults";
+import { DriverSchedule } from "./pages/DriverSchedule";
 import { Topbar } from "./components/Topbar";
 import { BottomNavBar } from "./components/BottomNavBar";
 import { SalesForecastWidget } from "./components/SalesForecastWidget";
@@ -53,6 +54,18 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
 const AppContent = () => {
   const { isAuthenticated, user } = useAuth();
   const isAgent = user?.role === "agent";
+  const isDriver = user?.role === "driver";
+
+  // ── Driver: only their delivery schedule is accessible ──────────
+  if (isAuthenticated && isDriver) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/driver-schedule" element={<AgentLayout><DriverSchedule /></AgentLayout>} />
+        <Route path="*" element={<Navigate to="/driver-schedule" replace />} />
+      </Routes>
+    );
+  }
 
   // ── Agent: only booking-dispatch is accessible ──────────────────
   if (isAuthenticated && isAgent) {

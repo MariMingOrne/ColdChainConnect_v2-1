@@ -20,7 +20,7 @@ export interface LoginResponse {
   user: {
     id: string;
     username: string;
-    role: "admin" | "agent";
+    role: "admin" | "agent" | "driver";
   };
 }
 
@@ -60,7 +60,7 @@ export interface CreateAccountResponse {
 export interface User {
   id: string;
   username: string;
-  role: "admin" | "agent";
+  role: "admin" | "agent" | "driver";
   mfa_enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -297,8 +297,43 @@ export interface Driver {
   hire_date?: string;
   employment_type?: "full_time" | "part_time";
   is_active: boolean;
+  user_id?: string | null;
+  user?: { id: string; username: string; mfa_enabled: boolean } | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DriverSchedule {
+  date: string;
+  driver: { id: string; full_name: string | null };
+  deliveries: DriverScheduleRun[];
+}
+
+export interface DriverScheduleRun {
+  id: string;
+  status: "pending" | "in_transit" | "completed";
+  truck: { id: string; license_plate: string; district: string };
+  delivery_items: DriverScheduleStop[];
+}
+
+export interface DriverScheduleStop {
+  id: string;
+  status: "pending" | "in_transit" | "completed";
+  destination_customer: {
+    id: string;
+    store_name: string;
+    location: string;
+    street_address: string | null;
+    contact_person: string | null;
+    contact_info: string | null;
+  };
+  invoice: {
+    id: string;
+    receipt_number: string | null;
+    total_amount: string | null;
+    payment_status: string;
+    invoice_items: { id: string; product_name: string; qty_ordered: number }[];
+  };
 }
 
 export const CreateDriverSchema = z.object({

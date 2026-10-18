@@ -6,7 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 export interface TokenPayload {
   userId: string;
   username: string;
-  role: "admin" | "agent";
+  role: "admin" | "agent" | "driver";
 }
 
 export async function hashPassword(password: string): Promise<string> {

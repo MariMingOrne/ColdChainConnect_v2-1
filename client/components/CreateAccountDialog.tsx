@@ -57,6 +57,8 @@ export function CreateAccountDialog({ open, onOpenChange }: CreateAccountDialogP
           hire_date: form.hire_date,
           employment_type: form.employment_type || undefined,
           is_active: form.is_active,
+          username: form.username || undefined,
+          password: form.password || undefined,
         }),
       });
     }

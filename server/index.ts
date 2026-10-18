@@ -40,6 +40,7 @@ import {
   updateDriver,
   deleteDriver,
 } from "./routes/drivers";
+import { getDriverSchedule } from "./routes/driver-schedule";
 import {
   listAgents,
   createAgent,
@@ -170,6 +171,7 @@ export function createServer() {
   app.post("/api/drivers", authMiddleware, requireRole("admin"), createDriver);
   app.patch("/api/drivers/:id", authMiddleware, requireRole("admin"), updateDriver);
   app.delete("/api/drivers/:id", authMiddleware, requireRole("admin"), deleteDriver);
+  app.get("/api/driver-schedule", authMiddleware, requireRole("admin", "driver"), getDriverSchedule);
 
   // Agents routes
   app.get("/api/agents", authMiddleware, listAgents);
