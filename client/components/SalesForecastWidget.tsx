@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
 import { SalesForecastResponse } from "@shared/api";
 import { useAuth } from "@/hooks/useAuth";
 import { SalesForecastChart } from "./SalesForecastChart";
 import { SalesForecastProducts } from "./SalesForecastProducts";
+
+const FORECAST_PATHS = ["/", "/information-management", "/booking-dispatch", "/audit"];
+
+const isForecastPath = (pathname: string) =>
+  FORECAST_PATHS.some((path) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/"));
 
 const fetchSalesForecast = async (token: string): Promise<SalesForecastResponse> => {
   const response = await fetch("/api/sales/forecast", {
@@ -84,6 +90,8 @@ function ForecastBody({ isLoading, isError, data }: {
 
 export function SalesForecastWidget() {
   const token = useAuth((state) => state.token);
+  const role = useAuth((state) => state.user?.role);
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
@@ -93,14 +101,14 @@ export function SalesForecastWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!token) return null;
+  if (!token || role === "agent" || !isForecastPath(pathname)) return null;
 
   if (!isOpen) {
     return (
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg md:bottom-4"
+        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 md:bottom-4 animate-pop-out"
         aria-label="Open sales forecast"
       >
         <TrendingUp className="h-4 w-4" />
@@ -110,7 +118,7 @@ export function SalesForecastWidget() {
   }
 
   return (
-    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px]">
+    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px] animate-fade-in-up">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">Sales Forecast</h2>

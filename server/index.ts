@@ -71,6 +71,7 @@ import {
 } from "./routes/deliveries";
 import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
+import { downloadBackup } from "./routes/backup";
 import {
   listAccountsReceivable,
   getCustomerBalance,
@@ -205,6 +206,7 @@ export function createServer() {
 
   // Audit logs routes
   app.get("/api/audit-logs", authMiddleware, requireRole("admin"), listAuditLogs);
+  app.get("/api/backup", authMiddleware, requireRole("admin"), downloadBackup);
 
   // Accounts Receivable routes
   app.get("/api/accounts-receivable", authMiddleware, listAccountsReceivable);

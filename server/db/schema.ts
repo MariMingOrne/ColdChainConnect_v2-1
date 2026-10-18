@@ -52,13 +52,28 @@ export const customers = pgTable("customers", {
   id: text("id").primaryKey(),
   store_name: text("store_name").notNull(),
   location: text("location").notNull(),
+  district: text("district"),
+  street_number: text("street_number"),
+  street_address: text("street_address"),
+  state: text("state"),
+  postal_code: text("postal_code"),
   contact_person: text("contact_person"),
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
   payment_type: text("payment_type"),
-  tax_rate: decimal("tax_rate", { precision: 5, scale: 2 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Customer discounts table
+export const customer_discounts = pgTable("customer_discounts", {
+  id: text("id").primaryKey(),
+  customer_id: text("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  rate: decimal("rate", { precision: 5, scale: 4 }).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Products table
@@ -149,7 +164,7 @@ export const drivers = pgTable("drivers", {
 // Trucks table
 export const trucks = pgTable("trucks", {
   id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
+  license_plate: text("license_plate").notNull().unique(),
   district: text("district").notNull(),
   driver_id: text("driver_id").references(() => drivers.id),
   status: truckStatusEnum("status").default("available"),
@@ -385,8 +400,13 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const customersRelations = relations(customers, ({ one, many }) => ({
   agent: one(users, { fields: [customers.agent_id], references: [users.id] }),
   bookings: many(bookings),
+  discounts: many(customer_discounts),
   delivery_items: many(delivery_items),
   receipts: many(receipts),
+}));
+
+export const customerDiscountsRelations = relations(customer_discounts, ({ one }) => ({
+  customer: one(customers, { fields: [customer_discounts.customer_id], references: [customers.id] }),
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({

@@ -295,7 +295,7 @@ export function AccountsReceivable() {
                         <button
                           onClick={() => handleMarkPaid(ar.id)}
                           disabled={markingPaid === ar.id}
-                          className="flex items-center gap-1.5 ml-auto px-3 py-1.5 bg-green text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                          className="flex items-center gap-1.5 ml-auto whitespace-nowrap px-3 py-1.5 bg-green text-white text-xs font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
                         >
                           <CheckCircle size={13} />
                           {markingPaid === ar.id ? "Saving…" : "Mark Paid"}

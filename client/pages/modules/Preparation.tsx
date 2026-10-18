@@ -204,8 +204,8 @@ export function Preparation() {
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Preparation</h1>
-          <p className="page-subtitle">Prepare pallets for customer orders</p>
+          <h1 className="page-title">Pallet Preparation</h1>
+          <p className="page-subtitle">Build pallets for approved customer orders</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -372,7 +372,7 @@ export function Preparation() {
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end items-center">
+                      <div className="flex gap-2 justify-end items-center whitespace-nowrap">
                         {/* Prepare: only show when no pallets created yet and not prepared */}
                         {draftPalletCount === 0 && !isPrepared && (
                           <button

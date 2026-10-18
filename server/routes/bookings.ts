@@ -5,40 +5,14 @@ import { db } from "../db";
 import { bookings, booking_items, invoices, invoice_items, agents, trucks, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+import { totalDiscountRate } from "../../shared/api";
 
-// ─── Location → Truck matching ────────────────────────────────────────────
-// Cities that belong to the "Metro Manila" / NCR district. Customer locations are
-// stored as city names (e.g. "Makati City") while trucks cover broader districts
-// (e.g. "Metro Manila"), so we group cities under their district here.
-const METRO_MANILA_CITIES = [
-  "manila", "quezon", "makati", "taguig", "pasig", "mandaluyong", "san juan",
-  "marikina", "pasay", "paranaque", "parañaque", "las pinas", "las piñas",
-  "muntinlupa", "caloocan", "malabon", "navotas", "valenzuela", "pateros",
-  "bonifacio", "bgc", "global city",
-];
-
-const normalize = (value?: string | null) => (value || "").toLowerCase().trim();
-
-function locationMatchesDistrict(location?: string | null, district?: string | null): boolean {
-  const loc = normalize(location);
-  const dist = normalize(district);
-  if (!loc || !dist) return false;
-  if (loc === dist) return true;
-  // Substring either direction: "Tagaytay City" ↔ "Tagaytay"
-  if (loc.includes(dist) || dist.includes(loc)) return true;
-  // Metro Manila / NCR grouping for cities within it
-  const distIsMetro = dist.includes("metro manila") || dist.includes("ncr");
-  if (distIsMetro && METRO_MANILA_CITIES.some((city) => loc.includes(city))) return true;
-  return false;
-}
-
-// Returns the best truck serving the given customer location, preferring an
-// available truck. Returns null when no truck covers the location.
-function findTruckForLocation(
+// Returns the truck serving the given district, preferring an available truck.
+function findTruckForDistrict(
   allTrucks: Array<{ id: string; district: string; status: string | null }>,
-  location?: string | null
+  district: string
 ): { id: string; district: string; status: string | null } | null {
-  const matches = allTrucks.filter((t) => locationMatchesDistrict(location, t.district));
+  const matches = allTrucks.filter((t) => t.district === district);
   if (matches.length === 0) return null;
   return matches.find((t) => t.status === "available") || matches[0];
 }
@@ -58,7 +32,7 @@ export const listBookings: RequestHandler = async (req, res) => {
             product: true,
           },
         },
-        customer: true,
+        customer: { with: { discounts: true } },
         creator: true,
       },
     });
@@ -132,7 +106,7 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
             product: true,
           },
         },
-        customer: true,
+        customer: { with: { discounts: true } },
         creator: true,
       },
     });
@@ -168,15 +142,31 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
 
     // Resolve which truck this booking should go to.
     // - If a truck was passed explicitly (driver_id), honor it.
-    // - Otherwise, when approving, auto-assign the truck that serves the
-    //   customer's location based on the truck's district.
+    // - Otherwise, when approving, auto-assign the truck serving the customer's district.
     let resolvedTruckId: string | null = driver_id || null;
+    if (driver_id) {
+      const [explicitTruck] = await db.select().from(trucks).where(eq(trucks.id, driver_id));
+      if (!explicitTruck) {
+        return res.status(404).json({ error: "Truck not found" });
+      }
+      if (explicitTruck.district !== existing.customer?.district) {
+        return res.status(400).json({
+          error: `${explicitTruck.license_plate} serves ${explicitTruck.district}, but this customer is in ${existing.customer?.district || "no district"}.`,
+        });
+      }
+    }
     if (!resolvedTruckId && status === "approved") {
+      const customerDistrict = existing.customer?.district;
+      if (!customerDistrict) {
+        return res.status(400).json({
+          error: `Set a truck district for "${existing.customer?.store_name || "this customer"}" in Customers first.`,
+        });
+      }
       const allTrucks = await db.select().from(trucks);
-      const matchedTruck = findTruckForLocation(allTrucks, existing.customer?.location);
+      const matchedTruck = findTruckForDistrict(allTrucks, customerDistrict);
       if (!matchedTruck) {
         return res.status(400).json({
-          error: `No truck serves "${existing.customer?.location || "this location"}". Add a truck for that district first.`,
+          error: `No truck serves "${customerDistrict}". Add a truck for that district first.`,
         });
       }
       resolvedTruckId = matchedTruck.id;
@@ -206,7 +196,7 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
           const bookingForInvoice = await db.query.bookings.findFirst({
             where: eq(bookings.id, id),
             with: {
-              customer: true,
+              customer: { with: { discounts: true } },
               booking_items: { with: { product: true } },
             },
           });
@@ -219,7 +209,7 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
             where: eq(users.id, agentId),
           });
 
-          const DISCOUNT_RATE = 0.02;
+          const DISCOUNT_RATE = totalDiscountRate(bookingForInvoice?.customer?.discounts);
           let gross = 0;
           const lineItems: Array<{
             product_id: string; product_name: string; product_sku: string | null;

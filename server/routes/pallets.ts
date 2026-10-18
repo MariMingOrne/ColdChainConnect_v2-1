@@ -1,9 +1,9 @@
 import { RequestHandler } from "express";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 import { db } from "../db";
-import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items } from "../db/schema";
+import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 
 async function calculateProductInventory(): Promise<Record<string, number>> {
@@ -105,6 +105,12 @@ export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
     const { order_id, items } = CreatePalletSchema.parse(req.body);
     const palletId = randomUUID();
 
+    const productRows = await db
+      .select({ id: products.id, price: products.price })
+      .from(products)
+      .where(inArray(products.id, items.map((item) => item.product_id)));
+    const priceByProductId = new Map(productRows.map((p) => [p.id, p.price]));
+
     await db.insert(order_pallets).values({
       id: palletId,
       order_id,
@@ -117,7 +123,7 @@ export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
       product_id: item.product_id,
       qty_units: item.qty_units,
       batch_item_id: item.batch_item_id,
-      unit_cost: "0.00",
+      unit_cost: priceByProductId.get(item.product_id) ?? "0.00",
     }));
 
     for (const item of itemsData) {

@@ -10,9 +10,10 @@ import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { InformationManagement } from "./pages/InformationManagement";
+import { ManageAccounts } from "./pages/ManageAccounts";
 import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
-import { AccountCreation } from "./pages/AccountCreation";
+import { SearchResults } from "./pages/SearchResults";
 import { Topbar } from "./components/Topbar";
 import { BottomNavBar } from "./components/BottomNavBar";
 import { SalesForecastWidget } from "./components/SalesForecastWidget";
@@ -27,7 +28,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex flex-col min-h-screen">
       <Topbar userName={user?.username || "User"} onLogout={logout} />
       <div className="flex flex-1">
-        <div className="flex-1 flex flex-col bg-off-white min-w-0 pb-32 md:pb-0">
+        <div className="flex-1 flex flex-col bg-off-white min-w-0 pb-32 md:pb-0 animate-fade-in">
           {children}
         </div>
       </div>
@@ -42,7 +43,7 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex flex-col min-h-screen">
       <Topbar userName={user?.username || "User"} onLogout={logout} agentMode />
-      <div className="flex-1 flex flex-col bg-off-white min-w-0">
+      <div className="flex-1 flex flex-col bg-off-white min-w-0 animate-fade-in">
         {children}
       </div>
     </div>
@@ -66,6 +67,7 @@ const AppContent = () => {
             </AgentLayout>
           }
         />
+        <Route path="/search" element={<AgentLayout><SearchResults /></AgentLayout>} />
         {/* Everything else → booking-dispatch */}
         <Route path="*" element={<Navigate to="/booking-dispatch/order-summary" replace />} />
       </Routes>
@@ -78,9 +80,10 @@ const AppContent = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={isAuthenticated ? <AppLayout><Dashboard /></AppLayout> : <Login />} />
       <Route path="/information-management/*" element={isAuthenticated ? <AppLayout><InformationManagement /></AppLayout> : <Login />} />
+      <Route path="/manage-accounts/*" element={isAuthenticated ? <AppLayout><ManageAccounts /></AppLayout> : <Login />} />
       <Route path="/booking-dispatch/*" element={isAuthenticated ? <AppLayout><BookingDispatch /></AppLayout> : <Login />} />
       <Route path="/audit" element={isAuthenticated ? <AppLayout><AuditLogPage /></AppLayout> : <Login />} />
-      <Route path="/settings/accounts" element={isAuthenticated ? <AppLayout><AccountCreation /></AppLayout> : <Login />} />
+      <Route path="/search" element={isAuthenticated ? <AppLayout><SearchResults /></AppLayout> : <Login />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

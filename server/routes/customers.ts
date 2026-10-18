@@ -2,11 +2,26 @@ import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { customers } from "../db/schema";
-import { Customer } from "@shared/api";
+import { customers, customer_discounts } from "../db/schema";
+import { CustomerDiscount } from "@shared/api";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 import { demoCustomers } from "../demo-data";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function replaceDiscounts(tx: Tx, customerId: string, discounts: CustomerDiscount[]) {
+  await tx.delete(customer_discounts).where(eq(customer_discounts.customer_id, customerId));
+  if (discounts.length === 0) return;
+  await tx.insert(customer_discounts).values(
+    discounts.map((discount) => ({
+      id: randomUUID(),
+      customer_id: customerId,
+      label: discount.label,
+      rate: String(Number(discount.rate)),
+    }))
+  );
+}
 
 export const listCustomers: RequestHandler = async (_req, res) => {
   try {
@@ -15,7 +30,7 @@ export const listCustomers: RequestHandler = async (_req, res) => {
       return res.json(demoCustomers);
     }
 
-    const allCustomers = await db.query.customers.findMany();
+    const allCustomers = await db.query.customers.findMany({ with: { discounts: true } });
     res.json(allCustomers);
   } catch (error) {
     console.error("Error fetching customers:", error);
@@ -27,7 +42,7 @@ export const createCustomer: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { store_name, location, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts } = req.body;
 
   if (!store_name || !location) {
     return res
@@ -42,19 +57,27 @@ export const createCustomer: RequestHandler = async (
     }
 
     const id = randomUUID();
-    await db.insert(customers).values({
-      id,
-      store_name,
-      location,
-      contact_person,
-      contact_info,
-      agent_id,
-      payment_type,
-      tax_rate,
+    await db.transaction(async (tx) => {
+      await tx.insert(customers).values({
+        id,
+        store_name,
+        location,
+        district,
+        street_number,
+        street_address,
+        state,
+        postal_code,
+        contact_person,
+        contact_info,
+        agent_id,
+        payment_type,
+      });
+      await replaceDiscounts(tx, id, discounts ?? []);
     });
 
     const newCustomer = await db.query.customers.findFirst({
       where: eq(customers.id, id),
+      with: { discounts: true },
     });
 
     if (req.user) {
@@ -80,7 +103,7 @@ export const updateCustomer: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { store_name, location, contact_person, contact_info, agent_id, payment_type, tax_rate } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts } = req.body;
 
   try {
     const existing = await db.query.customers.findFirst({
@@ -91,22 +114,33 @@ export const updateCustomer: RequestHandler = async (
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    await db
-      .update(customers)
-      .set({
-        store_name: store_name || existing.store_name,
-        location: location || existing.location,
-        contact_person: contact_person ?? existing.contact_person,
-        contact_info: contact_info ?? existing.contact_info,
-        agent_id: agent_id ?? existing.agent_id,
-        payment_type: payment_type ?? existing.payment_type,
-        tax_rate: tax_rate ?? existing.tax_rate,
-        updated_at: new Date(),
-      })
-      .where(eq(customers.id, id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(customers)
+        .set({
+          store_name: store_name || existing.store_name,
+          location: location || existing.location,
+          district: district ?? existing.district,
+          street_number: street_number ?? existing.street_number,
+          street_address: street_address ?? existing.street_address,
+          state: state ?? existing.state,
+          postal_code: postal_code ?? existing.postal_code,
+          contact_person: contact_person ?? existing.contact_person,
+          contact_info: contact_info ?? existing.contact_info,
+          agent_id: agent_id ?? existing.agent_id,
+          payment_type: payment_type ?? existing.payment_type,
+          updated_at: new Date(),
+        })
+        .where(eq(customers.id, id));
+
+      if (discounts !== undefined) {
+        await replaceDiscounts(tx, id, discounts);
+      }
+    });
 
     const updated = await db.query.customers.findFirst({
       where: eq(customers.id, id),
+      with: { discounts: true },
     });
 
     if (req.user) {

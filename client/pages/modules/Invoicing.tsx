@@ -188,7 +188,7 @@ function ReceiptModal({ invoice, onClose }: ReceiptModalProps) {
               <tr>
                 <td className="border-r border-black px-2 py-1" colSpan={5}></td>
                 <td className="border-r border-black px-2 py-1 text-right font-bold">
-                  LESS {Math.round(parseFloat(invoice.discount_rate || "0.02") * 100)}%
+                  LESS {Number((parseFloat(invoice.discount_rate || "0.02") * 100).toFixed(2))}%
                 </td>
                 <td className="px-2 py-1 text-right">{fmt(discount)}</td>
               </tr>
@@ -311,8 +311,8 @@ export function Invoicing() {
     <div className="flex-1 flex flex-col p-6 gap-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-navy">Invoicing</h1>
-          <p className="text-gray-600">View and print delivery receipts</p>
+          <h1 className="text-3xl font-bold text-navy">Receipts</h1>
+          <p className="text-gray-600">Print and review delivery receipts</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -481,7 +481,7 @@ export function Invoicing() {
                     <TableCell className="text-right">
                       <button
                         onClick={() => setReceiptInvoice(inv)}
-                        className="px-3 py-1.5 bg-accent-2 text-white text-xs font-semibold rounded-lg hover:opacity-80 flex items-center gap-1.5 ml-auto"
+                        className="px-3 py-1.5 bg-accent-2 text-white text-xs font-semibold rounded-lg hover:opacity-80 flex items-center gap-1.5 ml-auto whitespace-nowrap"
                       >
                         <Printer size={14} /> Print
                       </button>

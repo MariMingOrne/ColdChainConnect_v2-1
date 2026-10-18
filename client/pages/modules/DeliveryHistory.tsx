@@ -94,7 +94,7 @@ export function DeliveryHistory() {
     const matchesSearch =
       r.receipt_number.toLowerCase().includes(q) ||
       (r.customer?.store_name ?? "").toLowerCase().includes(q) ||
-      (r.truck?.name ?? "").toLowerCase().includes(q) ||
+      (r.truck?.license_plate ?? "").toLowerCase().includes(q) ||
       r.invoice_id.toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
@@ -121,7 +121,7 @@ export function DeliveryHistory() {
             Delivery History
           </h1>
           <p className="page-subtitle">
-            All completed deliveries with Original Receipts
+            Completed deliveries and their original receipts
           </p>
         </div>
         <button
@@ -200,7 +200,7 @@ export function DeliveryHistory() {
                         {r.customer?.location && <p className="text-muted font-normal text-xs">{r.customer.location}</p>}
                       </td>
                       <td className="px-3 py-3 text-navy">
-                        {r.truck?.name ?? <span className="text-muted">{r.truck_id.slice(0, 8)}…</span>}
+                        {r.truck?.license_plate ?? <span className="text-muted">{r.truck_id.slice(0, 8)}…</span>}
                       </td>
                       <td className="px-3 py-3 text-navy whitespace-nowrap">
                         {new Date(r.confirmed_at).toLocaleString("en-PH")}
@@ -209,7 +209,7 @@ export function DeliveryHistory() {
                       <td className="px-3 py-3">
                         <button
                           onClick={() => setViewReceipt(r)}
-                          className="px-3 py-1 border border-border rounded text-xs font-semibold hover:bg-off-white transition-colors"
+                          className="px-3 py-1 border border-border rounded text-xs font-semibold whitespace-nowrap hover:bg-off-white transition-colors"
                         >
                           🧾 View OR
                         </button>
@@ -320,7 +320,7 @@ function OriginalReceiptModal({ receipt, onClose }: { receipt: ReceiptExt; onClo
             </div>
             <div className="flex justify-between">
               <span className="text-muted">Truck:</span>
-              <span>{receipt.truck?.name ?? receipt.truck_id.slice(0, 8)}</span>
+              <span>{receipt.truck?.license_plate ?? receipt.truck_id.slice(0, 8)}</span>
             </div>
             {receipt.confirmed_by && (
               <div className="flex justify-between">

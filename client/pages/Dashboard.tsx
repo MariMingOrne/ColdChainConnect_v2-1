@@ -17,14 +17,14 @@ export function Dashboard() {
   const hubCards = [
     {
       title: "Information Management",
-      description: "Manage pricing, inventory, customers, and agents",
+      description: "Maintain products, inventory, customers, agents, and drivers",
       icon: Settings,
       path: "/information-management/pricing",
       color: "border-blue-200 bg-blue-50",
     },
     {
       title: "Booking & Dispatch",
-      description: "Create orders, invoice, and manage deliveries",
+      description: "Take orders, prepare pallets, issue receipts, and dispatch trucks",
       icon: BarChart3,
       path: "/booking-dispatch/order-summary",
       color: "border-green-200 bg-green-50",
@@ -41,7 +41,7 @@ export function Dashboard() {
   return (
     <div className="flex-1 flex flex-col p-6 md:p-8 gap-8 max-w-6xl mx-auto w-full">
       {/* Header */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 animate-fade-in-up">
         <h1 className="text-3xl md:text-4xl font-bold text-navy">
           Cold Chain Connect
         </h1>
@@ -49,7 +49,7 @@ export function Dashboard() {
       </div>
 
       {/* 3-Card Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-children">
         {hubCards.map((card) => {
           const Icon = card.icon;
           return (

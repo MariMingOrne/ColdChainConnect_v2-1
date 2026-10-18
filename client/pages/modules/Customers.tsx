@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { Customer } from "@shared/api";
+import { Customer, Truck, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { ActionButtons } from "@/components/ActionButtons";
+import {
+  CustomerDiscountEditor,
+  DiscountRow,
+  formatPercent,
+} from "@/components/CustomerDiscountEditor";
 
 interface CustomersProps {
   onBack?: () => void;
@@ -11,10 +16,15 @@ interface CustomersProps {
 
 interface CustomerForm {
   store_name: string;
+  street_number: string;
+  street_address: string;
   location: string;
+  district: string;
+  state: string;
+  postal_code: string;
   contact_person: string;
   contact_info: string;
-  tax_rate: string;
+  discounts: DiscountRow[];
 }
 
 function StatsBox({
@@ -54,8 +64,12 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
             <div className="text-sm text-navy font-semibold">{customer.store_name}</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Location</label>
-            <div className="text-sm text-navy">{customer.location || "—"}</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Delivery Address</label>
+            <div className="text-sm text-navy">{formatCustomerAddress(customer) || "—"}</div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Truck District</label>
+            <div className="text-sm text-navy">{customer.district || "—"}</div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact Person</label>
@@ -66,8 +80,21 @@ function ViewCustomerModal({ customer, onClose }: { customer: Customer; onClose:
             <div className="text-sm text-navy">{customer.contact_info || "—"}</div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Tax Rate</label>
-            <div className="text-sm text-navy">{customer.tax_rate ? `${(Number(customer.tax_rate) * 100).toFixed(2)}%` : "—"}</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Discounts</label>
+            {customer.discounts && customer.discounts.length > 0 ? (
+              <ul className="space-y-1 text-sm text-navy">
+                {customer.discounts.map((discount) => (
+                  <li key={discount.id ?? discount.label}>
+                    {discount.label}: {formatPercent(Number(discount.rate))}%
+                  </li>
+                ))}
+                <li className="font-semibold">
+                  Total: {formatPercent(totalDiscountRate(customer.discounts))}%
+                </li>
+              </ul>
+            ) : (
+              <div className="text-sm text-navy">—</div>
+            )}
           </div>
         </div>
 
@@ -85,15 +112,21 @@ function CustomerModal({
   title,
   formData,
   setFormData,
+  districts,
   onClose,
   onSave,
 }: {
   title: string;
   formData: CustomerForm;
   setFormData: (data: CustomerForm) => void;
+  districts: string[];
   onClose: () => void;
   onSave: () => void;
 }) {
+  const districtOptions =
+    formData.district && !districts.includes(formData.district)
+      ? [...districts, formData.district]
+      : districts;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-white">
@@ -120,19 +153,77 @@ function CustomerModal({
             />
           </div>
 
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Street No.</label>
+              <input
+                type="text"
+                value={formData.street_number}
+                onChange={(e) => setFormData({ ...formData, street_number: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., 123"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-navy">Street Address</label>
+              <input
+                type="text"
+                value={formData.street_address}
+                onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Ayala Avenue"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <label className="mb-1 block text-xs font-semibold text-navy">City *</label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Makati City"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">State / Province</label>
+              <input
+                type="text"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., Metro Manila"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Postal Code</label>
+              <input
+                type="text"
+                value={formData.postal_code}
+                onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="e.g., 1226"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="mb-1 block text-xs font-semibold text-navy">
-              Location *
-            </label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
-              }
+            <label className="mb-1 block text-xs font-semibold text-navy">Truck District</label>
+            <select
+              value={formData.district}
+              onChange={(e) => setFormData({ ...formData, district: e.target.value })}
               className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
-              placeholder="e.g., Makati City"
-            />
+            >
+              <option value="">No district</option>
+              {districtOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted">Approved orders for this customer are dispatched to the truck serving this district.</p>
           </div>
 
           <div>
@@ -166,22 +257,11 @@ function CustomerModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-navy">
-              Tax Rate (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={formData.tax_rate}
-              onChange={(e) =>
-                setFormData({ ...formData, tax_rate: e.target.value })
-              }
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
-              placeholder="12"
+            <label className="mb-1 block text-xs font-semibold text-navy">Discounts</label>
+            <CustomerDiscountEditor
+              rows={formData.discounts}
+              onChange={(discounts) => setFormData({ ...formData, discounts })}
             />
-            <p className="mt-1 text-xs text-muted">Use Philippine VAT or store-specific tax rate.</p>
           </div>
         </div>
 
@@ -214,12 +294,18 @@ export function Customers({ onBack }: CustomersProps) {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const [truckDistricts, setTruckDistricts] = useState<string[]>([]);
   const [formData, setFormData] = useState<CustomerForm>({
     store_name: "",
+    street_number: "",
+    street_address: "",
     location: "",
+    district: "",
+    state: "",
+    postal_code: "",
     contact_person: "",
     contact_info: "",
-    tax_rate: "",
+    discounts: [],
   });
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -249,9 +335,12 @@ export function Customers({ onBack }: CustomersProps) {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchCustomers();
-    }
+    if (!token) return;
+    fetchCustomers();
+    fetch("/api/trucks", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((trucks: Truck[]) => setTruckDistricts([...new Set(trucks.map((t) => t.district))].sort()))
+      .catch(() => setTruckDistricts([]));
   }, [token]);
 
   const filteredCustomers = useMemo(
@@ -272,9 +361,9 @@ export function Customers({ onBack }: CustomersProps) {
     currentPage * itemsPerPage
   );
 
-  const averageTaxRate =
+  const averageDiscountRate =
     customers.length > 0
-      ? customers.reduce((sum, customer) => sum + Number(customer.tax_rate ?? 0), 0) /
+      ? customers.reduce((sum, customer) => sum + totalDiscountRate(customer.discounts), 0) /
         customers.length
       : 0;
 
@@ -282,10 +371,15 @@ export function Customers({ onBack }: CustomersProps) {
     setEditingCustomer(null);
     setFormData({
       store_name: "",
+      street_number: "",
+      street_address: "",
       location: "",
+      district: "",
+      state: "",
+      postal_code: "",
       contact_person: "",
       contact_info: "",
-      tax_rate: "",
+      discounts: [],
     });
     setIsModalOpen(true);
   };
@@ -294,13 +388,18 @@ export function Customers({ onBack }: CustomersProps) {
     setEditingCustomer(customer);
     setFormData({
       store_name: customer.store_name,
+      street_number: customer.street_number ?? "",
+      street_address: customer.street_address ?? "",
       location: customer.location,
+      district: customer.district ?? "",
+      state: customer.state ?? "",
+      postal_code: customer.postal_code ?? "",
       contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
-      tax_rate:
-        customer.tax_rate !== undefined && customer.tax_rate !== null
-          ? String(Number(customer.tax_rate) * 100)
-          : "",
+      discounts: (customer.discounts ?? []).map((discount) => ({
+        label: discount.label,
+        percent: String(Number(discount.rate) * 100),
+      })),
     });
     setIsModalOpen(true);
   };
@@ -314,10 +413,12 @@ export function Customers({ onBack }: CustomersProps) {
         : "/api/customers";
       const method = editingCustomer ? "PATCH" : "POST";
 
-      const taxRateValue =
-        formData.tax_rate.trim() === ""
-          ? undefined
-          : Number(formData.tax_rate) / 100;
+      const discounts = formData.discounts
+        .filter((discount) => discount.label.trim() && Number(discount.percent) > 0)
+        .map((discount) => ({
+          label: discount.label.trim(),
+          rate: Number(discount.percent) / 100,
+        }));
 
       const response = await fetch(url, {
         method,
@@ -327,13 +428,15 @@ export function Customers({ onBack }: CustomersProps) {
         },
         body: JSON.stringify({
           store_name: formData.store_name,
+          street_number: formData.street_number || undefined,
+          street_address: formData.street_address || undefined,
           location: formData.location,
+          district: formData.district || undefined,
+          state: formData.state || undefined,
+          postal_code: formData.postal_code || undefined,
           contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
-          tax_rate:
-            taxRateValue !== undefined && !Number.isNaN(taxRateValue)
-              ? taxRateValue
-              : undefined,
+          discounts,
         }),
       });
 
@@ -383,7 +486,7 @@ export function Customers({ onBack }: CustomersProps) {
             Customer Management
           </h1>
           <p className="mt-1 text-xs text-muted">
-            Manage customer stores, contacts, and Philippine tax settings
+            Manage customer stores, contacts, and discount settings
           </p>
         </div>
 
@@ -415,13 +518,13 @@ export function Customers({ onBack }: CustomersProps) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatsBox label="Total Customers" value={customers.length.toString()} icon="🏪" />
         <StatsBox
-          label="Avg Tax Rate"
-          value={`${averageTaxRate > 0 ? (averageTaxRate * 100).toFixed(2) : "0.00"}%`}
+          label="Avg Discount"
+          value={`${formatPercent(averageDiscountRate)}%`}
           icon="🧾"
         />
         <StatsBox
-          label="With Tax Data"
-          value={customers.filter((customer) => customer.tax_rate !== undefined).length.toString()}
+          label="With Discounts"
+          value={customers.filter((customer) => (customer.discounts?.length ?? 0) > 0).length.toString()}
           icon="📊"
           color="gold"
         />
@@ -465,7 +568,7 @@ export function Customers({ onBack }: CustomersProps) {
                   Store Name
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-                  Location
+                  Delivery Address
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap hidden md:table-cell">
                   Contact Person
@@ -474,7 +577,7 @@ export function Customers({ onBack }: CustomersProps) {
                   Contact Info
                 </th>
                 <th className="border-b border-border bg-navy-mid px-3 py-3 text-left font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-                  Tax Rate
+                  Discounts
                 </th>
                 <th style={{ width: '120px' }} className="sticky right-0 z-10 border-b border-border bg-navy-mid px-3 py-3 text-center font-barlow-cond text-xs font-bold uppercase tracking-wider text-muted whitespace-nowrap shadow-left">
                   Actions
@@ -499,7 +602,7 @@ export function Customers({ onBack }: CustomersProps) {
                     <td className="px-3 py-3 font-semibold text-navy">
                       {customer.store_name}
                     </td>
-                    <td className="px-3 py-3 text-navy">{customer.location}</td>
+                    <td className="px-3 py-3 text-navy">{formatCustomerAddress(customer)}</td>
                     <td className="hidden px-3 py-3 text-navy md:table-cell">
                       {customer.contact_person || <span className="text-muted">—</span>}
                     </td>
@@ -507,9 +610,9 @@ export function Customers({ onBack }: CustomersProps) {
                       {customer.contact_info || <span className="text-muted">—</span>}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
-                      {customer.tax_rate !== undefined && customer.tax_rate !== null ? (
+                      {customer.discounts && customer.discounts.length > 0 ? (
                         <span className="inline-block rounded bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
-                          {(Number(customer.tax_rate) * 100).toFixed(2)}%
+                          {formatPercent(totalDiscountRate(customer.discounts))}% · {customer.discounts.length}
                         </span>
                       ) : (
                         <span className="text-muted">—</span>
@@ -570,6 +673,7 @@ export function Customers({ onBack }: CustomersProps) {
           title={editingCustomer ? "Edit Customer" : "Add New Customer"}
           formData={formData}
           setFormData={setFormData}
+          districts={truckDistricts}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
         />

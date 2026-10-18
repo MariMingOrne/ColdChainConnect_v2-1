@@ -50,27 +50,60 @@ export interface User {
 }
 
 // Customer types
+export interface CustomerDiscount {
+  id?: string;
+  label: string;
+  rate: number | string;
+}
+
 export interface Customer {
   id: string;
   store_name: string;
   location: string;
+  district?: string | null;
+  street_number?: string | null;
+  street_address?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
   contact_person?: string;
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
-  tax_rate?: number;
+  discounts?: CustomerDiscount[];
   created_at: string;
   updated_at: string;
+}
+
+export function totalDiscountRate(discounts: CustomerDiscount[] | undefined): number {
+  return (discounts ?? []).reduce((sum, discount) => sum + Number(discount.rate), 0);
+}
+
+export function formatCustomerAddress(
+  customer: Pick<Customer, "location" | "street_number" | "street_address" | "state" | "postal_code">
+): string {
+  const streetLine = [customer.street_number, customer.street_address].filter(Boolean).join(" ");
+  const parts = [streetLine, customer.location, customer.state, customer.postal_code].filter(Boolean);
+  return parts.join(", ");
 }
 
 export const CreateCustomerSchema = z.object({
   store_name: z.string().min(1, "Store name is required"),
   location: z.string().min(1, "Location is required"),
+  district: z.string().optional(),
+  street_number: z.string().optional(),
+  street_address: z.string().optional(),
+  state: z.string().optional(),
+  postal_code: z.string().optional(),
   contact_person: z.string().optional(),
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
-  tax_rate: z.number().min(0).max(1).optional(),
+  discounts: z
+    .array(z.object({ label: z.string().min(1), rate: z.number().gt(0).max(1) }))
+    .refine((list) => list.reduce((sum, d) => sum + d.rate, 0) <= 1 + 1e-9, {
+      message: "Combined discounts cannot exceed 100%",
+    })
+    .optional(),
 });
 
 export const UpdateCustomerSchema = CreateCustomerSchema.partial();
@@ -168,7 +201,6 @@ export interface Pallet {
   created_at: string;
   updated_at: string;
   items?: PalletItem[];
-  batch_links?: PalletBatchLink[];
 }
 
 export interface PalletItem {
@@ -180,12 +212,6 @@ export interface PalletItem {
   batch_item_id: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface PalletBatchLink {
-  pallet_id: string;
-  batch_id: string;
-  items_from_batch: number;
 }
 
 export const CreatePalletSchema = z.object({
@@ -258,7 +284,7 @@ export const UpdateDriverSchema = CreateDriverSchema.partial();
 // Truck types
 export interface Truck {
   id: string;
-  name: string;
+  license_plate: string;
   district: string;
   driver_id?: string;
   status: "available" | "in_transit" | "maintenance";
@@ -267,7 +293,9 @@ export interface Truck {
 }
 
 export const CreateTruckSchema = z.object({
-  name: z.string().min(1, "Truck name is required"),
+  license_plate: z
+    .string()
+    .regex(/^[A-Z]{3} \d{3,4}$/, "License plate must look like ABC 1234"),
   district: z.string().min(1, "District is required"),
   driver_id: z.string().optional(),
   status: z.enum(["available", "in_transit", "maintenance"]).default("available"),

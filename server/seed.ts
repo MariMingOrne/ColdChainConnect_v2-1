@@ -117,28 +117,129 @@ async function seed() {
     const customer1 = randomUUID();
     const customer2 = randomUUID();
     const customer3 = randomUUID();
+    const customer4 = randomUUID();
+    const customer5 = randomUUID();
+    const customer6 = randomUUID();
+    const customer7 = randomUUID();
+    const customer8 = randomUUID();
 
     await db.insert(customers).values([
       {
         id: customer1,
-        store_name: "ABC Market - Makati",
+        store_name: "Palengke Fresh Meats - Makati",
         location: "Makati City",
-        contact_info: "555-0001",
+        district: "District A",
+        street_number: "123",
+        street_address: "Kalayaan Ave, Poblacion",
+        state: "Metro Manila",
+        postal_code: "1210",
+        contact_person: "Rosa Dimaculangan",
+        contact_info: "09171234501",
         agent_id: agent1UserId,
+        payment_type: "cash",
+
       },
       {
         id: customer2,
-        store_name: "XYZ Supermarket - BGC",
-        location: "Bonifacio Global City",
-        contact_info: "555-0002",
+        store_name: "Bonifacio Fresh Market - BGC",
+        location: "Taguig City",
+        district: "District A",
+        street_number: "7",
+        street_address: "5th Ave, Bonifacio Global City",
+        state: "Metro Manila",
+        postal_code: "1634",
+        contact_person: "Mark Anthony Cruz",
+        contact_info: "09171234502",
         agent_id: agent2UserId,
+        payment_type: "bank_transfer",
+
       },
       {
         id: customer3,
-        store_name: "Fresh Mart - Tagaytay",
+        store_name: "Tagaytay Highlands Grocery - Tagaytay",
         location: "Tagaytay City",
-        contact_info: "555-0003",
+        district: "District C",
+        street_number: "45",
+        street_address: "Aguinaldo Hwy, Brgy. Sungay",
+        state: "Cavite",
+        postal_code: "4120",
+        contact_person: "Lorna Villanueva",
+        contact_info: "09171234503",
         agent_id: agent3UserId,
+        payment_type: "cod",
+
+      },
+      {
+        id: customer4,
+        store_name: "Sta. Cruz Sari-Sari Mart - Quiapo",
+        location: "Manila City",
+        district: "District A",
+        street_number: "210",
+        street_address: "Quezon Blvd, Quiapo",
+        state: "Metro Manila",
+        postal_code: "1001",
+        contact_person: "Ernesto Bautista",
+        contact_info: "09171234504",
+        agent_id: agent1UserId,
+        payment_type: "cash",
+
+      },
+      {
+        id: customer5,
+        store_name: "Ortigas Center Supermarket - Pasig",
+        location: "Pasig City",
+        district: "District A",
+        street_number: "18",
+        street_address: "ADB Ave, Ortigas Center",
+        state: "Metro Manila",
+        postal_code: "1605",
+        contact_person: "Jasmine Lim",
+        contact_info: "09171234505",
+        agent_id: agent2UserId,
+        payment_type: "bank_transfer",
+
+      },
+      {
+        id: customer6,
+        store_name: "Cebu Lechon House Grocers - Cebu",
+        location: "Cebu City",
+        street_number: "88",
+        street_address: "Osmeña Blvd, Capitol Site",
+        state: "Cebu",
+        postal_code: "6000",
+        contact_person: "Ramon Gonzales",
+        contact_info: "09171234506",
+        agent_id: agent3UserId,
+        payment_type: "cod",
+
+      },
+      {
+        id: customer7,
+        store_name: "Davao Fresh Catch Store - Davao",
+        location: "Davao City",
+        street_number: "32",
+        street_address: "J.P. Laurel Ave, Bajada",
+        state: "Davao del Sur",
+        postal_code: "8000",
+        contact_person: "Cherry Ann Macaraeg",
+        contact_info: "09171234507",
+        agent_id: agent1UserId,
+        payment_type: "bank_transfer",
+
+      },
+      {
+        id: customer8,
+        store_name: "Baguio Strawberry Farm Market - Baguio",
+        location: "Baguio City",
+        street_number: "12",
+        street_address: "Session Rd",
+        state: "Benguet",
+        postal_code: "2600",
+        contact_person: "Edgar Dulay",
+        contact_info: "09171234508",
+        agent_id: agent2UserId,
+        payment_type: "cash",
+
       },
     ]).onConflictDoNothing();
 
@@ -187,22 +288,22 @@ async function seed() {
     await db.insert(trucks).values([
       {
         id: truck1,
-        name: "Truck A - Metro Manila",
-        district: "Metro Manila",
+        license_plate: "MNL 4821",
+        district: "District A",
         driver_id: driverProfile1,
         status: "available",
       },
       {
         id: truck2,
-        name: "Truck B - Cavite",
-        district: "Cavite",
+        license_plate: "CAV 7315",
+        district: "District C",
         driver_id: driverProfile2,
         status: "available",
       },
       {
         id: truck3,
-        name: "Truck C - Tagaytay",
-        district: "Tagaytay",
+        license_plate: "TGY 3186",
+        district: "District B",
         driver_id: driverProfile3,
         status: "available",
       },
@@ -253,7 +354,7 @@ async function seed() {
     console.log("   ✓ 4 Products (Chicken, Pork, Fish, Beef)");
     console.log("   ✓ 3 Customers (Makati, BGC, Tagaytay)");
     console.log("   ✓ 3 Drivers (Pedro, Carlos, Jose — no login)");
-    console.log("   ✓ 3 Trucks (Metro Manila, Cavite, Tagaytay)");
+    console.log("   ✓ 3 Trucks (District A, B, C)");
     console.log("   ✓ Inventory Batches/Pallets");
 
     process.exit(0);

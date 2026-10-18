@@ -8,6 +8,7 @@ import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AddOrderModal } from "./AddOrderModal";
+import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
 
 export function BookingSummary() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -332,7 +333,7 @@ export function BookingSummary() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Order Summary</h1>
-          <p className="page-subtitle">View and manage customer bookings</p>
+          <p className="page-subtitle">Review, approve, and reject customer orders</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -438,7 +439,7 @@ export function BookingSummary() {
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="whitespace-nowrap">
               <TableHead>Order ID</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Agent</TableHead>
@@ -517,27 +518,29 @@ export function BookingSummary() {
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => openApproveModal(booking)}
-                            className="btn-accent"
+                            className="btn-accent whitespace-nowrap"
                           >
                             <CheckCircle size={14} />
                             Approve
                           </button>
                           <button
                             onClick={() => openRejectModal(booking)}
-                            className="btn-danger"
+                            className="btn-danger whitespace-nowrap"
                           >
                             <XCircle size={14} />
                             Reject
                           </button>
                         </div>
                       ) : booking.status === "approved" ? (
-                        <button
-                          onClick={() => handleUnapproveBooking(booking)}
-                          className="btn-secondary ml-auto"
-                        >
-                          <XCircle size={14} />
-                          Unapprove
-                        </button>
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => handleUnapproveBooking(booking)}
+                            className="btn-secondary whitespace-nowrap"
+                          >
+                            <XCircle size={14} />
+                            Unapprove
+                          </button>
+                        </div>
                       ) : (
                         <span className="px-3 py-1.5 text-xs font-semibold text-muted bg-off-white rounded-lg capitalize border border-border">{booking.status}</span>
                       )}
@@ -612,7 +615,7 @@ export function BookingSummary() {
                 </div>
               ) : (
                 <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                  The truck will be automatically assigned based on the customer's location.
+                  The truck will be automatically assigned based on the customer's truck district.
                 </div>
               )}
             </div>
@@ -695,8 +698,8 @@ export function BookingSummary() {
                   <h3 className="text-sm font-semibold text-navy mb-3">Assigned Truck</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-muted mb-1 block">Truck Name</label>
-                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.name || "N/A"}</p>
+                      <label className="text-xs font-semibold text-muted mb-1 block">License Plate</label>
+                      <p className="text-sm text-navy font-semibold">{(detailBooking as any).truck?.license_plate || "N/A"}</p>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-muted mb-1 block">District</label>
@@ -731,6 +734,8 @@ export function BookingSummary() {
                   <p className="text-sm text-muted italic">No items in this order</p>
                 )}
               </div>
+
+              <OrderTotalsBreakdown booking={detailBooking} products={products} />
 
               {/* Timestamps */}
               <div className="border-t border-border pt-4">

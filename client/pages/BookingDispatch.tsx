@@ -3,7 +3,6 @@ import { HubSidebar } from "@/components/HubSidebar";
 import { BookingSummary } from "./modules/BookingSummary";
 import { Invoicing } from "./modules/Invoicing";
 import { DeliveryDispatch } from "./modules/Delivery";
-import { DeliverySchedule } from "./modules/DeliverySchedule";
 import { AccountsReceivable } from "./modules/AccountsReceivable";
 import { DeliveryHistory } from "./modules/DeliveryHistory";
 import { AgentReports } from "./modules/AgentReports";
@@ -13,22 +12,21 @@ import { InventoryProvider } from "../context/InventoryContext";
 import { useAuth } from "../hooks/useAuth";
 
 const adminModules = [
-  { label: "Order Summary",       path: "/order-summary" },
-  { label: "Delivery Schedule",   path: "/delivery-schedule" },
-  { label: "Preparation",         path: "/preparation" },
-  { label: "Pallets",             path: "/inventory" },
-  { label: "Invoicing",           path: "/invoicing" },
-  { label: "Delivery",            path: "/delivery" },
+  { label: "Orders",              path: "/order-summary" },
+  { label: "Pallet Preparation", path: "/preparation" },
+  { label: "Pallet Tracking",     path: "/inventory" },
+  { label: "Receipts",            path: "/invoicing" },
+  { label: "Truck Dispatch",      path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
   { label: "Delivery History",    path: "/delivery-history" },
   { label: "Agent Returns",       path: "/agent-returns" },
 ];
 
 const agentModules = [
-  { label: "Order Summary",     path: "/order-summary" },
-  { label: "Delivery Schedule", path: "/delivery-schedule" },
-  { label: "Preparation",       path: "/preparation" },
-  { label: "Delivery",      path: "/delivery" },
+  { label: "Orders",            path: "/order-summary" },
+  { label: "Pallet Tracking",   path: "/inventory" },
+  { label: "Pallet Preparation", path: "/preparation" },
+  { label: "Truck Dispatch",    path: "/delivery" },
 ];
 
 export function BookingDispatch() {
@@ -46,7 +44,6 @@ export function BookingDispatch() {
         <div className={`flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}>
           <Routes>
             <Route path="/order-summary"    element={<BookingSummary />} />
-            <Route path="/delivery-schedule" element={<DeliverySchedule />} />
             <Route path="/preparation"      element={<Preparation />} />
             <Route path="/inventory"        element={<BookingInventory />} />
             <Route path="/invoicing"        element={<Invoicing />} />

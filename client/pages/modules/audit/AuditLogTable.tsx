@@ -1,11 +1,7 @@
 import { useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Clock, Eye, Search } from "lucide-react";
+import { Eye } from "lucide-react";
 import { AuditLog } from "@shared/api";
+import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { describeLog } from "./auditDescribe";
 
 interface AuditLogTableProps {
@@ -19,7 +15,8 @@ const ACTION_COLORS: Record<string, string> = {
   delete: "bg-red-100 text-red-800",
 };
 
-const selectClass = "px-3 py-2 border border-border rounded-lg bg-white text-navy text-sm focus:outline-none focus:border-accent-2";
+const HEAD_CLASS =
+  "bg-navy-mid text-muted font-barlow-cond text-xs font-bold uppercase tracking-wider px-3 py-3 border-b border-border whitespace-nowrap";
 
 export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
   const [query, setQuery] = useState("");
@@ -49,90 +46,99 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
   }, [logs, query, actionFilter, resourceFilter]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by description, user ID, action, resource, or date…"
-            className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-navy focus:border-accent-2 focus:outline-none"
-          />
-        </div>
-        <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className={selectClass}>
-          <option value="all">All actions</option>
-          {actions.map((action) => (
-            <option key={action} value={action}>{action}</option>
-          ))}
-        </select>
-        <select value={resourceFilter} onChange={(e) => setResourceFilter(e.target.value)} className={selectClass}>
-          <option value="all">All resources</option>
-          {resources.map((resource) => (
-            <option key={resource} value={resource}>{resource.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-      </div>
+    <div className="flex flex-col gap-4">
+      <SearchFilterBar
+        searchTerm={query}
+        onSearchChange={setQuery}
+        placeholder="Search by description, user, action, resource, or date…"
+        filters={[
+          {
+            name: "action",
+            value: actionFilter,
+            onChange: setActionFilter,
+            options: [
+              { label: "All actions", value: "all" },
+              ...actions.map((action) => ({ label: action, value: action })),
+            ],
+          },
+          {
+            name: "resource",
+            value: resourceFilter,
+            onChange: setResourceFilter,
+            options: [
+              { label: "All resources", value: "all" },
+              ...resources.map((resource) => ({ label: resource.replace(/_/g, " "), value: resource })),
+            ],
+          },
+        ]}
+      />
 
-      <p className="text-xs text-gray-500">
-        Showing {filteredLogs.length} of {logs.length} entries
-      </p>
-
-      <Card className="overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Timestamp</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Resource</TableHead>
-              <TableHead>Resource ID</TableHead>
-              <TableHead className="text-right">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredLogs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                  {logs.length === 0 ? "No activity yet" : "No entries match your search"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
+        <div className="overflow-x-auto text-xs md:text-sm">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className={`${HEAD_CLASS} text-left`}>Timestamp</th>
+                <th className={`${HEAD_CLASS} text-left`}>User</th>
+                <th className={`${HEAD_CLASS} text-left`}>Action</th>
+                <th className={`${HEAD_CLASS} text-left`}>Description</th>
+                <th className={`${HEAD_CLASS} text-left`}>Resource</th>
+                <th className={`${HEAD_CLASS} text-left`}>Resource ID</th>
+                <th className={`${HEAD_CLASS} text-right`}>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-muted">
+                    {logs.length === 0 ? "No activity yet" : "No entries match your search"}
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr
+                    key={log.id}
+                    className="border-b border-border transition-colors hover:bg-off-white/50"
+                  >
+                    <td className="px-3 py-3 whitespace-nowrap text-navy">
                       {new Date(log.created_at).toLocaleString()}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-navy">{log.user_name || "Unknown user"}</span>
-                      <span className="font-mono text-xs text-gray-500">({log.user_id.slice(0, 8)})</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${ACTION_COLORS[log.action] ?? "bg-gray-100 text-gray-800"}`}>
-                      {log.action.toUpperCase()}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm text-navy">{describeLog(log)}</TableCell>
-                  <TableCell className="text-sm capitalize">{log.resource_type.replace(/_/g, " ")}</TableCell>
-                  <TableCell className="font-mono text-sm">{log.resource_id?.slice(0, 8) || "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => onView(log)} aria-label="View details">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="font-semibold text-navy">{log.user_name || "Unknown user"}</div>
+                      <div className="font-mono text-xs text-muted">{log.user_id.slice(0, 8)}</div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${ACTION_COLORS[log.action] ?? "bg-gray-100 text-gray-800"}`}>
+                        {log.action.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-navy">{describeLog(log)}</td>
+                    <td className="px-3 py-3 capitalize text-navy whitespace-nowrap">
+                      {log.resource_type.replace(/_/g, " ")}
+                    </td>
+                    <td className="px-3 py-3 font-mono text-xs text-muted whitespace-nowrap">
+                      {log.resource_id?.slice(0, 8) || "-"}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        onClick={() => onView(log)}
+                        aria-label="View details"
+                        className="inline-flex items-center justify-center rounded-lg border border-border bg-white p-2 text-navy transition-colors hover:bg-off-white"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="border-t border-border bg-off-white/50 px-6 py-4 text-xs text-muted">
+          Showing {filteredLogs.length} of {logs.length} entries
+        </div>
+      </div>
     </div>
   );
 }

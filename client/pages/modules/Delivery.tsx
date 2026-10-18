@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
-import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent } from "@shared/api";
+import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
 
@@ -61,6 +61,7 @@ export function DeliveryDispatch() {
   const [selectedTruck,        setSelectedTruck]        = useState<Truck | null>(null);
   const [selectedDelivery,     setSelectedDelivery]     = useState<DeliveryExt | null>(null);
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
+  const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
   const [showChangeDriverModal,setShowChangeDriverModal]= useState(false);
   const [showChangeTruckDriverModal, setShowChangeTruckDriverModal] = useState(false);
@@ -251,12 +252,17 @@ export function DeliveryDispatch() {
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wider">Truck</p>
-            <p className="font-rajdhani font-bold text-navy text-lg mt-0.5">{selectedTruck!.name}</p>
+            <p className="font-rajdhani font-bold text-navy text-lg mt-0.5">{selectedTruck!.license_plate}</p>
             <p className="text-xs text-muted">{selectedTruck!.district}</p>
           </div>
-          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadgeClass(selectedTruck!.status)}`}>
-            {truckStatusLabel(selectedTruck!.status)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${statusBadgeClass(selectedTruck!.status)}`}>
+              {truckStatusLabel(selectedTruck!.status)}
+            </span>
+            <button onClick={() => setShowEditTruckModal(true)} className="text-xs font-semibold text-accent-2 hover:opacity-70">
+              Edit
+            </button>
+          </div>
         </div>
 
         {/* Agent */}
@@ -399,8 +405,8 @@ export function DeliveryDispatch() {
                               {statusLabel(item.status)}
                             </span>
                           </div>
-                          {item.customer?.location && (
-                            <p className="text-xs text-muted">{item.customer.location}</p>
+                          {item.customer && (
+                            <p className="text-xs text-muted">{formatCustomerAddress(item.customer)}</p>
                           )}
                           <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
                             <span className="font-mono">Invoice: {item.invoice_id.slice(0, 8)}…</span>
@@ -462,8 +468,8 @@ export function DeliveryDispatch() {
                               </td>
                               <td className="px-3 py-3 text-navy font-semibold">
                                 {item.customer?.store_name ?? item.destination_customer_id.slice(0, 8)}
-                                {item.customer?.location && (
-                                  <p className="text-muted font-normal">{item.customer.location}</p>
+                                {item.customer && (
+                                  <p className="text-muted font-normal">{formatCustomerAddress(item.customer)}</p>
                                 )}
                               </td>
                               <td className="px-3 py-3 whitespace-nowrap">
@@ -514,8 +520,8 @@ export function DeliveryDispatch() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
         <div>
-          <h1 className="font-rajdhani text-2xl md:text-3xl font-bold text-navy">Delivery & Dispatch</h1>
-          <p className="text-xs text-muted mt-0.5">Assign invoices to trucks and track deliveries</p>
+          <h1 className="font-rajdhani text-2xl md:text-3xl font-bold text-navy">Truck Dispatch</h1>
+          <p className="text-xs text-muted mt-0.5">Assign receipts to trucks and track each stop</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -563,7 +569,7 @@ export function DeliveryDispatch() {
                         <TruckIcon size={18} className="text-navy" />
                       </div>
                       <div>
-                        <p className="font-rajdhani font-bold text-navy">{truck.name}</p>
+                        <p className="font-rajdhani font-bold text-navy">{truck.license_plate}</p>
                         <p className="text-xs text-muted">{truck.district}</p>
                         <p className="text-xs text-muted mt-0.5">{active} active · {td.length} total</p>
                       </div>
@@ -606,7 +612,7 @@ export function DeliveryDispatch() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-rajdhani font-bold text-navy leading-tight truncate">{truck.name}</p>
+                      <p className="font-rajdhani font-bold text-navy leading-tight truncate">{truck.license_plate}</p>
                       <p className="text-xs text-muted mt-0.5">{truck.district}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold flex-shrink-0 ${statusBadgeClass(truck.status)}`}>
@@ -642,6 +648,15 @@ export function DeliveryDispatch() {
           token={token!}
           onClose={() => setShowAddTruckModal(false)}
           onCreated={async () => { await fetchAll(); setShowAddTruckModal(false); }}
+        />
+      )}
+
+      {showEditTruckModal && selectedTruck && (
+        <EditTruckModal
+          truck={selectedTruck}
+          token={token!}
+          onClose={() => setShowEditTruckModal(false)}
+          onSaved={async () => { await fetchAll(); setShowEditTruckModal(false); }}
         />
       )}
 
@@ -732,7 +747,7 @@ function ChangeTruckDriverModal({ truck, drivers, token, onClose, onSave }: {
   };
 
   return (
-    <ModalShell title={`Assign Driver — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Assign Driver — ${truck.license_plate}`} onClose={onClose}>
       <div>
         <label className="block text-xs font-semibold text-navy mb-2">Select Driver</label>
         <select
@@ -783,23 +798,25 @@ function ChangeTruckDriverModal({ truck, drivers, token, onClose, onSave }: {
 
 // ─── Add New Truck Modal ──────────────────────────────────────────────────────
 
+const PLATE_PATTERN = /^[A-Z]{3} \d{3,4}$/;
+
 function AddTruckModal({ drivers, token, onClose, onCreated }: {
   drivers: Driver[]; token: string; onClose: () => void; onCreated: () => Promise<void>;
 }) {
-  const [truckName, setTruckName]           = useState("");
+  const [licensePlate, setLicensePlate]     = useState("");
   const [truckDistrict, setTruckDistrict]   = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [truckStatus, setTruckStatus]       = useState<"available" | "in_transit" | "maintenance">("available");
   const [saving, setSaving]                 = useState(false);
 
   const handleSave = async () => {
-    if (!truckName || !truckDistrict) { alert("Fill in truck name and district."); return; }
+    if (!PLATE_PATTERN.test(licensePlate) || !truckDistrict) { alert("Enter a license plate like ABC 1234 and a district."); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/trucks", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: truckName, district: truckDistrict, driver_id: selectedDriverId || undefined, status: truckStatus }),
+        body: JSON.stringify({ license_plate: licensePlate, district: truckDistrict, driver_id: selectedDriverId || undefined, status: truckStatus }),
       });
       if (!res.ok) throw new Error(await res.text());
       await onCreated();
@@ -814,7 +831,7 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
     <ModalShell title="Add New Truck" onClose={onClose}>
       <div className="space-y-4">
         {[
-          { label: "Truck Name *", value: truckName, onChange: setTruckName, placeholder: "e.g., Truck A" },
+          { label: "License Plate *", value: licensePlate, onChange: (v: string) => setLicensePlate(v.toUpperCase()), placeholder: "e.g., ABC 1234" },
           { label: "District *",   value: truckDistrict, onChange: setTruckDistrict, placeholder: "e.g., Metro Manila" },
         ].map(({ label, value, onChange, placeholder }) => (
           <div key={label}>
@@ -845,9 +862,71 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
       </div>
       <div className="flex justify-end gap-2 pt-4 border-t border-border">
         <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white">Cancel</button>
-        <button onClick={handleSave} disabled={!truckName || !truckDistrict || saving}
+        <button onClick={handleSave} disabled={!PLATE_PATTERN.test(licensePlate) || !truckDistrict || saving}
           className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
           {saving ? "Adding…" : "Add Truck"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Edit Truck Modal ─────────────────────────────────────────────────────────
+
+function EditTruckModal({ truck, token, onClose, onSaved }: {
+  truck: Truck; token: string; onClose: () => void; onSaved: () => Promise<void>;
+}) {
+  const [licensePlate, setLicensePlate]   = useState(truck.license_plate);
+  const [truckDistrict, setTruckDistrict] = useState(truck.district);
+  const [truckStatus, setTruckStatus]     = useState(truck.status);
+  const [saving, setSaving]               = useState(false);
+
+  const handleSave = async () => {
+    if (!PLATE_PATTERN.test(licensePlate) || !truckDistrict) { alert("Enter a license plate like ABC 1234 and a district."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/trucks/${truck.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ license_plate: licensePlate, district: truckDistrict, status: truckStatus }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await onSaved();
+    } catch (err) {
+      alert("Failed to update truck: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalShell title={`Edit Truck — ${truck.license_plate}`} onClose={onClose}>
+      <div className="space-y-4">
+        {[
+          { label: "License Plate *", value: licensePlate, onChange: (v: string) => setLicensePlate(v.toUpperCase()), placeholder: "e.g., ABC 1234" },
+          { label: "District *", value: truckDistrict, onChange: setTruckDistrict, placeholder: "e.g., Metro Manila" },
+        ].map(({ label, value, onChange, placeholder }) => (
+          <div key={label}>
+            <label className="block text-xs font-semibold text-navy mb-1">{label}</label>
+            <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
+          </div>
+        ))}
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Status</label>
+          <select value={truckStatus} onChange={(e) => setTruckStatus(e.target.value as Truck["status"])}
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
+            <option value="available">Available</option>
+            <option value="in_transit">In Transit</option>
+            <option value="maintenance">Maintenance</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-4 border-t border-border">
+        <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white">Cancel</button>
+        <button onClick={handleSave} disabled={!PLATE_PATTERN.test(licensePlate) || !truckDistrict || saving}
+          className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+          {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </ModalShell>
@@ -870,7 +949,7 @@ function ChangeDriverModal({ truck, drivers, token, onClose, onSave }: {
   };
 
   return (
-    <ModalShell title={`Change Agent — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Change Agent — ${truck.license_plate}`} onClose={onClose}>
       <div>
         <label className="block text-xs font-semibold text-navy mb-2">Select Agent *</label>
         <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}
@@ -904,13 +983,15 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [saving, setSaving] = useState(false);
 
+  function customerFor(inv: Invoice): Customer | undefined {
+    return inv.booking?.customer ?? customers.find((c) => c.store_name === inv.customer_name);
+  }
+
+  const districtInvoices = eligibleInvoices.filter((inv) => customerFor(inv)?.district === truck.district);
+
   // Build a label for each eligible invoice: "Store Name — Contact Person"
   function orderLabel(inv: Invoice): string {
-    // Prefer snapshot customer_name; fall back to looking up from customers list
-    const customer = customers.find((c) => {
-      // match via booking's destination_customer or via customer_name snapshot
-      return c.store_name === inv.customer_name;
-    });
+    const customer = customerFor(inv);
     const storeName    = inv.customer_name    || customer?.store_name    || inv.id.slice(0, 8).toUpperCase();
     const contactPerson = customer?.contact_person || "";
     return contactPerson ? `${storeName} — ${contactPerson}` : storeName;
@@ -918,8 +999,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
 
   // Given an invoice, resolve the destination_customer_id
   function resolveCustomerId(inv: Invoice): string {
-    const matched = customers.find((c) => c.store_name === inv.customer_name);
-    return matched?.id ?? "";
+    return customerFor(inv)?.id ?? "";
   }
 
   const addStop    = () => setStops((s) => [...s, { invoice_id: "" }]);
@@ -930,7 +1010,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   // Build the final payload: resolve customer from the selected invoice
   const buildPayload = () =>
     stops.map((s) => {
-      const inv = eligibleInvoices.find((i) => i.id === s.invoice_id);
+      const inv = districtInvoices.find((i) => i.id === s.invoice_id);
       return {
         invoice_id: s.invoice_id,
         destination_customer_id: inv ? resolveCustomerId(inv) : "",
@@ -939,7 +1019,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
 
   const valid = stops.every((s) => {
     if (!s.invoice_id) return false;
-    const inv = eligibleInvoices.find((i) => i.id === s.invoice_id);
+    const inv = districtInvoices.find((i) => i.id === s.invoice_id);
     if (!inv) return false;
     return !!resolveCustomerId(inv);
   });
@@ -955,7 +1035,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   };
 
   return (
-    <ModalShell title={`Add Delivery — ${truck.name}`} onClose={onClose}>
+    <ModalShell title={`Add Delivery — ${truck.license_plate}`} onClose={onClose}>
       <div className="space-y-3">
 
         <div className="flex items-center justify-between">
@@ -963,8 +1043,8 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
           <button onClick={addStop} className="text-xs text-accent-2 font-semibold hover:opacity-80">+ Add Stop</button>
         </div>
         {stops.map((stop, i) => {
-          const selectedInv = eligibleInvoices.find((inv) => inv.id === stop.invoice_id);
-          const resolvedCustomer = selectedInv ? customers.find((c) => c.store_name === selectedInv.customer_name) : null;
+          const selectedInv = districtInvoices.find((inv) => inv.id === stop.invoice_id);
+          const resolvedCustomer = selectedInv ? customerFor(selectedInv) : null;
           return (
             <div key={i} className="bg-off-white rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
@@ -982,7 +1062,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
                   className="w-full px-3 py-2 border border-border rounded-lg text-xs focus:outline-none focus:border-accent-2 bg-white"
                 >
                   <option value="">Select order…</option>
-                  {eligibleInvoices.map((inv) => {
+                  {districtInvoices.map((inv) => {
                     const disabled = pickedIds.has(inv.id) && inv.id !== stop.invoice_id;
                     return (
                       <option key={inv.id} value={inv.id} disabled={disabled}>
@@ -1003,8 +1083,8 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
                   {resolvedCustomer?.contact_person && (
                     <p>Contact: {resolvedCustomer.contact_person}</p>
                   )}
-                  {(resolvedCustomer?.location || selectedInv.customer_address) && (
-                    <p>{resolvedCustomer?.location || selectedInv.customer_address}</p>
+                  {(resolvedCustomer ? formatCustomerAddress(resolvedCustomer) : selectedInv.customer_address) && (
+                    <p>{resolvedCustomer ? formatCustomerAddress(resolvedCustomer) : selectedInv.customer_address}</p>
                   )}
                   <p className="font-mono pt-0.5">
                     Receipt: {selectedInv.receipt_number || selectedInv.id.slice(0, 8).toUpperCase()}
@@ -1089,7 +1169,7 @@ function PaymentConfirmationModal({
         <div className="bg-off-white rounded-lg p-4 space-y-2">
           <p className="text-xs font-semibold text-muted uppercase tracking-wider">Delivery Details</p>
           <p className="font-semibold text-navy">{customer?.store_name || "Customer"}</p>
-          <p className="text-xs text-muted">{customer?.location || "—"}</p>
+          <p className="text-xs text-muted">{customer ? formatCustomerAddress(customer) : "—"}</p>
           {invoice && (
             <p className="text-xs text-muted">Invoice: {invoice.id.slice(0, 8)}…</p>
           )}

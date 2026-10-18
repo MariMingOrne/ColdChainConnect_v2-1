@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { AuditLog } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AuditLogTable } from "./audit/AuditLogTable";
@@ -17,6 +17,7 @@ export function AuditLogPage() {
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   const fetchLogs = async () => {
     try {
@@ -41,6 +42,29 @@ export function AuditLogPage() {
     setIsRefreshing(false);
   };
 
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const response = await fetch("/api/backup", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to create backup");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `backup-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create backup");
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
   useEffect(() => { if (token) fetchLogs(); }, [token]);
 
   return (
@@ -52,14 +76,24 @@ export function AuditLogPage() {
             Every create, update, and delete is recorded with who made it, when, and exactly which fields changed.
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 w-fit"
-        >
-          <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
-          Refresh
-        </button>
+        <div className="flex gap-2 w-fit">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <button
+            onClick={handleBackup}
+            disabled={isBackingUp}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Download size={16} className={isBackingUp ? "animate-pulse" : ""} />
+            {isBackingUp ? "Preparing backup…" : "Backup all data"}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 border-b border-border pb-0">
