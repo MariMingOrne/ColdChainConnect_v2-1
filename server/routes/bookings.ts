@@ -5,7 +5,9 @@ import { db } from "../db";
 import { bookings, booking_items, invoices, invoice_items, agents, trucks, users } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
-import { totalDiscountRate } from "../../shared/api";
+import { CreditBlockResponse, totalDiscountRate } from "../../shared/api";
+import { evaluateCreditRules } from "../services/credit-rules";
+import { estimateOrderTotal, loadCustomerCredit } from "../services/customer-credit";
 
 // Returns the truck serving the given district, preferring an available truck.
 function findTruckForDistrict(
@@ -45,7 +47,7 @@ export const listBookings: RequestHandler = async (req, res) => {
 };
 
 export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
-  const { customer_id, prepared_delivery_date, items } = req.body;
+  const { customer_id, prepared_delivery_date, items, ar_override, ar_override_reason } = req.body;
 
   if (!customer_id || !items || !Array.isArray(items)) {
     return res.status(400).json({ error: "Customer ID and items array are required" });
@@ -74,6 +76,36 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
     });
     if (!creatorExists) {
       return res.status(401).json({ error: "User account not found. Please log in again." });
+    }
+
+    if (items.some((item: { product_id?: string; qty_ordered?: unknown }) => !item?.product_id || item.qty_ordered === undefined)) {
+      return res.status(400).json({ error: "Each item needs a product_id and qty_ordered" });
+    }
+
+    const credit = await loadCustomerCredit(customer_id);
+    if (!credit) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    const newOrderAmount = await estimateOrderTotal(items, credit.discountRate);
+    const violations = evaluateCreditRules({ ...credit.state, newOrderAmount });
+
+    let creditOverride: { reason: string; violations: typeof violations } | null = null;
+    if (violations.length > 0) {
+      const isAdmin = req.user.role === "admin";
+      const reason = typeof ar_override_reason === "string" ? ar_override_reason.trim() : "";
+      if (!isAdmin || ar_override !== true) {
+        const block: CreditBlockResponse = {
+          error: "This customer's credit terms or limit block this booking.",
+          code: "AR_CREDIT_BLOCKED",
+          violations,
+          canOverride: isAdmin,
+        };
+        return res.status(409).json(block);
+      }
+      if (!reason) {
+        return res.status(400).json({ error: "An override reason is required" });
+      }
+      creditOverride = { reason, violations };
     }
 
     const bookingId = randomUUID();
@@ -113,6 +145,15 @@ export const createBooking: RequestHandler = async (req: AuthRequest, res) => {
 
     if (req.user) {
       await logAction(req.user.userId, "create", "booking", bookingId, undefined, newBooking);
+    }
+
+    if (req.user && creditOverride) {
+      await logAction(req.user.userId, "ar_credit_override", "booking", bookingId, undefined, {
+        customer_id,
+        reason: creditOverride.reason,
+        violations: creditOverride.violations,
+        new_order_amount: newOrderAmount,
+      });
     }
 
     res.status(201).json(newBooking);

@@ -24,6 +24,8 @@ interface CustomerForm {
   postal_code: string;
   contact_person: string;
   contact_info: string;
+  credit_limit: string;
+  credit_terms_days: string;
   discounts: DiscountRow[];
 }
 
@@ -256,6 +258,31 @@ function CustomerModal({
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Credit Limit (₱)</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.credit_limit}
+                onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+                placeholder="Blank = no limit"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-navy">Credit Terms (days)</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={formData.credit_terms_days}
+                onChange={(e) => setFormData({ ...formData, credit_terms_days: e.target.value })}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent-2 focus:outline-none"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="mb-1 block text-xs font-semibold text-navy">Discounts</label>
             <CustomerDiscountEditor
@@ -305,6 +332,8 @@ export function Customers({ onBack }: CustomersProps) {
     postal_code: "",
     contact_person: "",
     contact_info: "",
+    credit_limit: "",
+    credit_terms_days: "30",
     discounts: [],
   });
   const { token } = useAuth();
@@ -379,6 +408,8 @@ export function Customers({ onBack }: CustomersProps) {
       postal_code: "",
       contact_person: "",
       contact_info: "",
+      credit_limit: "",
+      credit_terms_days: "30",
       discounts: [],
     });
     setIsModalOpen(true);
@@ -396,6 +427,8 @@ export function Customers({ onBack }: CustomersProps) {
       postal_code: customer.postal_code ?? "",
       contact_person: customer.contact_person ?? "",
       contact_info: customer.contact_info ?? "",
+      credit_limit: customer.credit_limit ?? "",
+      credit_terms_days: String(customer.credit_terms_days ?? 30),
       discounts: (customer.discounts ?? []).map((discount) => ({
         label: discount.label,
         percent: String(Number(discount.rate) * 100),
@@ -436,6 +469,8 @@ export function Customers({ onBack }: CustomersProps) {
           postal_code: formData.postal_code || undefined,
           contact_person: formData.contact_person || undefined,
           contact_info: formData.contact_info || undefined,
+          credit_limit: formData.credit_limit.trim() === "" ? null : Number(formData.credit_limit),
+          credit_terms_days: Number(formData.credit_terms_days),
           discounts,
         }),
       });

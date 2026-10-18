@@ -69,9 +69,23 @@ export interface Customer {
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
+  credit_limit?: string | null;
+  credit_terms_days?: number;
   discounts?: CustomerDiscount[];
   created_at: string;
   updated_at: string;
+}
+
+export interface CreditViolation {
+  code: "OVERDUE_BEYOND_TERMS" | "CREDIT_LIMIT_EXCEEDED";
+  message: string;
+}
+
+export interface CreditBlockResponse {
+  error: string;
+  code: "AR_CREDIT_BLOCKED";
+  violations: CreditViolation[];
+  canOverride: boolean;
 }
 
 export function totalDiscountRate(discounts: CustomerDiscount[] | undefined): number {

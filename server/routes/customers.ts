@@ -38,16 +38,35 @@ export const listCustomers: RequestHandler = async (_req, res) => {
   }
 };
 
+function validateCreditFields(body: { credit_limit?: unknown; credit_terms_days?: unknown }): string | null {
+  const { credit_limit, credit_terms_days } = body;
+  if (credit_limit !== undefined && credit_limit !== null && (typeof credit_limit !== "number" || credit_limit < 0)) {
+    return "Credit limit must be a non-negative number or empty";
+  }
+  if (
+    credit_terms_days !== undefined &&
+    (!Number.isInteger(credit_terms_days) || (credit_terms_days as number) < 1 || (credit_terms_days as number) > 365)
+  ) {
+    return "Credit terms must be a whole number of days between 1 and 365";
+  }
+  return null;
+}
+
 export const createCustomer: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
 
   if (!store_name || !location) {
     return res
       .status(400)
       .json({ error: "Store name and location are required" });
+  }
+
+  const creditError = validateCreditFields(req.body);
+  if (creditError) {
+    return res.status(400).json({ error: creditError });
   }
 
   try {
@@ -71,6 +90,8 @@ export const createCustomer: RequestHandler = async (
         contact_info,
         agent_id,
         payment_type,
+        credit_limit: credit_limit == null ? null : String(credit_limit),
+        credit_terms_days,
       });
       await replaceDiscounts(tx, id, discounts ?? []);
     });
@@ -103,7 +124,12 @@ export const updateCustomer: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
+
+  const creditError = validateCreditFields(req.body);
+  if (creditError) {
+    return res.status(400).json({ error: creditError });
+  }
 
   try {
     const existing = await db.query.customers.findFirst({
@@ -129,6 +155,8 @@ export const updateCustomer: RequestHandler = async (
           contact_info: contact_info ?? existing.contact_info,
           agent_id: agent_id ?? existing.agent_id,
           payment_type: payment_type ?? existing.payment_type,
+          credit_limit: credit_limit === undefined ? existing.credit_limit : credit_limit === null ? null : String(credit_limit),
+          credit_terms_days: credit_terms_days ?? existing.credit_terms_days,
           updated_at: new Date(),
         })
         .where(eq(customers.id, id));

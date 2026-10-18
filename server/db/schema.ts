@@ -61,6 +61,8 @@ export const customers = pgTable("customers", {
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
   payment_type: text("payment_type"),
+  credit_limit: decimal("credit_limit", { precision: 12, scale: 2 }),
+  credit_terms_days: integer("credit_terms_days").default(30).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
