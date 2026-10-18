@@ -12,6 +12,13 @@ export function formatMoney(amount: number): string {
   return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export const palletStatusOptions: { value: Pallet["status"]; label: string }[] = [
+  { value: "draft", label: "Draft" },
+  { value: "prepared", label: "Prepared" },
+  { value: "approved", label: "Approved" },
+  { value: "shipped", label: "Shipped" },
+];
+
 export const palletStatusStyles: Record<Pallet["status"], string> = {
   draft: "bg-orange-50 text-orange-700 border-orange-200",
   prepared: "bg-yellow-50 text-yellow-800 border-yellow-200",

@@ -19,6 +19,7 @@ export function BookingInventory() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("order") ?? "");
   const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<PalletStatusFilter>("all");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { token } = useAuth();
 
   const fetchAll = async () => {
@@ -48,6 +49,27 @@ export function BookingInventory() {
   const handleRefresh = async () => {
     setIsLoading(true);
     await fetchAll();
+  };
+
+  const handleStatusChange = async (palletId: string, status: Pallet["status"]) => {
+    setIsUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/pallets/${palletId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to update pallet status");
+      }
+      const updated: Pallet = await res.json();
+      setPallets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update pallet status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const getProductName = (productId: string) =>
@@ -98,6 +120,8 @@ export function BookingInventory() {
           order={bookings.find((b) => b.id === selected.pallet.order_id) ?? null}
           customer={selected.customer}
           getProductName={getProductName}
+          onStatusChange={(status) => handleStatusChange(selected.pallet.id, status)}
+          isUpdatingStatus={isUpdatingStatus}
           onBack={() => setSelectedPalletId(null)}
         />
       ) : (

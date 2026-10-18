@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Booking, Customer, Pallet, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { Card } from "@/components/ui/card";
-import { formatMoney, palletItemTotal, palletTotal } from "./palletUtils";
+import { formatMoney, palletItemTotal, palletTotal, palletStatusOptions } from "./palletUtils";
 import { PalletStatusBadge } from "./PalletTable";
 
 interface PalletDetailProps {
@@ -9,10 +9,20 @@ interface PalletDetailProps {
   order: Booking | null;
   customer: Customer | null;
   getProductName: (productId: string) => string;
+  onStatusChange: (status: Pallet["status"]) => void;
+  isUpdatingStatus: boolean;
   onBack: () => void;
 }
 
-export function PalletDetail({ pallet, order, customer, getProductName, onBack }: PalletDetailProps) {
+export function PalletDetail({
+  pallet,
+  order,
+  customer,
+  getProductName,
+  onStatusChange,
+  isUpdatingStatus,
+  onBack,
+}: PalletDetailProps) {
   const items = pallet.items ?? [];
   const units = items.reduce((sum, item) => sum + item.qty_units, 0);
   const discountRate = totalDiscountRate(order?.customer?.discounts);
@@ -34,7 +44,22 @@ export function PalletDetail({ pallet, order, customer, getProductName, onBack }
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Pallet</p>
             <h2 className="mt-1 font-mono text-lg font-bold text-navy">{pallet.id}</h2>
           </div>
-          <PalletStatusBadge status={pallet.status} />
+          <div className="flex items-center gap-3">
+            <PalletStatusBadge status={pallet.status} />
+            <select
+              aria-label="Pallet status"
+              value={pallet.status}
+              disabled={isUpdatingStatus}
+              onChange={(e) => onStatusChange(e.target.value as Pallet["status"])}
+              className="rounded-full border border-border bg-white px-3 py-1.5 text-sm font-semibold text-navy focus:border-accent-2 focus:outline-none disabled:opacity-50"
+            >
+              {palletStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">

@@ -231,7 +231,7 @@ export function createServer() {
   app.get("/api/pallets", authMiddleware, listPallets);
   app.get("/api/pallets/:id", authMiddleware, getPallet);
   app.post("/api/pallets", authMiddleware, createPallet);
-  app.patch("/api/pallets/:id/status", authMiddleware, updatePalletStatus);
+  app.patch("/api/pallets/:id/status", authMiddleware, requireRole("admin", "agent"), updatePalletStatus);
   app.patch("/api/pallets/:id/approve", authMiddleware, approvePallet);
   app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePalletForOrder);
   app.get("/api/products/inventory", authMiddleware, getProductInventory);
