@@ -88,6 +88,8 @@ export function CreateAccountFields({ accountType, form, onChange }: CreateAccou
   return (
     <div className="space-y-4">
       <TextField id="driver-full-name" label="Full Name" value={form.full_name} onChange={(value) => update({ full_name: value })} placeholder="e.g., Pedro Reyes" required />
+      <TextField id="driver-username" label="Login Username (optional)" value={form.username} onChange={(value) => update({ username: value })} placeholder="e.g., pedro.reyes" />
+      <TextField id="driver-password" label="Login Password (optional)" type="password" value={form.password} onChange={(value) => update({ password: value })} minLength={4} />
       <TextField id="driver-contact" label="Contact" value={form.contact_info} onChange={(value) => update({ contact_info: value })} placeholder="e.g., 09181234567" />
       <TextField id="driver-license" label="License Number" value={form.license} onChange={(value) => update({ license: value })} placeholder="e.g., N01-23-111111" />
       <TextField id="driver-hire-date" label="Hire Date" type="date" value={form.hire_date} onChange={(value) => update({ hire_date: value })} />

@@ -6,7 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 export interface TokenPayload {
   userId: string;
   username: string;
-  role: "admin" | "agent";
+  role: "admin" | "agent" | "driver";
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -27,6 +27,19 @@ export function signToken(payload: TokenPayload): string {
 export function verifyToken(token: string): TokenPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET) as TokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function signMfaChallenge(userId: string): string {
+  return jwt.sign({ userId, purpose: "mfa" }, JWT_SECRET, { expiresIn: "5m" });
+}
+
+export function verifyMfaChallenge(token: string): string | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; purpose: string };
+    return payload.purpose === "mfa" ? payload.userId : null;
   } catch {
     return null;
   }

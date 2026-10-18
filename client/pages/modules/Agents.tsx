@@ -69,6 +69,10 @@ function AgentModal({
   setFormData,
   onClose,
   onSave,
+  mfaEnabled,
+  isResettingMfa,
+  mfaMessage,
+  onResetMfa,
 }: {
   title: string;
   isEdit: boolean;
@@ -76,6 +80,10 @@ function AgentModal({
   setFormData: (data: AgentForm) => void;
   onClose: () => void;
   onSave: () => void;
+  mfaEnabled: boolean;
+  isResettingMfa: boolean;
+  mfaMessage: string | null;
+  onResetMfa: () => void;
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -152,6 +160,28 @@ function AgentModal({
             />
             <label htmlFor="is_active" className="text-sm font-semibold text-navy">Active Agent</label>
           </div>
+
+          {isEdit && (
+            <div className="bg-off-white rounded-xl p-4 space-y-3 border border-border">
+              <p className="text-xs font-bold text-muted uppercase tracking-wider">Authenticator (MFA)</p>
+              <div className="flex items-center justify-between gap-3">
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${mfaEnabled ? "badge-green" : "badge-red"}`}>
+                  {mfaEnabled ? "Enabled" : "Not set up"}
+                </span>
+                {mfaEnabled && (
+                  <button
+                    type="button"
+                    onClick={onResetMfa}
+                    disabled={isResettingMfa}
+                    className="px-3 py-1.5 text-xs font-semibold border border-red/30 bg-red/10 text-red rounded-lg hover:bg-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isResettingMfa ? "Resetting…" : "Reset MFA"}
+                  </button>
+                )}
+              </div>
+              {mfaMessage && <p className="text-xs text-muted">{mfaMessage}</p>}
+            </div>
+          )}
         </div>
 
         <div className="sticky bottom-0 bg-off-white px-6 py-4 flex justify-end gap-2 border-t border-border rounded-b-2xl">
@@ -249,6 +279,8 @@ export function Agents() {
   const [viewingAgent, setViewingAgent] = useState<Agent | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isResettingMfa, setIsResettingMfa] = useState(false);
+  const [mfaMessage, setMfaMessage] = useState<string | null>(null);
   const { token } = useAuth();
 
   const emptyForm = (): AgentForm => ({
@@ -313,6 +345,7 @@ export function Agents() {
 
   const openEditModal = (agent: Agent) => {
     setEditingAgent(agent);
+    setMfaMessage(null);
     setFormData({
       full_name: agent.full_name ?? "",
       email: agent.email ?? "",
@@ -388,6 +421,35 @@ export function Agents() {
       setIsModalOpen(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to save agent");
+    }
+  };
+
+  const handleResetMfa = async () => {
+    if (!editingAgent?.user_id) return;
+    const username = editingAgent.user?.username;
+    if (!confirm(`Reset MFA for ${username}? They will need to set up their authenticator app again at next sign-in.`)) return;
+
+    setIsResettingMfa(true);
+    setMfaMessage(null);
+    try {
+      const res = await fetch(`/api/users/${editingAgent.user_id}/mfa/reset`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Failed to reset MFA");
+      }
+      const userId = editingAgent.user_id;
+      const clearMfa = (a: Agent): Agent =>
+        a.user_id === userId && a.user ? { ...a, user: { ...a.user, mfa_enabled: false } } : a;
+      setAgents((prev) => prev.map(clearMfa));
+      setEditingAgent((prev) => (prev ? clearMfa(prev) : prev));
+      setMfaMessage("MFA reset. The next sign-in will ask them to set up a new authenticator.");
+    } catch (err) {
+      setMfaMessage(err instanceof Error ? err.message : "Failed to reset MFA");
+    } finally {
+      setIsResettingMfa(false);
     }
   };
 
@@ -521,6 +583,10 @@ export function Agents() {
           setFormData={setFormData}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
+          mfaEnabled={editingAgent?.user?.mfa_enabled ?? false}
+          isResettingMfa={isResettingMfa}
+          mfaMessage={mfaMessage}
+          onResetMfa={handleResetMfa}
         />
       )}
     </div>

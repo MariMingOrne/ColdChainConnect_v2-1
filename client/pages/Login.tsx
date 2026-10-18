@@ -1,14 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { MfaChallengeResponse, MfaSetupResponse } from "@shared/api";
+import { MfaStep } from "../components/auth/MfaStep";
 
 export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [challenge, setChallenge] = useState<MfaChallengeResponse | null>(null);
+  const [setupInfo, setSetupInfo] = useState<MfaSetupResponse | null>(null);
   const login = useAuth((state) => state.login);
+  const setupMfa = useAuth((state) => state.setupMfa);
+  const verifyMfa = useAuth((state) => state.verifyMfa);
   const navigate = useNavigate();
+
+  const resetToCredentials = () => {
+    setChallenge(null);
+    setSetupInfo(null);
+    setError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,10 +33,33 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await login({ username, password });
-      navigate("/");
+      const next = await login({ username, password });
+      if (!next) {
+        navigate("/");
+        return;
+      }
+      if (next.mfa === "setup") {
+        setSetupInfo(await setupMfa(next.challenge_token));
+      }
+      setChallenge(next);
     } catch {
       setError("Invalid username or password");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (code: string) => {
+    if (!challenge) return;
+
+    setError("");
+    setIsLoading(true);
+
+    try {
+      await verifyMfa({ challenge_token: challenge.challenge_token, code });
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
       setIsLoading(false);
     }
@@ -72,56 +107,67 @@ export function Login() {
             COLD CHAIN CONNECT
           </h2>
 
-          <form className="w-full flex flex-col gap-3.5" onSubmit={handleSubmit}>
-            {error && (
-              <div className="w-full px-3.5 py-2.5 bg-red-50 border-2 border-red-200 rounded-lg text-sm text-red-700">
-                {error}
+          {challenge ? (
+            <MfaStep
+              mode={challenge.mfa}
+              setupInfo={setupInfo}
+              error={error}
+              isLoading={isLoading}
+              onSubmit={handleMfaSubmit}
+              onBack={resetToCredentials}
+            />
+          ) : (
+            <form className="w-full flex flex-col gap-3.5" onSubmit={handleSubmit}>
+              {error && (
+                <div className="w-full px-3.5 py-2.5 bg-red-50 border-2 border-red-200 rounded-lg text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {/* Username Field */}
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1.5 letter-spacing-tight">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 border-2 border-blue-200 rounded-lg text-sm text-navy bg-blue-50 transition-colors focus:outline-none focus:border-accent disabled:opacity-50"
+                />
               </div>
-            )}
 
-            {/* Username Field */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-1.5 letter-spacing-tight">
-                Username
-              </label>
-              <input
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+              {/* Password Field */}
+              <div>
+                <label className="block text-xs font-semibold text-navy mb-1.5 letter-spacing-tight">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 border-2 border-blue-200 rounded-lg text-sm text-navy bg-blue-50 transition-colors focus:outline-none focus:border-accent disabled:opacity-50"
+                />
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
                 disabled={isLoading}
-                className="w-full px-3.5 py-2.5 border-2 border-blue-200 rounded-lg text-sm text-navy bg-blue-50 transition-colors focus:outline-none focus:border-accent disabled:opacity-50"
-              />
-            </div>
+                className="w-full py-3.5 bg-navy text-white rounded-xl font-rajdhani text-xl letter-spacing-widest font-semibold cursor-pointer transition-colors hover:bg-navy-mid mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Logging in..." : "Login"}
+              </button>
 
-            {/* Password Field */}
-            <div>
-              <label className="block text-xs font-semibold text-navy mb-1.5 letter-spacing-tight">
-                Password
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                className="w-full px-3.5 py-2.5 border-2 border-blue-200 rounded-lg text-sm text-navy bg-blue-50 transition-colors focus:outline-none focus:border-accent disabled:opacity-50"
-              />
-            </div>
-
-            {/* Login Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 bg-navy text-white rounded-xl font-rajdhani text-xl letter-spacing-widest font-semibold cursor-pointer transition-colors hover:bg-navy-mid mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Logging in..." : "Login"}
-            </button>
-
-            <div className="text-center text-xs text-gray-500 mt-1">
-              Forgot credentials? Contact Administrator
-            </div>
-          </form>
+              <div className="text-center text-xs text-gray-500 mt-1">
+                Forgot credentials? Contact Administrator
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

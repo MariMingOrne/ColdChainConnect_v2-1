@@ -20,8 +20,24 @@ export interface LoginResponse {
   user: {
     id: string;
     username: string;
-    role: "admin" | "agent";
+    role: "admin" | "agent" | "driver";
   };
+}
+
+export interface MfaChallengeResponse {
+  mfa: "setup" | "verify";
+  challenge_token: string;
+}
+
+export interface MfaSetupResponse {
+  secret: string;
+  otpauth_url: string;
+  qr_data_url: string;
+}
+
+export interface MfaVerifyRequest {
+  challenge_token: string;
+  code: string;
 }
 
 export interface LogoutResponse {
@@ -44,7 +60,8 @@ export interface CreateAccountResponse {
 export interface User {
   id: string;
   username: string;
-  role: "admin" | "agent";
+  role: "admin" | "agent" | "driver";
+  mfa_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -69,9 +86,23 @@ export interface Customer {
   contact_info?: string;
   agent_id?: string;
   payment_type?: "cash" | "check" | "bank_transfer" | "cod" | "credit";
+  credit_limit?: string | null;
+  credit_terms_days?: number;
   discounts?: CustomerDiscount[];
   created_at: string;
   updated_at: string;
+}
+
+export interface CreditViolation {
+  code: "OVERDUE_BEYOND_TERMS" | "CREDIT_LIMIT_EXCEEDED";
+  message: string;
+}
+
+export interface CreditBlockResponse {
+  error: string;
+  code: "AR_CREDIT_BLOCKED";
+  violations: CreditViolation[];
+  canOverride: boolean;
 }
 
 export function totalDiscountRate(discounts: CustomerDiscount[] | undefined): number {
@@ -266,8 +297,43 @@ export interface Driver {
   hire_date?: string;
   employment_type?: "full_time" | "part_time";
   is_active: boolean;
+  user_id?: string | null;
+  user?: { id: string; username: string; mfa_enabled: boolean } | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DriverSchedule {
+  date: string;
+  driver: { id: string; full_name: string | null };
+  deliveries: DriverScheduleRun[];
+}
+
+export interface DriverScheduleRun {
+  id: string;
+  status: "pending" | "in_transit" | "completed";
+  truck: { id: string; license_plate: string; district: string };
+  delivery_items: DriverScheduleStop[];
+}
+
+export interface DriverScheduleStop {
+  id: string;
+  status: "pending" | "in_transit" | "completed";
+  destination_customer: {
+    id: string;
+    store_name: string;
+    location: string;
+    street_address: string | null;
+    contact_person: string | null;
+    contact_info: string | null;
+  };
+  invoice: {
+    id: string;
+    receipt_number: string | null;
+    total_amount: string | null;
+    payment_status: string;
+    invoice_items: { id: string; product_name: string; qty_ordered: number }[];
+  };
 }
 
 export const CreateDriverSchema = z.object({

@@ -13,7 +13,7 @@ import {
 import { relations } from "drizzle-orm";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["admin", "agent"]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "agent", "driver"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending",
   "approved",
@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
   password_hash: text("password_hash").notNull(),
+  mfa_secret: text("mfa_secret"),
+  mfa_enabled: boolean("mfa_enabled").default(false).notNull(),
   role: userRoleEnum("role").default("agent").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -61,6 +63,8 @@ export const customers = pgTable("customers", {
   contact_info: text("contact_info"),
   agent_id: text("agent_id").references(() => users.id),
   payment_type: text("payment_type"),
+  credit_limit: decimal("credit_limit", { precision: 12, scale: 2 }),
+  credit_terms_days: integer("credit_terms_days").default(30).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -148,9 +152,10 @@ export const agents = pgTable("agents", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Drivers table — standalone field staff (no login account)
+// Drivers table — field staff; optional login account via user_id
 export const drivers = pgTable("drivers", {
   id: text("id").primaryKey(),
+  user_id: text("user_id").references(() => users.id),
   full_name: text("full_name"),
   contact_info: text("contact_info"),
   license: text("license"),
@@ -279,6 +284,7 @@ export const deliveries = pgTable("deliveries", {
   driver_id: text("driver_id").references(() => drivers.id, { onDelete: "set null" }),
   // agent who manages/owns this delivery; auto-locked when an agent creates the delivery
   agent_id: text("agent_id").references(() => agents.id, { onDelete: "set null" }),
+  scheduled_date: text("scheduled_date"), // YYYY-MM-DD the run is scheduled for
   status: deliveryStatusEnum("status").default("pending").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -433,7 +439,8 @@ export const agentsRelations = relations(agents, ({ one }) => ({
   user: one(users, { fields: [agents.user_id], references: [users.id] }),
 }));
 
-export const driversRelations = relations(drivers, ({ many }) => ({
+export const driversRelations = relations(drivers, ({ one, many }) => ({
+  user: one(users, { fields: [drivers.user_id], references: [users.id] }),
   trucks: many(trucks),
 }));
 

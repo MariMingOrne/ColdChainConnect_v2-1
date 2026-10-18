@@ -13,6 +13,7 @@ import {
 import { Plus, Trash2, Send, RefreshCw } from "lucide-react";
 import { Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
+import { describeCreditBlock, isCreditBlock, promptCreditOverride } from "@/lib/creditOverride";
 
 interface BookingLineItem {
   id: string;
@@ -96,7 +97,7 @@ export function MobileBooking() {
     setLineItems(lineItems.filter((item) => item.id !== id));
   };
 
-  const submitBooking = async () => {
+  const submitBooking = async (override?: { reason: string }) => {
     if (!selectedCustomer || lineItems.length === 0) {
       setError("Select customer and add items");
       return;
@@ -118,6 +119,7 @@ export function MobileBooking() {
             product_id: item.product_id,
             qty_ordered: item.qty_ordered,
           })),
+          ...(override && { ar_override: true, ar_override_reason: override.reason }),
         }),
       });
 
@@ -125,6 +127,15 @@ export function MobileBooking() {
         setError("Session expired or account not found. Please log in again.");
         await logout();
         return;
+      }
+      if (response.status === 409) {
+        const block: unknown = await response.json();
+        if (isCreditBlock(block)) {
+          const reason = override ? null : promptCreditOverride(block);
+          if (reason) return await submitBooking({ reason });
+          setError(describeCreditBlock(block));
+          return;
+        }
       }
       if (!response.ok) throw new Error("Failed to create booking");
 
@@ -164,7 +175,7 @@ export function MobileBooking() {
 
       {error && (
         <Card className="p-4 bg-red-50 border-red-200">
-          <p className="text-red-700 text-sm">{error}</p>
+          <p className="text-red-700 text-sm whitespace-pre-line">{error}</p>
         </Card>
       )}
 
@@ -288,7 +299,7 @@ export function MobileBooking() {
       {/* Submit */}
       {selectedCustomer && lineItems.length > 0 && (
         <Button
-          onClick={submitBooking}
+          onClick={() => submitBooking()}
           disabled={isSending}
           className="w-full gap-2 bg-green-600 hover:bg-green-700"
           size="lg"

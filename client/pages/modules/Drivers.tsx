@@ -3,6 +3,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Driver } from "@shared/api";
+import { DriverScheduleModal } from "@/components/driver/DriverScheduleModal";
 
 interface DriversProps {
   onBack?: () => void;
@@ -15,6 +16,8 @@ interface DriverForm {
   hire_date: string;
   employment_type: "full_time" | "part_time" | "";
   is_active: boolean;
+  username: string;
+  password: string;
 }
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
@@ -35,6 +38,7 @@ function ViewDriverModal({ driver, onClose }: { driver: Driver; onClose: () => v
             ["License", driver.license],
             ["Hire Date", driver.hire_date],
             ["Employment Type", driver.employment_type?.replace("_", " ")],
+            ["Login Username", driver.user?.username],
           ].map(([label, value]) => (
             <div key={label as string}>
               <label className="block text-xs font-semibold text-muted mb-1">{label}</label>
@@ -65,12 +69,14 @@ function DriverModal({
   title,
   formData,
   setFormData,
+  hasLogin,
   onClose,
   onSave,
 }: {
   title: string;
   formData: DriverForm;
   setFormData: (data: DriverForm) => void;
+  hasLogin: boolean;
   onClose: () => void;
   onSave: () => void;
 }) {
@@ -119,6 +125,20 @@ function DriverModal({
             </select>
           </div>
 
+          <div className="border-t border-border pt-4 space-y-4">
+            <p className="text-xs font-bold text-muted uppercase tracking-wider">Login</p>
+            {field("Username", "username", "e.g., juan.delacruz")}
+            {field(
+              "Password",
+              "password",
+              hasLogin ? "Leave blank to keep current password" : "At least 4 characters",
+              "password"
+            )}
+            <p className="text-xs text-muted">
+              Drivers sign in with these details and set up an authenticator app on first login.
+            </p>
+          </div>
+
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -151,12 +171,14 @@ function DriverCard({
   showDelete,
   onView,
   onEdit,
+  onSchedule,
   onDelete,
 }: {
   driver: Driver;
   showDelete: boolean;
   onView: () => void;
   onEdit: () => void;
+  onSchedule: () => void;
   onDelete: () => void;
 }) {
   const initials = (driver.full_name || "?")
@@ -196,10 +218,15 @@ function DriverCard({
           <span className="text-muted block">Hired</span>
           <span className="text-navy font-medium">{driver.hire_date || "—"}</span>
         </div>
+        <div>
+          <span className="text-muted block">Login</span>
+          <span className="text-navy font-medium">{driver.user?.username || "No login"}</span>
+        </div>
       </div>
 
       <div className="flex gap-2 pt-1 border-t border-border">
         <button onClick={onView} className="flex-1 py-1.5 text-xs font-semibold border border-border rounded-lg hover:bg-off-white text-navy transition-colors">View</button>
+        <button onClick={onSchedule} className="flex-1 py-1.5 text-xs font-semibold border border-border rounded-lg hover:bg-off-white text-navy transition-colors">Schedule</button>
         <button onClick={onEdit} className="flex-1 py-1.5 text-xs font-semibold border border-border rounded-lg hover:bg-off-white text-navy transition-colors">Edit</button>
         {showDelete && (
           <button onClick={onDelete} className="flex-1 py-1.5 text-xs font-semibold bg-red/10 border border-red/30 rounded-lg hover:bg-red/20 text-red transition-colors">Delete</button>
@@ -220,6 +247,7 @@ export function Drivers({ onBack }: DriversProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [viewingDriver, setViewingDriver] = useState<Driver | null>(null);
+  const [schedulingDriver, setSchedulingDriver] = useState<Driver | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { token } = useAuth();
@@ -231,6 +259,8 @@ export function Drivers({ onBack }: DriversProps) {
     hire_date: "",
     employment_type: "",
     is_active: true,
+    username: "",
+    password: "",
   });
 
   const [formData, setFormData] = useState<DriverForm>(emptyForm());
@@ -289,6 +319,8 @@ export function Drivers({ onBack }: DriversProps) {
       hire_date: driver.hire_date ?? "",
       employment_type: (driver.employment_type as any) ?? "",
       is_active: driver.is_active ?? true,
+      username: driver.user?.username ?? "",
+      password: "",
     });
     setIsModalOpen(true);
   };
@@ -311,6 +343,8 @@ export function Drivers({ onBack }: DriversProps) {
             hire_date: formData.hire_date,
             employment_type: formData.employment_type || undefined,
             is_active: formData.is_active,
+            username: formData.username || undefined,
+            password: formData.password || undefined,
           }),
         });
         if (!res.ok) throw new Error("Failed to update driver");
@@ -326,6 +360,8 @@ export function Drivers({ onBack }: DriversProps) {
             license: formData.license,
             hire_date: formData.hire_date,
             employment_type: formData.employment_type || undefined,
+            username: formData.username || undefined,
+            password: formData.password || undefined,
           }),
         });
         if (!res.ok) {
@@ -423,6 +459,7 @@ export function Drivers({ onBack }: DriversProps) {
               showDelete={showDeleteButtons}
               onView={() => setViewingDriver(driver)}
               onEdit={() => openEditModal(driver)}
+              onSchedule={() => setSchedulingDriver(driver)}
               onDelete={() => handleDelete(driver.id)}
             />
           ))}
@@ -458,11 +495,16 @@ export function Drivers({ onBack }: DriversProps) {
         <ViewDriverModal driver={viewingDriver} onClose={() => setViewingDriver(null)} />
       )}
 
+      {schedulingDriver && (
+        <DriverScheduleModal driver={schedulingDriver} onClose={() => setSchedulingDriver(null)} />
+      )}
+
       {isModalOpen && (
         <DriverModal
           title={editingDriver ? "Edit Driver" : "Add New Driver"}
           formData={formData}
           setFormData={setFormData}
+          hasLogin={Boolean(editingDriver?.user)}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSave}
         />

@@ -1,10 +1,16 @@
 import { create } from "zustand";
-import { LoginRequest, LoginResponse } from "@shared/api";
+import {
+  LoginRequest,
+  LoginResponse,
+  MfaChallengeResponse,
+  MfaSetupResponse,
+  MfaVerifyRequest,
+} from "@shared/api";
 
 export interface AuthUser {
   id: string;
   username: string;
-  role: "admin" | "agent";
+  role: "admin" | "agent" | "driver";
 }
 
 interface AuthStore {
@@ -13,7 +19,9 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<MfaChallengeResponse | null>;
+  setupMfa: (challengeToken: string) => Promise<MfaSetupResponse>;
+  verifyMfa: (request: MfaVerifyRequest) => Promise<void>;
   logout: () => Promise<void>;
   setToken: (token: string | null) => void;
   setUser: (user: AuthUser | null) => void;
@@ -54,6 +62,34 @@ const persistAuth = (token: string | null, user: AuthUser | null) => {
   }
 };
 
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const errorBody = (await response.json()) as { error?: string };
+    return errorBody.error || fallback;
+  } catch {
+    return response.status === 401 ? "Invalid username or password" : fallback;
+  }
+}
+
+function completeSignIn(
+  set: (partial: Partial<AuthStore>) => void,
+  data: LoginResponse
+) {
+  const normalizedUser: AuthUser = {
+    id: data.user.id,
+    username: data.user.username,
+    role: data.user.role,
+  };
+
+  persistAuth(data.token, normalizedUser);
+  set({
+    token: data.token,
+    user: normalizedUser,
+    isAuthenticated: true,
+    isLoading: false,
+  });
+}
+
 export const useAuth = create<AuthStore>((set, get) => {
   const { user: storedUser, token: storedToken } = getStoredAuth();
 
@@ -75,35 +111,53 @@ export const useAuth = create<AuthStore>((set, get) => {
         });
 
         if (!response.ok) {
-          let message = "Login failed";
-          try {
-            const errorBody = (await response.json()) as { error?: string };
-            if (errorBody.error) {
-              message = errorBody.error;
-            }
-          } catch {
-            message = response.status === 401 ? "Invalid username or password" : message;
-          }
-          throw new Error(message);
+          throw new Error(await readErrorMessage(response, "Login failed"));
         }
 
-        const data = (await response.json()) as LoginResponse;
-        const normalizedUser: AuthUser = {
-          id: data.user.id,
-          username: data.user.username,
-          role: data.user.role,
-        };
+        const data = (await response.json()) as LoginResponse | MfaChallengeResponse;
+        set({ isLoading: false });
 
-        persistAuth(data.token, normalizedUser);
+        if ("challenge_token" in data) {
+          return data;
+        }
 
-        set({
-          token: data.token,
-          user: normalizedUser,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        completeSignIn(set, data);
+        return null;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Login failed";
+        set({ error: message, isLoading: false });
+        throw error;
+      }
+    },
+
+    setupMfa: async (challengeToken) => {
+      const response = await fetch("/api/auth/mfa/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challenge_token: challengeToken }),
+      });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Could not start MFA setup"));
+      }
+      return (await response.json()) as MfaSetupResponse;
+    },
+
+    verifyMfa: async (request) => {
+      set({ isLoading: true, error: null });
+
+      try {
+        const response = await fetch("/api/auth/mfa/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(request),
+        });
+        if (!response.ok) {
+          throw new Error(await readErrorMessage(response, "Verification failed"));
+        }
+
+        completeSignIn(set, (await response.json()) as LoginResponse);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Verification failed";
         set({ error: message, isLoading: false });
         throw error;
       }

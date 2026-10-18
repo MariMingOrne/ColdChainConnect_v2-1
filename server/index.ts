@@ -5,9 +5,12 @@ import { handleDemo } from "./routes/demo";
 import { uploadMiddleware, handleUpload } from "./routes/upload";
 import {
   handleLogin,
+  handleMfaSetup,
+  handleMfaVerify,
   handleLogout,
   handleRefresh,
   updateUserPassword,
+  resetUserMfa,
 } from "./routes/auth";
 import { handleCreateAccount } from "./routes/users";
 import {
@@ -37,6 +40,7 @@ import {
   updateDriver,
   deleteDriver,
 } from "./routes/drivers";
+import { getDriverSchedule } from "./routes/driver-schedule";
 import {
   listAgents,
   createAgent,
@@ -133,10 +137,13 @@ export function createServer() {
 
   // Auth routes (no auth required)
   app.post("/api/auth/login", handleLogin);
+  app.post("/api/auth/mfa/setup", handleMfaSetup);
+  app.post("/api/auth/mfa/verify", handleMfaVerify);
   app.post("/api/auth/logout", handleLogout);
   app.post("/api/auth/refresh", authMiddleware, handleRefresh);
   app.post("/api/users", authMiddleware, requireRole("admin"), handleCreateAccount);
   app.patch("/api/users/:userId/password", authMiddleware, requireRole("admin"), updateUserPassword);
+  app.post("/api/users/:userId/mfa/reset", authMiddleware, requireRole("admin"), resetUserMfa);
 
   // Customers routes
   app.get("/api/customers", authMiddleware, listCustomers);
@@ -164,6 +171,7 @@ export function createServer() {
   app.post("/api/drivers", authMiddleware, requireRole("admin"), createDriver);
   app.patch("/api/drivers/:id", authMiddleware, requireRole("admin"), updateDriver);
   app.delete("/api/drivers/:id", authMiddleware, requireRole("admin"), deleteDriver);
+  app.get("/api/driver-schedule", authMiddleware, requireRole("admin", "driver"), getDriverSchedule);
 
   // Agents routes
   app.get("/api/agents", authMiddleware, listAgents);
@@ -231,7 +239,7 @@ export function createServer() {
   app.get("/api/pallets", authMiddleware, listPallets);
   app.get("/api/pallets/:id", authMiddleware, getPallet);
   app.post("/api/pallets", authMiddleware, createPallet);
-  app.patch("/api/pallets/:id/status", authMiddleware, updatePalletStatus);
+  app.patch("/api/pallets/:id/status", authMiddleware, requireRole("admin", "agent"), updatePalletStatus);
   app.patch("/api/pallets/:id/approve", authMiddleware, approvePallet);
   app.delete("/api/pallets/:id", authMiddleware, requireRole("admin"), deletePalletForOrder);
   app.get("/api/products/inventory", authMiddleware, getProductInventory);

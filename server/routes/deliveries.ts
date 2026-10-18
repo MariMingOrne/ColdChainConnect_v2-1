@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { deliveries, delivery_items, accounts_receivable, invoices, agents, customers, trucks } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
+import { isIsoDate, todayIsoDate } from "../services/schedule-date";
 import { logAction } from "../middleware/audit-logger";
 
 // ─── Safe query helper ────────────────────────────────────────────────────────
@@ -63,12 +64,16 @@ export const createDelivery: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { truck_id, destinations, driver_id, agent_id } = req.body;
+  const { truck_id, destinations, driver_id, agent_id, scheduled_date } = req.body;
 
   if (!truck_id || !destinations || !Array.isArray(destinations)) {
     return res.status(400).json({
       error: "Truck ID and destinations array are required",
     });
+  }
+
+  if (scheduled_date !== undefined && (typeof scheduled_date !== "string" || !isIsoDate(scheduled_date))) {
+    return res.status(400).json({ error: "scheduled_date must be YYYY-MM-DD" });
   }
 
   try {
@@ -110,6 +115,7 @@ export const createDelivery: RequestHandler = async (
       truck_id,
       driver_id: driver_id ?? null,
       agent_id: resolvedAgentId,
+      scheduled_date: scheduled_date ?? todayIsoDate(),
       status: "pending",
     });
 

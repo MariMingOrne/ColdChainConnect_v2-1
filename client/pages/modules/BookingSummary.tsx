@@ -9,6 +9,7 @@ import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AddOrderModal } from "./AddOrderModal";
 import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
+import { describeCreditBlock, isCreditBlock, promptCreditOverride } from "@/lib/creditOverride";
 
 export function BookingSummary() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -155,7 +156,7 @@ export function BookingSummary() {
     return productStock[productId] || 0;
   };
 
-  const handleCreateOrder = async () => {
+  const submitOrder = async (override?: { reason: string }) => {
     if (!newCustomerId) {
       alert("Please select a customer");
       return;
@@ -178,12 +179,22 @@ export function BookingSummary() {
           customer_id: newCustomerId,
           prepared_delivery_date: preparedDeliveryDate || undefined,
           items: orderItems,
+          ...(override && { ar_override: true, ar_override_reason: override.reason }),
         }),
       });
       if (res.status === 401) {
         alert("Your session has expired or your account was not found. Please log in again.");
         await logout();
         return;
+      }
+      if (res.status === 409) {
+        const block: unknown = await res.json();
+        if (isCreditBlock(block)) {
+          const reason = override ? null : promptCreditOverride(block);
+          if (reason) return await submitOrder({ reason });
+          alert(describeCreditBlock(block));
+          return;
+        }
       }
       if (!res.ok) {
         const errData = await res.json();
@@ -201,6 +212,8 @@ export function BookingSummary() {
       setIsCreating(false);
     }
   };
+
+  const handleCreateOrder = () => submitOrder();
 
   // ── Order Detail Modal ────────────────────────────────────────
   const openDetailModal = (booking: Booking) => {
