@@ -26,6 +26,7 @@ const agentModules = [
   { label: "Orders",            path: "/order-summary" },
   { label: "Pallet Preparation", path: "/preparation" },
   { label: "Pallet Tracking",   path: "/inventory" },
+  { label: "Agent Returns",     path: "/agent-returns" },
 ];
 
 export function BookingDispatch() {

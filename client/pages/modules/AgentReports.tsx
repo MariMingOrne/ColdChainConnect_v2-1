@@ -179,7 +179,8 @@ function CreateReturnModal({
 
 // ─── Main AgentReports Component ───────────────────────────────────────────────
 export function AgentReports() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const role = user?.role;
 
   const [returns,   setReturns]   = useState<AgentReturn[]>([]);
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
@@ -382,7 +383,7 @@ export function AgentReports() {
                           )}
                         </td>
                         <td className="px-3 py-3">
-                          {ret.status === "pending" ? (
+                          {ret.status === "pending" && role === "admin" ? (
                             <div className="flex gap-1">
                               <button
                                 disabled={processing === ret.id}
