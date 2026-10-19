@@ -59,8 +59,7 @@ export function AgentOrderScreen({
   return (
     <div className="min-h-full flex flex-col bg-off-white">
       <header className="bg-navy text-white px-5 pt-5 pb-4">
-        <p className="font-rajdhani text-xl font-bold tracking-wide">ACDP</p>
-        <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-3">
           <div>
             <h1 className="font-rajdhani text-2xl font-bold">Point of Sale</h1>
             <p className="text-xs text-white/70">Create a customer order</p>
