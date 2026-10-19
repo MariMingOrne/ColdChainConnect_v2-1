@@ -119,18 +119,22 @@ export function AgentDeliverySchedule() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Assigned runs</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border bg-white p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Assigned runs</p>
           <p className="mt-1 font-rajdhani text-3xl font-bold text-navy">{deliveries.length}</p>
         </div>
-        <div className="rounded-xl border border-border bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Delivery stops</p>
+        <div className="rounded-xl border border-border bg-white p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Total stops</p>
           <p className="mt-1 font-rajdhani text-3xl font-bold text-navy">{stopCount}</p>
         </div>
-        <div className="col-span-2 rounded-xl border border-border bg-white p-4 sm:col-span-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Completed stops</p>
-          <p className="mt-1 font-rajdhani text-3xl font-bold text-navy">{completedCount}<span className="text-base font-medium text-muted"> / {stopCount}</span></p>
+        <div className="rounded-xl border border-border bg-white p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed</p>
+          <p className="mt-1 font-rajdhani text-3xl font-bold text-green">{completedCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-white p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Remaining</p>
+          <p className="mt-1 font-rajdhani text-3xl font-bold text-accent-2">{stopCount - completedCount}</p>
         </div>
       </div>
 

@@ -116,10 +116,11 @@ export function AgentPalletTracking() {
         </button>
       </header>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {([
           ["Total", pallets.length],
           ["Preparing", pallets.filter((pallet) => pallet.status === "draft").length],
+          ["Ready", pallets.filter((pallet) => pallet.status === "prepared" || pallet.status === "approved").length],
           ["Dispatched", pallets.filter((pallet) => pallet.status === "shipped").length],
         ] as const).map(([label, count]) => (
           <div key={label} className="rounded-2xl border border-border bg-white px-3 py-3">
