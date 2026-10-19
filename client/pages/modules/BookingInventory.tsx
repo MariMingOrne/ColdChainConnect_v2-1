@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Pallet, Booking, Customer, Product, formatCustomerAddress } from "@shared/api";
+import { Pallet, Booking, Customer, Product, Truck, Invoice, Delivery, DeliveryItem, formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { PalletStats } from "@/components/pallets/PalletStats";
 import { PalletToolbar, PalletStatusFilter } from "@/components/pallets/PalletToolbar";
 import { PalletTable, PalletEntry } from "@/components/pallets/PalletTable";
 import { PalletDetail } from "@/components/pallets/PalletDetail";
+import { DatePresetFilter, isInDatePreset } from "@/components/pallets/palletUtils";
+
+type DeliveryWithItems = Delivery & { delivery_items?: DeliveryItem[] };
 
 export function BookingInventory() {
   const [searchParams] = useSearchParams();
@@ -15,26 +18,37 @@ export function BookingInventory() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [deliveries, setDeliveries] = useState<DeliveryWithItems[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("order") ?? "");
   const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<PalletStatusFilter>("all");
+  const [truckFilter, setTruckFilter] = useState("all");
+  const [datePreset, setDatePreset] = useState<DatePresetFilter>("all");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { token } = useAuth();
 
   const fetchAll = async () => {
     try {
-      const [pRes, bRes, cRes, prRes] = await Promise.all([
+      const [pRes, bRes, cRes, prRes, tRes, dRes, iRes] = await Promise.all([
         fetch("/api/pallets", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/customers", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/trucks", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/deliveries", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/invoices", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (pRes.ok) setPallets(await pRes.json());
       if (bRes.ok) setBookings(await bRes.json());
       if (cRes.ok) setCustomers(await cRes.json());
       if (prRes.ok) setProducts(await prRes.json());
+      if (tRes.ok) setTrucks(await tRes.json());
+      if (dRes.ok) setDeliveries(await dRes.json());
+      if (iRes.ok) setInvoices(await iRes.json());
     } catch (err) {
       console.error("Error loading data:", err);
     } finally {
@@ -83,6 +97,7 @@ export function BookingInventory() {
 
   const filteredEntries = entries.filter(({ pallet, customer }) => {
     if (statusFilter !== "all" && pallet.status !== statusFilter) return false;
+    if (!isInDatePreset(pallet.created_at, datePreset)) return false;
 
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
@@ -94,6 +109,42 @@ export function BookingInventory() {
       customer ? formatCustomerAddress(customer) : undefined,
     ].some((value) => value?.toLowerCase().includes(query));
   });
+
+  const truckByBookingId = new Map<string, string>();
+  for (const delivery of deliveries) {
+    for (const item of delivery.delivery_items ?? []) {
+      const invoice = invoices.find((inv) => inv.id === item.invoice_id);
+      if (invoice && !truckByBookingId.has(invoice.booking_id)) {
+        truckByBookingId.set(invoice.booking_id, delivery.truck_id);
+      }
+    }
+  }
+
+  const truckIdFor = (pallet: Pallet) => pallet.truck_id ?? truckByBookingId.get(pallet.order_id);
+
+  const palletGroups: { truck: Truck | null; entries: PalletEntry[] }[] = [
+    ...[...trucks]
+      .sort((a, b) => a.license_plate.localeCompare(b.license_plate))
+      .map((truck) => ({
+        truck,
+        entries: filteredEntries.filter(({ pallet }) => truckIdFor(pallet) === truck.id),
+      })),
+    { truck: null, entries: filteredEntries.filter(({ pallet }) => !truckIdFor(pallet)) },
+  ].filter((group) => group.entries.length > 0);
+
+  const truckOptions = [
+    { value: "all", label: "All trucks" },
+    ...[...trucks]
+      .sort((a, b) => a.license_plate.localeCompare(b.license_plate))
+      .map((truck) => ({ value: truck.id, label: `${truck.license_plate} · ${truck.district}` })),
+    { value: "unassigned", label: "Unassigned" },
+  ];
+
+  const visiblePalletGroups = palletGroups.filter(
+    (group) => truckFilter === "all" || (group.truck?.id ?? "unassigned") === truckFilter
+  );
+
+  const visiblePallets = visiblePalletGroups.flatMap((group) => group.entries.map(({ pallet }) => pallet));
 
   const selected = entries.find((entry) => entry.pallet.id === selectedPalletId) ?? null;
 
@@ -112,7 +163,7 @@ export function BookingInventory() {
         </Button>
       </div>
 
-      <PalletStats pallets={pallets} />
+      <PalletStats pallets={visiblePallets} />
 
       {selected ? (
         <PalletDetail
@@ -131,6 +182,11 @@ export function BookingInventory() {
             onSearchChange={setSearchQuery}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
+            truckOptions={truckOptions}
+            truckFilter={truckFilter}
+            onTruckChange={setTruckFilter}
+            datePreset={datePreset}
+            onDatePresetChange={setDatePreset}
           />
 
           {filteredEntries.length === 0 ? (
@@ -143,7 +199,27 @@ export function BookingInventory() {
               </p>
             </div>
           ) : (
-            <PalletTable entries={filteredEntries} onSelect={setSelectedPalletId} />
+            <div className="flex flex-col gap-6">
+              {visiblePalletGroups.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-white p-10 text-center text-muted">
+                  No pallets for this truck.
+                </div>
+              )}
+              {visiblePalletGroups.map((group) => (
+                <section key={group.truck?.id ?? "unassigned"} className="space-y-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div>
+                      <h2 className="font-semibold text-navy">{group.truck?.license_plate ?? "Unassigned"}</h2>
+                      <p className="text-xs text-muted">{group.truck?.district ?? "Pallets not yet on a truck"}</p>
+                    </div>
+                    <span className="text-sm text-muted">
+                      {group.entries.length} pallet{group.entries.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <PalletTable entries={group.entries} onSelect={setSelectedPalletId} />
+                </section>
+              ))}
+            </div>
           )}
         </>
       )}

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { HubSidebar } from "@/components/HubSidebar";
 import { BookingSummary } from "./modules/BookingSummary";
 import { Invoicing } from "./modules/Invoicing";
@@ -19,14 +19,14 @@ const adminModules = [
   { label: "Truck Dispatch",      path: "/delivery" },
   { label: "Accounts Receivable", path: "/accounts" },
   { label: "Delivery History",    path: "/delivery-history" },
-  { label: "Agent Returns",       path: "/agent-returns" },
+  { label: "Returns",             path: "/agent-returns" },
 ];
 
 const agentModules = [
   { label: "Orders",            path: "/order-summary" },
   { label: "Pallet Preparation", path: "/preparation" },
   { label: "Pallet Tracking",   path: "/inventory" },
-  { label: "Truck Dispatch",    path: "/delivery" },
+  { label: "Returns",           path: "/agent-returns" },
 ];
 
 export function BookingDispatch() {
@@ -47,7 +47,10 @@ export function BookingDispatch() {
             <Route path="/preparation"      element={<Preparation />} />
             <Route path="/inventory"        element={<BookingInventory />} />
             <Route path="/invoicing"        element={<Invoicing />} />
-            <Route path="/delivery"         element={<DeliveryDispatch />} />
+            <Route
+              path="/delivery"
+              element={isAgent ? <Navigate to="/booking-dispatch/order-summary" replace /> : <DeliveryDispatch />}
+            />
             <Route path="/accounts"         element={<AccountsReceivable />} />
             <Route path="/delivery-history" element={<DeliveryHistory />} />
             <Route path="/agent-returns"    element={<AgentReports />} />

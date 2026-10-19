@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { RefreshCw, RotateCcw, CheckCircle, XCircle, PackageX } from "lucide-react";
+import { RefreshCw, RotateCcw, CheckCircle, XCircle } from "lucide-react";
 import { AgentReturn, Invoice, Customer, Product } from "@shared/api";
+import { LogReturnForm } from "./LogReturnForm";
 
 function authHeaders(token: string) {
   return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
@@ -19,68 +20,48 @@ function returnTypeBadge(type: string) {
     : "bg-blue-100 text-blue-800";
 }
 
-// ─── Create Return Modal ───────────────────────────────────────────────────────
+// ─── Agent: full-screen Log Return ────────────────────────────────────────────
+function AgentLogReturnScreen({
+  invoices, customers, products, token,
+}: {
+  invoices: Invoice[]; customers: Customer[]; products: Product[]; token: string;
+}) {
+  const [logged, setLogged] = useState(false);
+
+  return (
+    <div className="px-4 md:px-6 lg:px-7 py-4 md:py-6 space-y-5 max-w-xl mx-auto">
+      <div>
+        <h1 className="page-title">Logging Returns</h1>
+        <p className="page-subtitle">Record returned items and their condition</p>
+      </div>
+
+      {logged && (
+        <div className="rounded-lg border border-green/30 bg-green/10 px-4 py-2 text-xs text-green">
+          Return logged.
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-border flex flex-col">
+        <LogReturnForm
+          invoices={invoices}
+          customers={customers}
+          products={products}
+          token={token}
+          onSaved={() => setLogged(true)}
+          onCancel={() => setLogged(false)}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin: Create Return Modal ───────────────────────────────────────────────
 function CreateReturnModal({
   invoices, customers, products, token, onClose, onCreated,
 }: {
   invoices: Invoice[]; customers: Customer[]; products: Product[];
   token: string; onClose: () => void; onCreated: () => void;
 }) {
-  const [invoiceId, setInvoiceId] = useState("");
-  const [customerId, setCustomerId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [qty, setQty] = useState(1);
-  const [returnType, setReturnType] = useState<"good" | "damaged">("good");
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // When invoice changes, auto-fill customer from snapshot
-  useEffect(() => {
-    if (!invoiceId) { setCustomerId(""); return; }
-    const inv = invoices.find((i) => i.id === invoiceId);
-    if (inv?.customer_name) {
-      const matched = customers.find((c) => c.store_name === inv.customer_name);
-      if (matched) setCustomerId(matched.id);
-    }
-  }, [invoiceId]);
-
-  // Products available in this invoice
-  const invoiceProducts = invoiceId
-    ? (invoices.find((i) => i.id === invoiceId)?.invoice_items ?? []).map((item) => ({
-        id: item.product_id,
-        name: item.product_name,
-      }))
-    : [];
-
-  const handleSave = async () => {
-    if (!invoiceId || !customerId || !productId || qty < 1) {
-      alert("Fill in all required fields.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/agent-returns", {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({
-          invoice_id: invoiceId,
-          customer_id: customerId,
-          product_id: productId,
-          qty_returned: qty,
-          return_type: returnType,
-          reason,
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      onCreated();
-      onClose();
-    } catch (err) {
-      alert("Failed to create return: " + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <div className="bg-white rounded-t-2xl sm:rounded-2xl border border-border w-full sm:max-w-lg max-h-[90vh] flex flex-col">
@@ -88,98 +69,24 @@ function CreateReturnModal({
           <h2 className="font-rajdhani text-base font-bold text-white">Log Return</h2>
           <button onClick={onClose} className="text-white hover:opacity-70 text-2xl leading-none">×</button>
         </div>
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
-          {/* Invoice */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Order / Invoice *</label>
-            <select value={invoiceId} onChange={(e) => { setInvoiceId(e.target.value); setProductId(""); }}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-              <option value="">Select order…</option>
-              {invoices.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.customer_name || inv.id.slice(0, 8)} · {inv.receipt_number || inv.id.slice(0, 8).toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Customer (auto-filled, editable) */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Customer *</label>
-            <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-              <option value="">Select customer…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.store_name}{c.contact_person ? ` — ${c.contact_person}` : ""}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Product */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Product *</label>
-            <select value={productId} onChange={(e) => setProductId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-              <option value="">Select product…</option>
-              {(invoiceProducts.length > 0 ? invoiceProducts : products.map((p) => ({ id: p.id, name: p.name }))).map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            {invoiceId && invoiceProducts.length === 0 && (
-              <p className="page-subtitle">No items found on invoice — showing all products.</p>
-            )}
-          </div>
-
-          {/* Qty */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Quantity Returned *</label>
-            <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2" />
-          </div>
-
-          {/* Return type */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-2">Return Type *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { value: "good", label: "✅ Good Condition", desc: "Stock restored to inventory" },
-                { value: "damaged", label: "🗑 Damaged / Spoiled", desc: "Written off — no restock" },
-              ] as const).map((opt) => (
-                <label key={opt.value}
-                  className={`flex flex-col p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    returnType === opt.value ? "border-accent-2 bg-accent-2/5" : "border-border"
-                  }`}>
-                  <input type="radio" className="sr-only" checked={returnType === opt.value} onChange={() => setReturnType(opt.value)} />
-                  <span className="text-sm font-semibold text-navy">{opt.label}</span>
-                  <span className="text-xs text-muted mt-0.5">{opt.desc}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Reason */}
-          <div>
-            <label className="block text-xs font-semibold text-navy mb-1">Reason / Notes</label>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
-              placeholder="Describe why the goods are being returned…"
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2 resize-none" />
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 p-5 border-t border-border flex-shrink-0">
-          <button onClick={onClose} className="btn-ghost">Cancel</button>
-          <button onClick={handleSave} disabled={!invoiceId || !customerId || !productId || qty < 1 || saving}
-            className="btn-primary">
-            {saving ? "Saving…" : "Log Return"}
-          </button>
-        </div>
+        <LogReturnForm
+          invoices={invoices}
+          customers={customers}
+          products={products}
+          token={token}
+          onSaved={() => { onCreated(); onClose(); }}
+          onCancel={onClose}
+        />
       </div>
     </div>
   );
 }
 
-// ─── Main AgentReports Component ───────────────────────────────────────────────
+// ─── Main Returns Component ───────────────────────────────────────────────────
 export function AgentReports() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const role = user?.role;
+  const isAgent = role === "agent";
 
   const [returns,   setReturns]   = useState<AgentReturn[]>([]);
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
@@ -241,7 +148,7 @@ export function AgentReports() {
 
   const handleReject = async (id: string) => {
     const reason = prompt("Reason for rejection (optional):");
-    if (reason === null) return; // cancelled
+    if (reason === null) return;
     if (!token) return;
     setProcessing(id);
     try {
@@ -258,6 +165,17 @@ export function AgentReports() {
     }
   };
 
+  if (isAgent) {
+    return (
+      <AgentLogReturnScreen
+        invoices={invoices}
+        customers={customers}
+        products={products}
+        token={token!}
+      />
+    );
+  }
+
   const filtered = returns.filter((r) =>
     statusFilter === "all" ? true : r.status === statusFilter
   );
@@ -269,10 +187,9 @@ export function AgentReports() {
   return (
     <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6 overflow-y-auto space-y-6">
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="page-title">Agent Returns</h1>
+          <h1 className="page-title">Returns</h1>
           <p className="page-subtitle">Manage returned goods — restock or write off</p>
         </div>
         <div className="flex gap-2">
@@ -292,7 +209,6 @@ export function AgentReports() {
         <div className="rounded-lg border border-red/30 bg-red/10 px-4 py-2 text-xs text-red">⚠️ {error}</div>
       )}
 
-      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white border border-border rounded-2xl p-4">
           <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
@@ -308,7 +224,6 @@ export function AgentReports() {
         </div>
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-1 bg-off-white rounded-lg p-1 w-fit">
         {(["all", "pending", "accepted", "rejected"] as const).map((s) => (
           <button key={s} onClick={() => setStatusFilter(s)}
@@ -320,7 +235,6 @@ export function AgentReports() {
         ))}
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl border border-border overflow-hidden">
         {loading ? (
           <p className="px-6 py-8 text-sm text-muted">Loading…</p>

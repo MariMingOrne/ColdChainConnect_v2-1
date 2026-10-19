@@ -38,7 +38,7 @@ export function PalletDetail({
         Back to deliveries
       </button>
 
-      <Card className="p-6">
+      <Card className="bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Pallet</p>
@@ -80,7 +80,7 @@ export function PalletDetail({
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="overflow-hidden lg:col-span-2">
+        <Card className="overflow-hidden bg-white lg:col-span-2">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-off-white text-xs uppercase tracking-wide text-muted">
@@ -112,7 +112,7 @@ export function PalletDetail({
           </table>
         </Card>
 
-        <Card className="flex flex-col justify-center gap-4 p-6">
+        <Card className="flex flex-col justify-center gap-4 bg-white p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Total value</p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-navy">{formatMoney(totalValue)}</p>

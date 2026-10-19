@@ -57,6 +57,7 @@ import {
   listBookings,
   createBooking,
   updateBookingStatus,
+  deleteBooking,
 } from "./routes/bookings";
 import {
   listInvoices,
@@ -188,7 +189,8 @@ export function createServer() {
   // Bookings routes
   app.get("/api/bookings", authMiddleware, listBookings);
   app.post("/api/bookings", authMiddleware, createBooking);
-  app.patch("/api/bookings/:id/status", authMiddleware, updateBookingStatus);
+  app.patch("/api/bookings/:id/status", authMiddleware, requireRole("admin"), updateBookingStatus);
+  app.delete("/api/bookings/:id", authMiddleware, deleteBooking);
 
   // Invoices routes
   app.get("/api/invoices", authMiddleware, listInvoices);

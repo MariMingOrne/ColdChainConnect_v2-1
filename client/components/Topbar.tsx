@@ -56,23 +56,24 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="relative w-full max-w-md">
-          <input
-            type="text"
-            placeholder="Search products, customers, orders…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-4 pr-11 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
-          />
-          <button
-            type="submit"
-            aria-label="Search"
-            className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-        </form>
+        {role !== "agent" && (
+          <form onSubmit={handleSearch} className="relative w-full max-w-md">
+            <input
+              type="text"
+              placeholder="Search products, customers, orders…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-4 pr-11 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+            />
+            <button
+              type="submit"
+              aria-label="Search"
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Right Section */}

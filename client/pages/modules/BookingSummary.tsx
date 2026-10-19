@@ -8,6 +8,7 @@ import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AddOrderModal } from "./AddOrderModal";
+import { AgentOrderScreen } from "./AgentOrderScreen";
 import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
 import { describeCreditBlock, isCreditBlock, promptCreditOverride } from "@/lib/creditOverride";
 
@@ -19,7 +20,8 @@ export function BookingSummary() {
   const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token, logout } = useAuth();
+  const { token, logout, user } = useAuth();
+  const isAgent = user?.role === "agent";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("all");
@@ -49,6 +51,7 @@ export function BookingSummary() {
   const [preparedDeliveryDate, setPreparedDeliveryDate] = useState("");
   const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -215,6 +218,32 @@ export function BookingSummary() {
 
   const handleCreateOrder = () => submitOrder();
 
+  const resetOrderDraft = () => {
+    setNewCustomerId("");
+    setPreparedDeliveryDate("");
+    setOrderItems([]);
+  };
+
+  const handleRollbackOrder = async (booking: Booking) => {
+    if (!window.confirm("Roll back this order? It will be permanently deleted.")) return;
+    setRollingBackId(booking.id);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to roll back order");
+      }
+      setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to roll back order");
+    } finally {
+      setRollingBackId(null);
+    }
+  };
+
   // ── Order Detail Modal ────────────────────────────────────────
   const openDetailModal = (booking: Booking) => {
     setDetailBooking(booking);
@@ -319,6 +348,31 @@ export function BookingSummary() {
   };
 
   if (isLoading) return <div className="flex-1 px-6 py-8 text-sm text-muted">Loading…</div>;
+
+  if (isAgent) {
+    return (
+      <AgentOrderScreen
+        customers={customers}
+        products={products}
+        productStock={productStock}
+        orderItems={orderItems}
+        newCustomerId={newCustomerId}
+        preparedDeliveryDate={preparedDeliveryDate}
+        isCreating={isCreating}
+        onCustomerChange={setNewCustomerId}
+        onPreparedDeliveryDateChange={setPreparedDeliveryDate}
+        onAddItem={handleAddItem}
+        onRemoveItem={handleRemoveItem}
+        onItemChange={handleItemChange}
+        pendingOrders={bookings.filter((b) => b.status === "pending")}
+        currentUserId={user?.id ?? ""}
+        rollingBackId={rollingBackId}
+        onCancel={resetOrderDraft}
+        onCreateOrder={handleCreateOrder}
+        onRollbackOrder={handleRollbackOrder}
+      />
+    );
+  }
 
   const filtered = bookings.filter((b) => {
     const matchesSearch =
