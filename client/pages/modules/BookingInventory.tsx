@@ -24,6 +24,7 @@ export function BookingInventory() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("order") ?? "");
   const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<PalletStatusFilter>("all");
+  const [truckFilter, setTruckFilter] = useState("all");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { token } = useAuth();
 
@@ -128,6 +129,18 @@ export function BookingInventory() {
     { truck: null, entries: filteredEntries.filter(({ pallet }) => !truckIdFor(pallet)) },
   ].filter((group) => group.entries.length > 0);
 
+  const truckOptions = [
+    { value: "all", label: "All trucks" },
+    ...[...trucks]
+      .sort((a, b) => a.license_plate.localeCompare(b.license_plate))
+      .map((truck) => ({ value: truck.id, label: `${truck.license_plate} · ${truck.district}` })),
+    { value: "unassigned", label: "Unassigned" },
+  ];
+
+  const visiblePalletGroups = palletGroups.filter(
+    (group) => truckFilter === "all" || (group.truck?.id ?? "unassigned") === truckFilter
+  );
+
   const selected = entries.find((entry) => entry.pallet.id === selectedPalletId) ?? null;
 
   if (isLoading) return <div className="p-6 text-gray-500">Loading pallets…</div>;
@@ -164,6 +177,9 @@ export function BookingInventory() {
             onSearchChange={setSearchQuery}
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
+            truckOptions={truckOptions}
+            truckFilter={truckFilter}
+            onTruckChange={setTruckFilter}
           />
 
           {filteredEntries.length === 0 ? (
@@ -177,7 +193,12 @@ export function BookingInventory() {
             </div>
           ) : (
             <div className="flex flex-col gap-6">
-              {palletGroups.map((group) => (
+              {visiblePalletGroups.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border bg-white p-10 text-center text-muted">
+                  No pallets for this truck.
+                </div>
+              )}
+              {visiblePalletGroups.map((group) => (
                 <section key={group.truck?.id ?? "unassigned"} className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div>

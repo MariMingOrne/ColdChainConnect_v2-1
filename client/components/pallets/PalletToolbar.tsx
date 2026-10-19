@@ -12,29 +12,60 @@ const statusTabs: { value: PalletStatusFilter; label: string }[] = [
   { value: "shipped", label: "Shipped" },
 ];
 
+export interface TruckOption {
+  value: string;
+  label: string;
+}
+
 interface PalletToolbarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   statusFilter: PalletStatusFilter;
   onStatusChange: (value: PalletStatusFilter) => void;
+  truckOptions: TruckOption[];
+  truckFilter: string;
+  onTruckChange: (value: string) => void;
 }
 
-export function PalletToolbar({ searchQuery, onSearchChange, statusFilter, onStatusChange }: PalletToolbarProps) {
+export function PalletToolbar({
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusChange,
+  truckOptions,
+  truckFilter,
+  onTruckChange,
+}: PalletToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="inline-flex rounded-full border border-border bg-white p-1">
-        {statusTabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => onStatusChange(tab.value)}
-            className={cn(
-              "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition",
-              statusFilter === tab.value ? "bg-navy text-white" : "text-muted hover:text-navy"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-full border border-border bg-white p-1">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => onStatusChange(tab.value)}
+              className={cn(
+                "whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition",
+                statusFilter === tab.value ? "bg-navy text-white" : "text-muted hover:text-navy"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <select
+          aria-label="Truck"
+          value={truckFilter}
+          onChange={(e) => onTruckChange(e.target.value)}
+          className="rounded-full border border-border bg-white px-4 py-2 text-sm font-semibold text-navy focus:border-accent-2 focus:outline-none"
+        >
+          {truckOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="relative w-full sm:w-72">
