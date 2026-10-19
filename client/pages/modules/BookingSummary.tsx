@@ -8,6 +8,7 @@ import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { AddOrderModal } from "./AddOrderModal";
+import { AgentOrderScreen } from "./AgentOrderScreen";
 import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
 import { describeCreditBlock, isCreditBlock, promptCreditOverride } from "@/lib/creditOverride";
 
@@ -19,7 +20,8 @@ export function BookingSummary() {
   const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token, logout } = useAuth();
+  const { token, logout, user } = useAuth();
+  const isAgent = user?.role === "agent";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "prep" | "ready">("all");
@@ -215,6 +217,12 @@ export function BookingSummary() {
 
   const handleCreateOrder = () => submitOrder();
 
+  const resetOrderDraft = () => {
+    setNewCustomerId("");
+    setPreparedDeliveryDate("");
+    setOrderItems([]);
+  };
+
   // ── Order Detail Modal ────────────────────────────────────────
   const openDetailModal = (booking: Booking) => {
     setDetailBooking(booking);
@@ -319,6 +327,27 @@ export function BookingSummary() {
   };
 
   if (isLoading) return <div className="flex-1 px-6 py-8 text-sm text-muted">Loading…</div>;
+
+  if (isAgent) {
+    return (
+      <AgentOrderScreen
+        customers={customers}
+        products={products}
+        productStock={productStock}
+        orderItems={orderItems}
+        newCustomerId={newCustomerId}
+        preparedDeliveryDate={preparedDeliveryDate}
+        isCreating={isCreating}
+        onCustomerChange={setNewCustomerId}
+        onPreparedDeliveryDateChange={setPreparedDeliveryDate}
+        onAddItem={handleAddItem}
+        onRemoveItem={handleRemoveItem}
+        onItemChange={handleItemChange}
+        onCancel={resetOrderDraft}
+        onCreateOrder={handleCreateOrder}
+      />
+    );
+  }
 
   const filtered = bookings.filter((b) => {
     const matchesSearch =
