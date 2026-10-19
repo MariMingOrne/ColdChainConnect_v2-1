@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { ScanBarcode } from "lucide-react";
 import { Booking, Customer, Product } from "@shared/api";
 import { cn } from "@/lib/utils";
 import { AgentProductPicker } from "./AgentProductPicker";
 import { AgentOrderItems } from "./AgentOrderItems";
 import { AgentPendingOrders } from "./AgentPendingOrders";
-import { AgentBarcodeScanner } from "./AgentBarcodeScanner";
 
 interface OrderItem {
   product_id: string;
@@ -55,13 +53,8 @@ export function AgentOrderScreen({
 }: AgentOrderScreenProps) {
   const [view, setView] = useState<"new" | "pending">("new");
   const [tab, setTab] = useState<"products" | "items">("products");
-  const [isScanning, setIsScanning] = useState(false);
   const totalQty = orderItems.reduce((sum, item) => sum + item.qty_ordered, 0);
   const canCreate = !isCreating && !!newCustomerId && orderItems.length > 0;
-
-  if (isScanning) {
-    return <AgentBarcodeScanner onClose={() => setIsScanning(false)} />;
-  }
 
   return (
     <div className="min-h-full flex flex-col bg-off-white">
@@ -171,14 +164,6 @@ export function AgentOrderScreen({
               className="flex-1 py-3 border border-border rounded-full font-semibold text-sm text-navy"
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsScanning(true)}
-              aria-label="Open barcode scanner"
-              className="-mt-7 w-14 h-14 shrink-0 rounded-full bg-navy text-white flex items-center justify-center shadow-lg border-4 border-white"
-            >
-              <ScanBarcode size={22} />
             </button>
             <button
               type="button"

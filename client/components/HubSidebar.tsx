@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -7,7 +8,9 @@ import {
   Truck,
   CreditCard,
   History,
+  ScanBarcode,
 } from "lucide-react";
+import { AgentBarcodeScanner } from "../pages/modules/AgentBarcodeScanner";
 
 interface Module {
   label: string;
@@ -32,35 +35,53 @@ const moduleIcons: Record<string, React.ElementType> = {
 export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarProps) {
   const location = useLocation();
   const currentPath = location.pathname;
+  const [isScanning, setIsScanning] = useState(false);
 
   // ── Agent: fixed bottom app bar with icons ──────────────────────
   if (agentMode) {
-    return (
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-navy border-t border-white/10 flex items-stretch justify-around">
-        {modules.map((module) => {
-          const fullPath = `${basePath}${module.path}`;
-          const isActive = currentPath === fullPath || currentPath.startsWith(fullPath + "/");
-          const Icon = moduleIcons[module.path] ?? ClipboardList;
+    const half = Math.ceil(modules.length / 2);
+    const renderModule = (module: Module) => {
+      const fullPath = `${basePath}${module.path}`;
+      const isActive = currentPath === fullPath || currentPath.startsWith(fullPath + "/");
+      const Icon = moduleIcons[module.path] ?? ClipboardList;
 
-          return (
-            <Link
-              key={module.path}
-              to={fullPath}
-              className={cn(
-                "flex flex-col items-center justify-center gap-1 flex-1 py-3 px-1 text-[10px] font-semibold transition-all min-w-0",
-                isActive
-                  ? "text-white bg-accent-2"
-                  : "text-white/55 hover:text-white hover:bg-white/10"
-              )}
+      return (
+        <Link
+          key={module.path}
+          to={fullPath}
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 flex-1 py-3 px-1 text-[10px] font-semibold transition-all min-w-0",
+            isActive
+              ? "text-white bg-accent-2"
+              : "text-white/55 hover:text-white hover:bg-white/10"
+          )}
+        >
+          <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
+          <span className="truncate w-full text-center leading-tight">
+            {module.label}
+          </span>
+        </Link>
+      );
+    };
+
+    return (
+      <>
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-navy border-t border-white/10 flex items-stretch justify-around">
+          {modules.slice(0, half).map(renderModule)}
+          <div className="flex-1 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setIsScanning(true)}
+              aria-label="Open barcode scanner"
+              className="-mt-6 w-14 h-14 rounded-full bg-accent-2 text-white flex items-center justify-center shadow-lg border-4 border-navy"
             >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className="truncate w-full text-center leading-tight">
-                {module.label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+              <ScanBarcode size={22} />
+            </button>
+          </div>
+          {modules.slice(half).map(renderModule)}
+        </nav>
+        {isScanning && <AgentBarcodeScanner onClose={() => setIsScanning(false)} />}
+      </>
     );
   }
 
