@@ -99,8 +99,8 @@ export function AgentPalletTracking() {
   if (isLoading) return <div className="p-5 text-sm text-muted">Loading pallet tracking…</div>;
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-4 px-4 pb-24 pt-5">
-      <header className="flex items-start justify-between gap-3">
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-4 px-0 pb-24 pt-5 sm:px-4">
+      <header className="flex items-start justify-between gap-3 px-4 sm:px-0">
         <div>
           <h1 className="font-rajdhani text-2xl font-bold text-navy">Pallet Tracking</h1>
           <p className="mt-0.5 text-sm text-muted">Track preparation and dispatch progress for your orders.</p>
@@ -140,7 +140,7 @@ export function AgentPalletTracking() {
         />
       </label>
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-4">
         {([
           ["all", "All"],
           ["draft", "Preparing"],
