@@ -51,6 +51,7 @@ export function BookingSummary() {
   const [preparedDeliveryDate, setPreparedDeliveryDate] = useState("");
   const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -223,6 +224,26 @@ export function BookingSummary() {
     setOrderItems([]);
   };
 
+  const handleRollbackOrder = async (booking: Booking) => {
+    if (!window.confirm("Roll back this order? It will be permanently deleted.")) return;
+    setRollingBackId(booking.id);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to roll back order");
+      }
+      setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to roll back order");
+    } finally {
+      setRollingBackId(null);
+    }
+  };
+
   // ── Order Detail Modal ────────────────────────────────────────
   const openDetailModal = (booking: Booking) => {
     setDetailBooking(booking);
@@ -343,8 +364,12 @@ export function BookingSummary() {
         onAddItem={handleAddItem}
         onRemoveItem={handleRemoveItem}
         onItemChange={handleItemChange}
+        pendingOrders={bookings.filter((b) => b.status === "pending")}
+        currentUserId={user?.id ?? ""}
+        rollingBackId={rollingBackId}
         onCancel={resetOrderDraft}
         onCreateOrder={handleCreateOrder}
+        onRollbackOrder={handleRollbackOrder}
       />
     );
   }

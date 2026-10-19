@@ -1,8 +1,8 @@
 import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "../db";
-import { bookings, booking_items, invoices, invoice_items, agents, trucks, users } from "../db/schema";
+import { bookings, booking_items, invoices, invoice_items, agents, trucks, users, order_pallets } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 import { CreditBlockResponse, totalDiscountRate } from "../../shared/api";
@@ -329,6 +329,49 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
     res.json({ booking: updated, invoice: newInvoice });
   } catch (error) {
     console.error("Error updating booking status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const deleteBooking: RequestHandler = async (req: AuthRequest, res) => {
+  const { id } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  try {
+    const existing = await db.query.bookings.findFirst({ where: eq(bookings.id, id) });
+    if (!existing) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const isAdmin = req.user.role === "admin";
+    if (!isAdmin && existing.created_by !== req.user.userId) {
+      return res.status(403).json({ error: "You can only roll back orders you created" });
+    }
+    if (existing.status !== "pending") {
+      return res.status(400).json({ error: "Only pending orders can be rolled back" });
+    }
+
+    const invoice = await db.query.invoices.findFirst({ where: eq(invoices.booking_id, id) });
+    if (invoice) {
+      return res.status(409).json({ error: "This order already has an invoice and cannot be rolled back" });
+    }
+
+    const preparedPallet = await db.query.order_pallets.findFirst({
+      where: and(eq(order_pallets.order_id, id), ne(order_pallets.status, "draft")),
+    });
+    if (preparedPallet) {
+      return res.status(409).json({ error: "This order has prepared pallets and cannot be rolled back" });
+    }
+
+    await db.delete(bookings).where(eq(bookings.id, id));
+    await logAction(req.user.userId, "rollback", "booking", id, existing, undefined);
+
+    res.status(204).end();
+  } catch (error) {
+    console.error("Error rolling back booking:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
