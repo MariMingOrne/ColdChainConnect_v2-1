@@ -4,14 +4,13 @@ import { Invoice, Customer, Product } from "@shared/api";
 
 type ReturnType = "good" | "damaged";
 
-function customerIdForInvoice(invoice: Invoice | undefined, customers: Customer[]) {
-  if (!invoice) return "";
+function invoiceCustomerId(invoice: Invoice, customers: Customer[]) {
   if (invoice.booking?.customer_id) return invoice.booking.customer_id;
   return customers.find((c) => c.store_name === invoice.customer_name)?.id ?? "";
 }
 
 const selectClass =
-  "w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-accent-2";
+  "w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-accent-2 disabled:opacity-50";
 
 export function LogReturnForm({
   invoices, customers, products, token, onSaved, onCancel,
@@ -19,13 +18,17 @@ export function LogReturnForm({
   invoices: Invoice[]; customers: Customer[]; products: Product[];
   token: string; onSaved: () => void; onCancel: () => void;
 }) {
-  const [invoiceId, setInvoiceId] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState(1);
   const [returnType, setReturnType] = useState<ReturnType>("good");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const customerInvoices = customerId
+    ? invoices.filter((inv) => invoiceCustomerId(inv, customers) === customerId)
+    : [];
 
   const invoiceProducts = invoiceId
     ? (invoices.find((i) => i.id === invoiceId)?.invoice_items ?? []).map((item) => ({
@@ -34,15 +37,20 @@ export function LogReturnForm({
       }))
     : [];
 
+  const handleCustomerChange = (id: string) => {
+    setCustomerId(id);
+    setInvoiceId("");
+    setProductId("");
+  };
+
   const handleInvoiceChange = (id: string) => {
     setInvoiceId(id);
     setProductId("");
-    setCustomerId(customerIdForInvoice(invoices.find((i) => i.id === id), customers));
   };
 
   const reset = () => {
-    setInvoiceId("");
     setCustomerId("");
+    setInvoiceId("");
     setProductId("");
     setQty(1);
     setReturnType("good");
@@ -50,7 +58,7 @@ export function LogReturnForm({
   };
 
   const handleSave = async () => {
-    if (!invoiceId || !customerId || !productId || qty < 1) {
+    if (!customerId || !invoiceId || !productId || qty < 1) {
       alert("Fill in all required fields.");
       return;
     }
@@ -87,20 +95,8 @@ export function LogReturnForm({
     <>
       <div className="p-5 space-y-4 flex-1 overflow-y-auto">
         <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Order / Invoice *</label>
-          <select value={invoiceId} onChange={(e) => handleInvoiceChange(e.target.value)} className={selectClass}>
-            <option value="">Select order…</option>
-            {invoices.map((inv) => (
-              <option key={inv.id} value={inv.id}>
-                {inv.customer_name || inv.id.slice(0, 8)} · {inv.receipt_number || inv.id.slice(0, 8).toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
           <label className="block text-xs font-semibold text-navy mb-1">Customer *</label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={selectClass}>
+          <select value={customerId} onChange={(e) => handleCustomerChange(e.target.value)} className={selectClass}>
             <option value="">Select customer…</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>{c.store_name}{c.contact_person ? ` — ${c.contact_person}` : ""}</option>
@@ -109,16 +105,30 @@ export function LogReturnForm({
         </div>
 
         <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Order / Invoice *</label>
+          <select value={invoiceId} onChange={(e) => handleInvoiceChange(e.target.value)}
+            disabled={!customerId} className={selectClass}>
+            <option value="">{customerId ? "Select order…" : "Select a customer first"}</option>
+            {customerInvoices.map((inv) => (
+              <option key={inv.id} value={inv.id}>
+                {inv.receipt_number || inv.id.slice(0, 8).toUpperCase()}
+              </option>
+            ))}
+          </select>
+          {customerId && customerInvoices.length === 0 && (
+            <p className="page-subtitle">No orders found for this customer.</p>
+          )}
+        </div>
+
+        <div>
           <label className="block text-xs font-semibold text-navy mb-1">Product *</label>
-          <select value={productId} onChange={(e) => setProductId(e.target.value)} className={selectClass}>
-            <option value="">Select product…</option>
-            {(invoiceProducts.length > 0 ? invoiceProducts : products.map((p) => ({ id: p.id, name: p.name }))).map((p) => (
+          <select value={productId} onChange={(e) => setProductId(e.target.value)}
+            disabled={!invoiceId} className={selectClass}>
+            <option value="">{invoiceId ? "Select product…" : "Select an order first"}</option>
+            {invoiceProducts.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          {invoiceId && invoiceProducts.length === 0 && (
-            <p className="page-subtitle">No items found on invoice — showing all products.</p>
-          )}
         </div>
 
         <div>
@@ -155,7 +165,7 @@ export function LogReturnForm({
 
       <div className="flex justify-end gap-2 p-5 border-t border-border flex-shrink-0">
         <button onClick={() => { reset(); onCancel(); }} className="btn-ghost">Cancel</button>
-        <button onClick={handleSave} disabled={!invoiceId || !customerId || !productId || qty < 1 || saving}
+        <button onClick={handleSave} disabled={!customerId || !invoiceId || !productId || qty < 1 || saving}
           className="btn-primary">
           {saving ? "Saving…" : "Log Return"}
         </button>
