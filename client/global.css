@@ -257,6 +257,24 @@
   }
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .agent-bottom-nav {
+    transform: translateY(calc(100% - 0.5rem));
+    transition: transform 220ms ease;
+  }
+
+  .agent-bottom-nav:hover,
+  .agent-bottom-nav:focus-within {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-bottom-nav {
+    transition-duration: 0ms;
+  }
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }

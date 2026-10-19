@@ -69,7 +69,7 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
 
     return (
       <>
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-navy border-t border-white/10 flex items-stretch justify-around">
+        <nav aria-label="Agent navigation" className="agent-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-navy border-t border-white/10 flex items-stretch justify-around">
           {modules.slice(0, half).map(renderModule)}
           <div className="flex-1 flex justify-center">
             <button

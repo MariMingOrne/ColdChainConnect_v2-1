@@ -156,7 +156,7 @@ export function AgentOrderScreen({
             </section>
           </div>
 
-          <footer className="sticky bottom-16 z-20 flex items-center gap-3 border-t border-border bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
+          <footer className="mt-auto flex shrink-0 items-center gap-3 border-t border-border bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
             <button
               type="button"
               onClick={onCancel}
