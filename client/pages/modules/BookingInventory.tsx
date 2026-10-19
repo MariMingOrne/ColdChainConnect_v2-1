@@ -144,6 +144,8 @@ export function BookingInventory() {
     (group) => truckFilter === "all" || (group.truck?.id ?? "unassigned") === truckFilter
   );
 
+  const visiblePallets = visiblePalletGroups.flatMap((group) => group.entries.map(({ pallet }) => pallet));
+
   const selected = entries.find((entry) => entry.pallet.id === selectedPalletId) ?? null;
 
   if (isLoading) return <div className="p-6 text-gray-500">Loading pallets…</div>;
@@ -161,7 +163,7 @@ export function BookingInventory() {
         </Button>
       </div>
 
-      <PalletStats pallets={pallets} />
+      <PalletStats pallets={visiblePallets} />
 
       {selected ? (
         <PalletDetail
