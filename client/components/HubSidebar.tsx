@@ -62,7 +62,7 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
           <Icon
             size={20}
             strokeWidth={isActive ? 2.5 : 1.8}
-            className="transition-transform duration-200 ease-out group-hover:scale-125 group-focus-visible:scale-125 group-active:scale-110"
+            className="transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:scale-125 group-focus-visible:-translate-y-1 group-focus-visible:scale-125 group-active:-translate-y-1 group-active:scale-110"
           />
           <span className="absolute bottom-1 left-0 right-0 max-h-0 overflow-hidden truncate text-center leading-tight opacity-0 transition-all duration-200 group-hover:max-h-5 group-hover:opacity-100 group-focus-visible:max-h-5 group-focus-visible:opacity-100 group-active:max-h-5 group-active:opacity-100">
             {module.label}
