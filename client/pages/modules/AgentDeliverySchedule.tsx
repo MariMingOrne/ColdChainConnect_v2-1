@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CalendarDays, Clock3, MapPin, PackageCheck, Phone, RefreshCw, Truck as TruckIcon } from "lucide-react";
-import { Agent, Customer, Delivery, DeliveryItem, Invoice, Truck, formatCustomerAddress } from "@shared/api";
+import { Agent, Customer, Delivery, DeliveryItem, Invoice, Pallet, Truck, formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
 interface ScheduleStop extends DeliveryItem {
   customer: Customer | null;
   invoice: Invoice | null;
+  pallets: Pallet[];
 }
 
 interface ScheduleDelivery extends Delivery {
@@ -44,24 +46,26 @@ export function AgentDeliverySchedule() {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [agentRes, deliveryRes, truckRes, customerRes, invoiceRes] = await Promise.all([
+      const [agentRes, deliveryRes, truckRes, customerRes, invoiceRes, palletRes] = await Promise.all([
         fetch("/api/agents", { headers }),
         fetch("/api/deliveries", { headers }),
         fetch("/api/trucks", { headers }),
         fetch("/api/customers", { headers }),
         fetch("/api/invoices", { headers }),
+        fetch("/api/pallets", { headers }),
       ]);
 
-      if ([agentRes, deliveryRes, truckRes, customerRes, invoiceRes].some((response) => !response.ok)) {
+      if ([agentRes, deliveryRes, truckRes, customerRes, invoiceRes, palletRes].some((response) => !response.ok)) {
         throw new Error("Could not load your delivery schedule.");
       }
 
-      const [agents, allDeliveries, trucks, customers, invoices] = await Promise.all([
+      const [agents, allDeliveries, trucks, customers, invoices, pallets] = await Promise.all([
         agentRes.json() as Promise<Agent[]>,
         deliveryRes.json() as Promise<ScheduleDelivery[]>,
         truckRes.json() as Promise<Truck[]>,
         customerRes.json() as Promise<Customer[]>,
         invoiceRes.json() as Promise<Invoice[]>,
+        palletRes.json() as Promise<Pallet[]>,
       ]);
 
       const agent = agents.find((item) => item.user_id === user.id);
@@ -76,6 +80,9 @@ export function AgentDeliverySchedule() {
           ...stop,
           customer: customers.find((customer) => customer.id === stop.destination_customer_id) ?? null,
           invoice: invoices.find((invoice) => invoice.id === stop.invoice_id) ?? null,
+          pallets: pallets.filter((pallet) =>
+            pallet.order_id === invoices.find((invoice) => invoice.id === stop.invoice_id)?.booking_id,
+          ),
         })),
       })));
     } catch (fetchError) {
@@ -199,6 +206,30 @@ export function AgentDeliverySchedule() {
                                 <MapPin size={14} /> Open in Maps
                               </a>
                               {delivery.scheduled_date && <span className="inline-flex items-center gap-1"><Clock3 size={14} /> Scheduled run</span>}
+                            </div>
+                            <div className="mt-3 rounded-lg bg-off-white p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-navy">Pallets · {stop.pallets.length}</span>
+                                {stop.invoice && (
+                                  <Link
+                                    to={`/booking-dispatch/preparation?order=${stop.invoice.booking_id}`}
+                                    className="text-xs font-semibold text-accent hover:underline"
+                                  >
+                                    Track pallets
+                                  </Link>
+                                )}
+                              </div>
+                              {stop.pallets.length ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {stop.pallets.map((pallet) => (
+                                    <span key={pallet.id} className="rounded-full border border-border bg-white px-2.5 py-1 text-[11px] font-medium text-muted">
+                                      {pallet.id.slice(0, 8)} · {pallet.status === "draft" ? "Preparing" : pallet.status === "prepared" ? "Prepared" : pallet.status === "approved" ? "Ready" : "Shipped"}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-1 text-xs text-muted">No pallets created for this order yet.</p>
+                              )}
                             </div>
                           </div>
                         </li>

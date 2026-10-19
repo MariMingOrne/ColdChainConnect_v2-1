@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, Package, RefreshCw, Search } from "lucide-react";
 import { Booking, Pallet, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -25,9 +26,10 @@ function statusClasses(status: Pallet["status"]) {
 
 export function AgentPalletTracking() {
   const { token } = useAuth();
+  const [searchParams] = useSearchParams();
   const [pallets, setPallets] = useState<TrackingPallet[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("order") ?? "");
   const [filter, setFilter] = useState<PalletFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
