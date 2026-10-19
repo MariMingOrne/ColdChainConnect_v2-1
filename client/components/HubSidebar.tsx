@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   ClipboardList,
   Package,
+  CalendarDays,
   FileText,
   Truck,
   CreditCard,
@@ -43,7 +44,9 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
     const renderModule = (module: Module) => {
       const fullPath = `${basePath}${module.path}`;
       const isActive = currentPath === fullPath || currentPath.startsWith(fullPath + "/");
-      const Icon = moduleIcons[module.path] ?? ClipboardList;
+      const Icon = agentMode && module.path === "/inventory"
+        ? CalendarDays
+        : moduleIcons[module.path] ?? ClipboardList;
 
       return (
         <Link

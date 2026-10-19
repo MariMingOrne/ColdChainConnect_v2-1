@@ -7,6 +7,7 @@ import { AccountsReceivable } from "./modules/AccountsReceivable";
 import { DeliveryHistory } from "./modules/DeliveryHistory";
 import { AgentReports } from "./modules/AgentReports";
 import { BookingInventory } from "./modules/BookingInventory";
+import { AgentDeliverySchedule } from "./modules/AgentDeliverySchedule";
 import { Preparation } from "./modules/Preparation";
 import { InventoryProvider } from "../context/InventoryContext";
 import { useAuth } from "../hooks/useAuth";
@@ -25,7 +26,7 @@ const adminModules = [
 const agentModules = [
   { label: "Orders",            path: "/order-summary" },
   { label: "Pallet Preparation", path: "/preparation" },
-  { label: "Pallet Tracking",   path: "/inventory" },
+  { label: "Delivery Schedule", path: "/inventory" },
   { label: "Returns",           path: "/agent-returns" },
 ];
 
@@ -45,7 +46,7 @@ export function BookingDispatch() {
           <Routes>
             <Route path="/order-summary"    element={<BookingSummary />} />
             <Route path="/preparation"      element={<Preparation />} />
-            <Route path="/inventory"        element={<BookingInventory />} />
+            <Route path="/inventory"        element={isAgent ? <AgentDeliverySchedule /> : <BookingInventory />} />
             <Route path="/invoicing"        element={<Invoicing />} />
             <Route
               path="/delivery"
