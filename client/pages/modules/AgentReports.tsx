@@ -31,7 +31,7 @@ function AgentLogReturnScreen({
   return (
     <div className="px-4 md:px-6 lg:px-7 py-4 md:py-6 space-y-5 max-w-xl mx-auto">
       <div>
-        <h1 className="page-title">Log Return</h1>
+        <h1 className="page-title">Logginggg Return</h1>
         <p className="page-subtitle">Record returned items and their condition</p>
       </div>
 
