@@ -26,6 +26,7 @@ interface HubSidebarProps {
 
 const moduleIcons: Record<string, React.ElementType> = {
   "/order-summary":    ClipboardList,
+  "/preparation":      Package,
   "/inventory":        Package,
   "/invoicing":        FileText,
   "/delivery":         Truck,
