@@ -160,7 +160,7 @@ export function AgentOrderScreen({
             <button
               type="button"
               onClick={onCancel}
-              className="min-h-[52px] flex-1 rounded-full border border-border px-4 font-semibold text-sm text-navy transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-2 focus-visible:ring-offset-2"
+              className="min-h-[52px] flex-[0.8] rounded-xl border border-border bg-off-white px-4 font-semibold text-sm text-muted transition hover:bg-border/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2"
             >
               Cancel
             </button>
@@ -168,7 +168,7 @@ export function AgentOrderScreen({
               type="button"
               onClick={onCreateOrder}
               disabled={!canCreate}
-              className="min-h-[52px] flex-1 rounded-full bg-accent-2 px-4 font-semibold text-sm text-white transition active:scale-[0.98] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-2 focus-visible:ring-offset-2"
+              className="min-h-[52px] flex-[1.2] rounded-xl bg-navy px-4 font-semibold text-sm text-white transition hover:bg-navy-mid active:scale-[0.98] disabled:opacity-40 disabled:hover:bg-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2"
             >
               {isCreating ? "Creating…" : "Create Order"}
             </button>
