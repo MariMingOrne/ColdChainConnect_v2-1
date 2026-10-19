@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { Pallet } from "@shared/api";
 import { cn } from "@/lib/utils";
+import { DatePresetFilter, datePresetOptions } from "./palletUtils";
 
 export type PalletStatusFilter = "all" | Pallet["status"];
 
@@ -25,6 +26,8 @@ interface PalletToolbarProps {
   truckOptions: TruckOption[];
   truckFilter: string;
   onTruckChange: (value: string) => void;
+  datePreset: DatePresetFilter;
+  onDatePresetChange: (value: DatePresetFilter) => void;
 }
 
 export function PalletToolbar({
@@ -35,6 +38,8 @@ export function PalletToolbar({
   truckOptions,
   truckFilter,
   onTruckChange,
+  datePreset,
+  onDatePresetChange,
 }: PalletToolbarProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -61,6 +66,19 @@ export function PalletToolbar({
           className="rounded-full border border-border bg-white px-4 py-2 text-sm font-semibold text-navy focus:border-accent-2 focus:outline-none"
         >
           {truckOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Date range"
+          value={datePreset}
+          onChange={(e) => onDatePresetChange(e.target.value as DatePresetFilter)}
+          className="rounded-full border border-border bg-white px-4 py-2 text-sm font-semibold text-navy focus:border-accent-2 focus:outline-none"
+        >
+          {datePresetOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

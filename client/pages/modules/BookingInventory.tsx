@@ -8,6 +8,7 @@ import { PalletStats } from "@/components/pallets/PalletStats";
 import { PalletToolbar, PalletStatusFilter } from "@/components/pallets/PalletToolbar";
 import { PalletTable, PalletEntry } from "@/components/pallets/PalletTable";
 import { PalletDetail } from "@/components/pallets/PalletDetail";
+import { DatePresetFilter, isInDatePreset } from "@/components/pallets/palletUtils";
 
 type DeliveryWithItems = Delivery & { delivery_items?: DeliveryItem[] };
 
@@ -25,6 +26,7 @@ export function BookingInventory() {
   const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<PalletStatusFilter>("all");
   const [truckFilter, setTruckFilter] = useState("all");
+  const [datePreset, setDatePreset] = useState<DatePresetFilter>("all");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { token } = useAuth();
 
@@ -95,6 +97,7 @@ export function BookingInventory() {
 
   const filteredEntries = entries.filter(({ pallet, customer }) => {
     if (statusFilter !== "all" && pallet.status !== statusFilter) return false;
+    if (!isInDatePreset(pallet.created_at, datePreset)) return false;
 
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
@@ -180,6 +183,8 @@ export function BookingInventory() {
             truckOptions={truckOptions}
             truckFilter={truckFilter}
             onTruckChange={setTruckFilter}
+            datePreset={datePreset}
+            onDatePresetChange={setDatePreset}
           />
 
           {filteredEntries.length === 0 ? (
