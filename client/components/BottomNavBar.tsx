@@ -36,8 +36,6 @@ const hubModulesByPath: Record<string, Array<{ path: string; label: string; icon
     { path: "/products", label: "Products", icon: Package },
     { path: "/inventory", label: "Inventory", icon: Package },
     { path: "/customers", label: "Customers", icon: Users },
-    { path: "/agents", label: "Agents", icon: Users2 },
-    { path: "/drivers", label: "Drivers", icon: Truck },
   ],
   "/booking-dispatch": [
     { path: "/order-summary", label: "Orders", icon: ClipboardList },
