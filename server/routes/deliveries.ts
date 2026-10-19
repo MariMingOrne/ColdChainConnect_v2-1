@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { deliveries, delivery_items, accounts_receivable, invoices, agents, customers, trucks } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
@@ -40,17 +40,26 @@ async function findAllDeliveries(whereClause: any) {
   }
 }
 
-export const listDeliveries: RequestHandler = async (req, res) => {
+export const listDeliveries: RequestHandler = async (req: AuthRequest, res) => {
   try {
     // Demo mode
     if (!process.env.DATABASE_URL) {
       return res.json([]);
     }
 
+    const conditions = [];
     const { status } = req.query;
+    if (status) conditions.push(eq(deliveries.status, status as any));
 
-    const whereClause = status ? eq(deliveries.status, status as any) : undefined;
+    if (req.user?.role === "agent") {
+      const agentProfile = await db.query.agents.findFirst({
+        where: eq(agents.user_id, req.user.userId),
+      });
+      if (!agentProfile) return res.json([]);
+      conditions.push(eq(deliveries.agent_id, agentProfile.id));
+    }
 
+    const whereClause = conditions.length ? and(...conditions) : undefined;
     const allDeliveries = await findAllDeliveries(whereClause);
 
     res.json(allDeliveries);

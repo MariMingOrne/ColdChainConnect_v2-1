@@ -156,11 +156,11 @@ export function AgentOrderScreen({
             </section>
           </div>
 
-          <footer className="sticky bottom-16 bg-white border-t border-border px-4 pt-3 pb-4 flex items-start gap-3">
+          <footer className="mt-auto flex shrink-0 items-center gap-3 border-t border-border bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 py-3 border border-border rounded-full font-semibold text-sm text-navy"
+              className="min-h-[52px] flex-[0.8] rounded-xl border border-border bg-off-white px-4 font-semibold text-sm text-muted transition hover:bg-border/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2"
             >
               Cancel
             </button>
@@ -168,7 +168,7 @@ export function AgentOrderScreen({
               type="button"
               onClick={onCreateOrder}
               disabled={!canCreate}
-              className="flex-1 py-3 rounded-full font-semibold text-sm text-white bg-accent-2 disabled:opacity-50"
+              className="min-h-[52px] flex-[1.2] rounded-xl bg-navy px-4 font-semibold text-sm text-white transition hover:bg-navy-mid active:scale-[0.98] disabled:opacity-40 disabled:hover:bg-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2"
             >
               {isCreating ? "Creating…" : "Create Order"}
             </button>

@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../db";
 import { bookings, booking_items, invoices, invoice_items, agents, trucks, users, order_pallets } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
@@ -8,6 +8,7 @@ import { logAction } from "../middleware/audit-logger";
 import { CreditBlockResponse, totalDiscountRate } from "../../shared/api";
 import { evaluateCreditRules } from "../services/credit-rules";
 import { estimateOrderTotal, loadCustomerCredit } from "../services/customer-credit";
+import { getAgentOrderIds } from "../services/agent-bookings";
 
 // Returns the truck serving the given district, preferring an available truck.
 function findTruckForDistrict(
@@ -24,9 +25,14 @@ export const listBookings: RequestHandler = async (req: AuthRequest, res) => {
     if (!process.env.DATABASE_URL) return res.json([]);
 
     const { status } = req.query;
+    const agentOrderIds = req.user?.role === "agent"
+      ? await getAgentOrderIds(req.user.userId)
+      : undefined;
+    if (agentOrderIds?.length === 0) return res.json([]);
+
     const conditions = [
       status ? eq(bookings.status, status as any) : undefined,
-      req.user?.role === "agent" ? eq(bookings.created_by, req.user.userId) : undefined,
+      agentOrderIds ? inArray(bookings.id, agentOrderIds) : undefined,
     ].filter((c): c is NonNullable<typeof c> => c !== undefined);
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

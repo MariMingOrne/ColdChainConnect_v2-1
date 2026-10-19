@@ -7,8 +7,16 @@ import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
 import { hashPassword } from "../auth";
 
-export const listAgents: RequestHandler = async (_req, res) => {
+export const listAgents: RequestHandler = async (req: AuthRequest, res) => {
   try {
+    if (req.user?.role === "agent") {
+      const agent = await db.query.agents.findFirst({
+        where: eq(agents.user_id, req.user.userId),
+        with: { user: { columns: { password_hash: false, mfa_secret: false } } },
+      });
+      return res.json(agent ? [agent] : []);
+    }
+
     const allAgents = await db.query.agents.findMany({
       with: { user: { columns: { password_hash: false, mfa_secret: false } } },
     });
