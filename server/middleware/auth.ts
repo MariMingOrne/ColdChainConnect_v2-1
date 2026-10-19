@@ -5,6 +5,11 @@ export interface AuthRequest extends Request {
   user?: TokenPayload;
 }
 
+const DRIVER_ALLOWED_PATHS = new Set([
+  "/api/driver-schedule",
+  "/api/auth/refresh",
+]);
+
 export function authMiddleware(
   req: AuthRequest,
   res: Response,
@@ -28,11 +33,6 @@ export function authMiddleware(
   req.user = payload;
   next();
 }
-
-const DRIVER_ALLOWED_PATHS = new Set([
-  "/api/driver-schedule",
-  "/api/auth/refresh",
-]);
 
 export function requireRole(...roles: Array<"admin" | "agent" | "driver">) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
