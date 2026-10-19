@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 import { db } from "../db";
-import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products } from "../db/schema";
+import { bookings, inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 
 async function calculateProductInventory(): Promise<Record<string, number>> {
@@ -65,9 +65,18 @@ function formatPallet(dbPallet: any): Pallet {
   };
 }
 
-export const listPallets: RequestHandler = async (_req, res) => {
+export const listPallets: RequestHandler = async (req: AuthRequest, res) => {
   try {
+    let ownedOrderIds: string[] | undefined;
+    if (req.user?.role === "agent") {
+      const ownedOrders = await db.select({ id: bookings.id }).from(bookings)
+        .where(eq(bookings.created_by, req.user.userId));
+      ownedOrderIds = ownedOrders.map((order) => order.id);
+      if (ownedOrderIds.length === 0) return res.json([]);
+    }
+
     const dbPallets = await db.query.order_pallets.findMany({
+      where: ownedOrderIds ? inArray(order_pallets.order_id, ownedOrderIds) : undefined,
       with: {
         items: true,
       },
@@ -82,17 +91,21 @@ export const listPallets: RequestHandler = async (_req, res) => {
   }
 };
 
-export const getPallet: RequestHandler = async (req, res) => {
+export const getPallet: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const dbPallet = await db.query.order_pallets.findFirst({
       where: eq(order_pallets.id, id),
       with: {
         items: true,
+        order: true,
       },
     });
 
     if (!dbPallet) return res.status(404).json({ error: "Pallet not found" });
+    if (req.user?.role === "agent" && dbPallet.order.created_by !== req.user.userId) {
+      return res.status(403).json({ error: "You can only view pallets for your own orders" });
+    }
     res.json(formatPallet(dbPallet));
   } catch (error) {
     console.error("Error fetching pallet:", error);
@@ -104,6 +117,13 @@ export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const { order_id, items } = CreatePalletSchema.parse(req.body);
     const palletId = randomUUID();
+
+    if (req.user?.role === "agent") {
+      const order = await db.query.bookings.findFirst({ where: eq(bookings.id, order_id) });
+      if (!order || order.created_by !== req.user.userId) {
+        return res.status(403).json({ error: "You can only create pallets for your own orders" });
+      }
+    }
 
     const productRows = await db
       .select({ id: products.id, price: products.price })
@@ -147,10 +167,24 @@ export const updatePalletStatus: RequestHandler = async (req: AuthRequest, res) 
     const { id } = req.params;
     const { status } = UpdatePalletStatusSchema.parse(req.body);
 
-    const existing = await db.query.order_pallets.findFirst(
-      { where: eq(order_pallets.id, id), with: { items: true } }
-    );
+    const existing = await db.query.order_pallets.findFirst({
+      where: eq(order_pallets.id, id),
+      with: { items: true, order: true },
+    });
     if (!existing) return res.status(404).json({ error: "Pallet not found" });
+
+    if (req.user?.role === "agent") {
+      if (existing.order.created_by !== req.user.userId) {
+        return res.status(403).json({ error: "You can only update pallets for your own orders" });
+      }
+
+      const validTransition =
+        (existing.status === "draft" && status === "prepared") ||
+        (existing.status === "approved" && status === "shipped");
+      if (!validTransition) {
+        return res.status(400).json({ error: "Pallets must be prepared and approved before shipping" });
+      }
+    }
 
     await db.update(order_pallets)
       .set({ status, updated_at: new Date() })
@@ -174,12 +208,18 @@ export const approvePallet: RequestHandler = async (req: AuthRequest, res) => {
 
     const pallet = await db.query.order_pallets.findFirst({
       where: eq(order_pallets.id, id),
-      with: { items: true },
+      with: { items: true, order: true },
     });
 
     if (!pallet) return res.status(404).json({ error: "Pallet not found" });
-    if (pallet.status !== "draft") {
-      return res.status(400).json({ error: "Only draft pallets can be approved" });
+
+    if (req.user?.role === "agent" && pallet.order.created_by !== req.user.userId) {
+      return res.status(403).json({ error: "You can only approve pallets for your own orders" });
+    }
+
+    const requiredStatus = req.user?.role === "agent" ? "prepared" : "draft";
+    if (pallet.status !== requiredStatus) {
+      return res.status(400).json({ error: `Only ${requiredStatus} pallets can be approved` });
     }
 
     const inventory = await calculateProductInventory();

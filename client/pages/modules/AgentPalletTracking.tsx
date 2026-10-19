@@ -32,6 +32,7 @@ export function AgentPalletTracking() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [updatingPalletId, setUpdatingPalletId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   const fetchTracking = async () => {
@@ -96,6 +97,39 @@ export function AgentPalletTracking() {
     void fetchTracking();
   };
 
+  const handleAdvancePallet = async (pallet: TrackingPallet) => {
+    if (!token) return;
+    if (pallet.status === "approved" && !window.confirm("Mark this pallet as shipped?")) return;
+
+    setUpdatingPalletId(pallet.id);
+    setError("");
+    try {
+      const isApproval = pallet.status === "prepared";
+      const nextStatus = pallet.status === "draft" ? "prepared" : "shipped";
+      const response = await fetch(
+        isApproval ? `/api/pallets/${pallet.id}/approve` : `/api/pallets/${pallet.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          ...(!isApproval && { body: JSON.stringify({ status: nextStatus }) }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not update pallet status.");
+
+      setPallets((current) => current.map((item) =>
+        item.id === pallet.id ? { ...data, order: item.order } : item,
+      ));
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Could not update pallet status.");
+    } finally {
+      setUpdatingPalletId(null);
+    }
+  };
+
   if (isLoading) return <div className="p-5 text-sm text-muted">Loading pallet tracking…</div>;
 
   return (
@@ -119,8 +153,8 @@ export function AgentPalletTracking() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {([
           ["Total", pallets.length],
-          ["Preparing", pallets.filter((pallet) => pallet.status === "draft").length],
-          ["Ready", pallets.filter((pallet) => pallet.status === "prepared" || pallet.status === "approved").length],
+          ["Preparing", pallets.filter((pallet) => pallet.status === "draft" || pallet.status === "prepared").length],
+          ["Ready", pallets.filter((pallet) => pallet.status === "approved").length],
           ["Dispatched", pallets.filter((pallet) => pallet.status === "shipped").length],
         ] as const).map(([label, count]) => (
           <div key={label} className="rounded-2xl border border-border bg-white px-3 py-3">
@@ -220,6 +254,25 @@ export function AgentPalletTracking() {
                       <p className="text-sm text-muted">No pallet items recorded.</p>
                     )}
                     <p className="mt-2 text-[11px] text-muted">Updated {new Date(pallet.updated_at).toLocaleDateString()}</p>
+                  </div>
+                )}
+
+                {pallet.status !== "shipped" && (
+                  <div className="border-t border-border p-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleAdvancePallet(pallet)}
+                      disabled={updatingPalletId !== null}
+                      className="min-h-11 w-full rounded-xl bg-navy px-4 text-sm font-semibold text-white transition hover:bg-navy-mid active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {updatingPalletId === pallet.id
+                        ? "Updating…"
+                        : pallet.status === "draft"
+                          ? "Mark prepared"
+                          : pallet.status === "prepared"
+                            ? "Mark ready"
+                            : "Mark shipped"}
+                    </button>
                   </div>
                 )}
               </article>
