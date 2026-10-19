@@ -19,12 +19,16 @@ function findTruckForDistrict(
   return matches.find((t) => t.status === "available") || matches[0];
 }
 
-export const listBookings: RequestHandler = async (req, res) => {
+export const listBookings: RequestHandler = async (req: AuthRequest, res) => {
   try {
     if (!process.env.DATABASE_URL) return res.json([]);
 
     const { status } = req.query;
-    const whereClause = status ? eq(bookings.status, status as any) : undefined;
+    const conditions = [
+      status ? eq(bookings.status, status as any) : undefined,
+      req.user?.role === "agent" ? eq(bookings.created_by, req.user.userId) : undefined,
+    ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const allBookings = await db.query.bookings.findMany({
       where: whereClause,
