@@ -484,6 +484,21 @@ export interface DeliveryItem {
   updated_at: string;
 }
 
+export interface AgentScheduleStop extends DeliveryItem {
+  destination_customer: Customer;
+  invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number"> | null;
+  pallets: Pick<Pallet, "id" | "order_id" | "status">[];
+}
+
+export interface AgentScheduleDelivery extends Delivery {
+  truck: Pick<Truck, "id" | "license_plate" | "district">;
+  delivery_items: AgentScheduleStop[];
+}
+
+export interface AgentScheduleResponse {
+  deliveries: AgentScheduleDelivery[];
+}
+
 export const CreateDeliveryItemSchema = z.object({
   invoice_id: z.string().min(1, "Invoice ID is required"),
   destination_customer_id: z.string().min(1, "Destination customer ID is required"),

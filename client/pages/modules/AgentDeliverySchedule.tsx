@@ -2,21 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CalendarDays, Clock3, MapPin, PackageCheck, Phone, RefreshCw, Truck as TruckIcon } from "lucide-react";
-import { Agent, Customer, Delivery, DeliveryItem, Invoice, Pallet, Truck, formatCustomerAddress } from "@shared/api";
+import type { AgentScheduleDelivery, AgentScheduleResponse, DeliveryItem } from "@shared/api";
+import { formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
-
-interface ScheduleStop extends DeliveryItem {
-  customer: Customer | null;
-  invoice: Invoice | null;
-  pallets: Pallet[];
-}
-
-interface ScheduleDelivery extends Delivery {
-  scheduled_date?: string | null;
-  truck?: Truck | null;
-  delivery_items?: ScheduleStop[];
-}
 
 function formatScheduleDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -35,57 +24,24 @@ function statusClasses(status: DeliveryItem["status"]) {
 }
 
 export function AgentDeliverySchedule() {
-  const { token, user } = useAuth();
-  const [deliveries, setDeliveries] = useState<ScheduleDelivery[]>([]);
+  const { token } = useAuth();
+  const [deliveries, setDeliveries] = useState<AgentScheduleDelivery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchSchedule = async () => {
-    if (!token || !user) return;
+    if (!token) return;
     setIsLoading(true);
     setError("");
 
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const [agentRes, deliveryRes, truckRes, customerRes, invoiceRes, palletRes] = await Promise.all([
-        fetch("/api/agents", { headers }),
-        fetch("/api/deliveries", { headers }),
-        fetch("/api/trucks", { headers }),
-        fetch("/api/customers", { headers }),
-        fetch("/api/invoices", { headers }),
-        fetch("/api/pallets", { headers }),
-      ]);
+      const response = await fetch("/api/agent-schedule", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Could not load your delivery schedule.");
 
-      if ([agentRes, deliveryRes, truckRes, customerRes, invoiceRes, palletRes].some((response) => !response.ok)) {
-        throw new Error("Could not load your delivery schedule.");
-      }
-
-      const [agents, allDeliveries, trucks, customers, invoices, pallets] = await Promise.all([
-        agentRes.json() as Promise<Agent[]>,
-        deliveryRes.json() as Promise<ScheduleDelivery[]>,
-        truckRes.json() as Promise<Truck[]>,
-        customerRes.json() as Promise<Customer[]>,
-        invoiceRes.json() as Promise<Invoice[]>,
-        palletRes.json() as Promise<Pallet[]>,
-      ]);
-
-      const agent = agents.find((item) => item.user_id === user.id);
-      const assigned = agent
-        ? allDeliveries.filter((delivery) => delivery.agent_id === agent.id)
-        : [];
-
-      setDeliveries(assigned.map((delivery) => ({
-        ...delivery,
-        truck: trucks.find((truck) => truck.id === delivery.truck_id) ?? null,
-        delivery_items: (delivery.delivery_items ?? []).map((stop) => ({
-          ...stop,
-          customer: customers.find((customer) => customer.id === stop.destination_customer_id) ?? null,
-          invoice: invoices.find((invoice) => invoice.id === stop.invoice_id) ?? null,
-          pallets: pallets.filter((pallet) =>
-            pallet.order_id === invoices.find((invoice) => invoice.id === stop.invoice_id)?.booking_id,
-          ),
-        })),
-      })));
+      const schedule = await response.json() as AgentScheduleResponse;
+      setDeliveries(schedule.deliveries);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Could not load your delivery schedule.");
     } finally {
@@ -95,10 +51,10 @@ export function AgentDeliverySchedule() {
 
   useEffect(() => {
     void fetchSchedule();
-  }, [token, user?.id]);
+  }, [token]);
 
   const scheduledDays = useMemo(() => {
-    const groups = new Map<string, ScheduleDelivery[]>();
+    const groups = new Map<string, AgentScheduleDelivery[]>();
     for (const delivery of deliveries) {
       const date = delivery.scheduled_date ?? delivery.created_at.slice(0, 10);
       groups.set(date, [...(groups.get(date) ?? []), delivery]);
@@ -179,7 +135,7 @@ export function AgentDeliverySchedule() {
 
                   <ol className="divide-y divide-border">
                     {(delivery.delivery_items ?? []).map((stop, index) => {
-                      const customer = stop.customer;
+                      const customer = stop.destination_customer;
                       const address = customer ? formatCustomerAddress(customer) : "Address unavailable";
                       const mapQuery = encodeURIComponent([customer?.store_name, address].filter(Boolean).join(", "));
                       const invoiceLabel = stop.invoice?.receipt_number ?? stop.invoice_id.slice(0, 8);
