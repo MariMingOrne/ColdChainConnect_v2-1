@@ -175,7 +175,6 @@ export function DeliveryDispatch() {
 
   const handleCreateDelivery = async (
     destinations: { invoice_id: string; destination_customer_id: string }[],
-    agentId: string,
     driverId: string,
     scheduledDate: string,
   ) => {
@@ -187,7 +186,6 @@ export function DeliveryDispatch() {
         body: JSON.stringify({
           truck_id: selectedTruck.id,
           destinations,
-          agent_id: agentId || undefined,
           driver_id: driverId || undefined,
           scheduled_date: scheduledDate,
         }),
@@ -200,13 +198,13 @@ export function DeliveryDispatch() {
     }
   };
 
-  const handleAssignDelivery = async (deliveryId: string, assignment: "agent_id" | "driver_id", value: string) => {
+  const handleAssignDriver = async (deliveryId: string, driverId: string) => {
     if (!token) return;
     try {
       const res = await fetch(`/api/deliveries/${deliveryId}/assign`, {
         method: "PATCH",
         headers: authHeaders(token),
-        body: JSON.stringify({ [assignment]: value || null }),
+        body: JSON.stringify({ driver_id: driverId || null }),
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchAll();
@@ -368,24 +366,14 @@ export function DeliveryDispatch() {
             </div>
 
             <div className="flex items-center gap-3 px-4 pb-3 flex-wrap">
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
-                Agent
-                <select
-                  value={delivery.agent_id ?? ""}
-                  onChange={(event) => void handleAssignDelivery(delivery.id, "agent_id", event.target.value)}
-                  className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
-                >
-                  <option value="">Unassigned</option>
-                  {agents.filter((agent) => agent.is_active).map((agent) => (
-                    <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
-                  ))}
-                </select>
-              </label>
+              <span className="text-xs font-semibold text-muted">
+                Agent: <span className="font-medium text-navy">{delivery.agent?.full_name || "No linked agent"}</span>
+              </span>
               <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
                 Driver
                 <select
                   value={delivery.driver_id ?? ""}
-                  onChange={(event) => void handleAssignDelivery(delivery.id, "driver_id", event.target.value)}
+                  onChange={(event) => void handleAssignDriver(delivery.id, event.target.value)}
                   className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
                 >
                   <option value="">Unassigned</option>
@@ -928,10 +916,9 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   agents: Agent[];
   drivers: Driver[];
   onClose: () => void;
-  onSave: (d: { invoice_id: string; destination_customer_id: string }[], agentId: string, driverId: string, scheduledDate: string) => Promise<void>;
+  onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
-  const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
   const [scheduledDate, setScheduledDate] = useState(() => {
     const today = new Date();
@@ -944,6 +931,10 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   }
 
   const districtInvoices = eligibleInvoices.filter((inv) => customerFor(inv)?.district === truck.district);
+  const selectedInvoices = stops.map((stop) => districtInvoices.find((invoice) => invoice.id === stop.invoice_id)).filter((invoice): invoice is Invoice => Boolean(invoice));
+  const saleOwnerIds = new Set(selectedInvoices.map((invoice) => invoice.agent_id));
+  const saleOwnerId = saleOwnerIds.size === 1 ? [...saleOwnerIds][0] : null;
+  const saleAgent = agents.find((agent) => agent.user_id === saleOwnerId);
 
   // Build a label for each eligible invoice: "Store Name — Contact Person"
   function orderLabel(inv: Invoice): string {
@@ -973,7 +964,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
       };
     });
 
-  const valid = stops.every((s) => {
+  const valid = saleOwnerIds.size <= 1 && stops.every((s) => {
     if (!s.invoice_id) return false;
     const inv = districtInvoices.find((i) => i.id === s.invoice_id);
     if (!inv) return false;
@@ -986,7 +977,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   const handleSave = async () => {
     if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
     setSaving(true);
-    try { await onSave(buildPayload(), selectedAgentId, selectedDriverId, scheduledDate); }
+    try { await onSave(buildPayload(), selectedDriverId, scheduledDate); }
     finally { setSaving(false); }
   };
 
@@ -1002,18 +993,10 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
             className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
           />
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Assign Agent (Optional)</label>
-          <select
-            value={selectedAgentId}
-            onChange={(event) => setSelectedAgentId(event.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
-          >
-            <option value="">No agent assigned</option>
-            {agents.filter((agent) => agent.is_active).map((agent) => (
-              <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
-            ))}
-          </select>
+        <div className="rounded-lg bg-off-white px-3 py-2.5">
+          <p className="text-xs font-semibold text-muted">Sale owner · automatically assigned</p>
+          <p className="mt-1 text-sm font-semibold text-navy">{saleAgent?.full_name || (saleOwnerId ? "No linked agent profile" : "Select an order")}</p>
+          {saleOwnerIds.size > 1 && <p className="mt-1 text-xs text-red">One delivery run can include sales from only one agent.</p>}
         </div>
         <div>
           <label className="block text-xs font-semibold text-navy mb-1">Assign Driver (Optional)</label>

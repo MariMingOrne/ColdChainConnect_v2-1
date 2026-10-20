@@ -512,7 +512,6 @@ export const CreateDeliverySchema = z.object({
   truck_id: z.string().min(1, "Truck ID is required"),
   items: z.array(CreateDeliveryItemSchema).min(1, "At least one delivery item is required"),
   driver_id: z.string().optional().nullable(),
-  agent_id: z.string().optional().nullable(),
 });
 
 export const UpdateDeliveryStatusSchema = z.object({
