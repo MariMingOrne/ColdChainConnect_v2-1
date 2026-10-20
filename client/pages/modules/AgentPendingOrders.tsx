@@ -33,7 +33,7 @@ export function AgentPendingOrders({
                 </p>
                 <p className="text-xs text-muted">
                   {totalQty} items · {new Date(order.created_at).toLocaleDateString()}
-                  {order.creator && ` · ${order.creator.username}`}
+                  {order.creator && ` · ${order.creator.agent?.full_name || order.creator.username}`}
                 </p>
               </div>
               <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">

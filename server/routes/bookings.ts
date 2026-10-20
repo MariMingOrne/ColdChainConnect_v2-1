@@ -36,20 +36,31 @@ export const listBookings: RequestHandler = async (req: AuthRequest, res) => {
     ].filter((c): c is NonNullable<typeof c> => c !== undefined);
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const allBookings = await db.query.bookings.findMany({
-      where: whereClause,
-      with: {
-        booking_items: {
-          with: {
-            product: true,
+    const [allBookings, agentProfiles] = await Promise.all([
+      db.query.bookings.findMany({
+        where: whereClause,
+        with: {
+          booking_items: {
+            with: {
+              product: true,
+            },
           },
+          customer: { with: { discounts: true } },
+          creator: true,
         },
-        customer: { with: { discounts: true } },
-        creator: true,
-      },
-    });
+      }),
+      db.query.agents.findMany({
+        columns: { user_id: true, full_name: true },
+      }),
+    ]);
+    const agentByUserId = new Map(agentProfiles.map((agent) => [agent.user_id, agent]));
 
-    res.json(allBookings);
+    res.json(allBookings.map((booking) => ({
+      ...booking,
+      creator: booking.creator
+        ? { ...booking.creator, agent: agentByUserId.get(booking.created_by) ?? null }
+        : booking.creator,
+    })));
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ error: "Internal server error" });

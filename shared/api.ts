@@ -64,6 +64,7 @@ export interface User {
   mfa_enabled: boolean;
   created_at: string;
   updated_at: string;
+  agent?: Pick<Agent, "full_name"> | null;
 }
 
 // Customer types
