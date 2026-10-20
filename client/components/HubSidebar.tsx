@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +10,7 @@ import {
   CreditCard,
   History,
   ScanBarcode,
+  ChevronUp,
 } from "lucide-react";
 import { AgentBarcodeScanner } from "../pages/modules/AgentBarcodeScanner";
 
@@ -22,6 +23,7 @@ interface HubSidebarProps {
   modules: Module[];
   basePath: string;
   agentMode?: boolean;
+  revealOnScroll?: boolean;
 }
 
 const moduleIcons: Record<string, React.ElementType> = {
@@ -34,10 +36,25 @@ const moduleIcons: Record<string, React.ElementType> = {
   "/delivery-history": History,
 };
 
-export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarProps) {
+export function HubSidebar({ modules, basePath, agentMode = false, revealOnScroll = false }: HubSidebarProps) {
   const location = useLocation();
   const currentPath = location.pathname;
   const [isScanning, setIsScanning] = useState(false);
+  const [isAgentNavOpen, setIsAgentNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isAgentNavOpen) return;
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const navShell = document.querySelector(".agent-nav-shell");
+      if (navShell && event.target instanceof Node && !navShell.contains(event.target)) {
+        setIsAgentNavOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [isAgentNavOpen]);
 
   // ── Agent: fixed bottom app bar with icons ──────────────────────
   if (agentMode) {
@@ -73,8 +90,35 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
     };
 
     return (
-      <>
-        <nav aria-label="Agent navigation" className="agent-bottom-nav fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-around border-t border-white/10 bg-navy">
+      <div
+        className={cn(
+          "agent-nav-shell",
+          isAgentNavOpen && "is-open",
+          revealOnScroll && "is-scroll-revealed"
+        )}
+        onFocusCapture={() => setIsAgentNavOpen(true)}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setIsAgentNavOpen(false);
+          }
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Show agent navigation"
+          onClick={() => setIsAgentNavOpen(true)}
+          className="agent-nav-reveal fixed bottom-0 left-1/2 z-50 flex h-9 -translate-x-1/2 items-center gap-1 rounded-t-xl bg-navy px-4 text-xs font-semibold text-white shadow-lg"
+        >
+          <ChevronUp size={16} />
+          Menu
+        </button>
+        <nav
+          aria-label="Agent navigation"
+          onClickCapture={() => setIsAgentNavOpen(true)}
+          className={cn(
+            "agent-bottom-nav fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch justify-around border-t border-white/10 bg-navy",
+          )}
+        >
           {modules.slice(0, half).map(renderModule)}
           <div className="flex-1 flex justify-center">
             <button
@@ -92,7 +136,7 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
           {modules.slice(half).map(renderModule)}
         </nav>
         {isScanning && <AgentBarcodeScanner onClose={() => setIsScanning(false)} />}
-      </>
+      </div>
     );
   }
 
