@@ -133,7 +133,7 @@ export function AgentPalletTracking() {
     }
   };
 
-  if (isLoading) return <LoadingSpinner className="fixed inset-0 z-40 min-h-0 bg-off-white" />;
+  if (isLoading) return <LoadingSpinner className="fixed inset-0 z-0 min-h-0 bg-off-white" />;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-4 px-0 pb-24 pt-5 sm:px-4">
