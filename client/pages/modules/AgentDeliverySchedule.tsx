@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { CalendarDays, Clock3, MapPin, PackageCheck, Phone, RefreshCw, Truck as TruckIcon } from "lucide-react";
+import { CalendarDays, Clock3, MapPin, PackageCheck, Phone, RefreshCw, Truck as TruckIcon, UserRound } from "lucide-react";
 import type { AgentScheduleDelivery, AgentScheduleResponse, DeliveryItem } from "@shared/api";
 import { formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -127,6 +127,16 @@ export function AgentDeliverySchedule() {
                         {delivery.truck?.license_plate ?? "Truck not assigned"}
                       </span>
                       {delivery.truck?.district && <span className="text-muted">{delivery.truck.district}</span>}
+                      {delivery.agent && (
+                        <span className="inline-flex items-center gap-1 text-muted">
+                          <UserRound size={14} /> Agent: {delivery.agent.full_name || "Assigned"}
+                        </span>
+                      )}
+                      {delivery.driver && (
+                        <span className="inline-flex items-center gap-1 text-muted">
+                          <UserRound size={14} /> Driver: {delivery.driver.full_name || "Assigned"}
+                        </span>
+                      )}
                     </div>
                     <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${statusClasses(delivery.status)}`}>
                       {delivery.status.replace("_", " ")}
@@ -158,6 +168,7 @@ export function AgentDeliverySchedule() {
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
                               <span className="inline-flex items-center gap-1"><PackageCheck size={14} /> Invoice {invoiceLabel}</span>
+                              {stop.sale_agent && <span>Sale by {stop.sale_agent.username}</span>}
                               {customer?.contact_info && <a href={`tel:${customer.contact_info}`} className="inline-flex items-center gap-1 text-navy hover:underline"><Phone size={14} />{customer.contact_info}</a>}
                               <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-accent hover:underline">
                                 <MapPin size={14} /> Open in Maps

@@ -23,12 +23,21 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
         truck: {
           columns: { id: true, license_plate: true, district: true },
         },
+        agent: {
+          columns: { id: true, full_name: true },
+        },
+        driver: {
+          columns: { id: true, full_name: true, contact_info: true, license: true },
+        },
         delivery_items: {
           with: {
             destination_customer: true,
             invoice: {
-              columns: { id: true, booking_id: true, receipt_number: true },
+              columns: { id: true, booking_id: true, receipt_number: true, agent_id: true },
               with: {
+                agent: {
+                  columns: { id: true, username: true },
+                },
                 booking: {
                   with: {
                     order_pallets: {
@@ -54,6 +63,7 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
               receipt_number: stop.invoice.receipt_number,
             }
           : null,
+        sale_agent: stop.invoice?.agent ?? null,
         pallets: stop.invoice?.booking?.order_pallets ?? [],
       })),
     }));

@@ -487,13 +487,16 @@ export interface DeliveryItem {
 export interface AgentScheduleStop extends DeliveryItem {
   destination_customer: Customer;
   invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number"> | null;
+  sale_agent: Pick<User, "id" | "username"> | null;
   pallets: Pick<Pallet, "id" | "order_id" | "status">[];
 }
 
-export interface AgentScheduleDelivery extends Delivery {
+export type AgentScheduleDelivery = Omit<Delivery, "agent" | "driver"> & {
   truck: Pick<Truck, "id" | "license_plate" | "district">;
+  agent: Pick<Agent, "id" | "full_name"> | null;
+  driver: Pick<Driver, "id" | "full_name" | "contact_info" | "license"> | null;
   delivery_items: AgentScheduleStop[];
-}
+};
 
 export interface AgentScheduleResponse {
   deliveries: AgentScheduleDelivery[];

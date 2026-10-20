@@ -176,6 +176,7 @@ export function DeliveryDispatch() {
   const handleCreateDelivery = async (
     destinations: { invoice_id: string; destination_customer_id: string }[],
     agentId: string,
+    driverId: string,
     scheduledDate: string,
   ) => {
     if (!token || !selectedTruck) return;
@@ -187,6 +188,7 @@ export function DeliveryDispatch() {
           truck_id: selectedTruck.id,
           destinations,
           agent_id: agentId || undefined,
+          driver_id: driverId || undefined,
           scheduled_date: scheduledDate,
         }),
       });
@@ -198,18 +200,18 @@ export function DeliveryDispatch() {
     }
   };
 
-  const handleAssignAgent = async (deliveryId: string, agentId: string) => {
+  const handleAssignDelivery = async (deliveryId: string, assignment: "agent_id" | "driver_id", value: string) => {
     if (!token) return;
     try {
       const res = await fetch(`/api/deliveries/${deliveryId}/assign`, {
         method: "PATCH",
         headers: authHeaders(token),
-        body: JSON.stringify({ agent_id: agentId || null }),
+        body: JSON.stringify({ [assignment]: value || null }),
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchAll();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not assign agent.");
+      setError(err instanceof Error ? err.message : "Could not update delivery assignment.");
     }
   };
 
@@ -366,21 +368,29 @@ export function DeliveryDispatch() {
             </div>
 
             <div className="flex items-center gap-3 px-4 pb-3 flex-wrap">
-              {delivery.driver && (
-                <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-0.5">
-                  {delivery.driver.full_name || delivery.driver_id?.slice(0, 8)}
-                </span>
-              )}
               <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
                 Agent
                 <select
                   value={delivery.agent_id ?? ""}
-                  onChange={(event) => void handleAssignAgent(delivery.id, event.target.value)}
+                  onChange={(event) => void handleAssignDelivery(delivery.id, "agent_id", event.target.value)}
                   className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
                 >
                   <option value="">Unassigned</option>
                   {agents.filter((agent) => agent.is_active).map((agent) => (
                     <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+                Driver
+                <select
+                  value={delivery.driver_id ?? ""}
+                  onChange={(event) => void handleAssignDelivery(delivery.id, "driver_id", event.target.value)}
+                  className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
+                >
+                  <option value="">Unassigned</option>
+                  {drivers.filter((driver) => driver.is_active).map((driver) => (
+                    <option key={driver.id} value={driver.id}>{driver.full_name || driver.id.slice(0, 8)}</option>
                   ))}
                 </select>
               </label>
@@ -689,6 +699,7 @@ export function DeliveryDispatch() {
           eligibleInvoices={eligibleInvoices}
           customers={customers}
           agents={agents}
+          drivers={drivers}
           onClose={() => setShowAddDeliveryModal(false)}
           onSave={handleCreateDelivery}
         />
@@ -910,16 +921,18 @@ function EditTruckModal({ truck, token, onClose, onSaved }: {
 
 // ─── Add Delivery Modal ────────────────────────────────────────────────────────
 
-function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, onClose, onSave }: {
+function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers, onClose, onSave }: {
   truck: Truck;
   eligibleInvoices: Invoice[];
   customers: Customer[];
   agents: Agent[];
+  drivers: Driver[];
   onClose: () => void;
-  onSave: (d: { invoice_id: string; destination_customer_id: string }[], agentId: string, scheduledDate: string) => Promise<void>;
+  onSave: (d: { invoice_id: string; destination_customer_id: string }[], agentId: string, driverId: string, scheduledDate: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
   const [scheduledDate, setScheduledDate] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -973,7 +986,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, onClose,
   const handleSave = async () => {
     if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
     setSaving(true);
-    try { await onSave(buildPayload(), selectedAgentId, scheduledDate); }
+    try { await onSave(buildPayload(), selectedAgentId, selectedDriverId, scheduledDate); }
     finally { setSaving(false); }
   };
 
@@ -999,6 +1012,19 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, onClose,
             <option value="">No agent assigned</option>
             {agents.filter((agent) => agent.is_active).map((agent) => (
               <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Assign Driver (Optional)</label>
+          <select
+            value={selectedDriverId}
+            onChange={(event) => setSelectedDriverId(event.target.value)}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+          >
+            <option value="">No driver assigned</option>
+            {drivers.filter((driver) => driver.is_active).map((driver) => (
+              <option key={driver.id} value={driver.id}>{driver.full_name || driver.id.slice(0, 8)}</option>
             ))}
           </select>
         </div>
