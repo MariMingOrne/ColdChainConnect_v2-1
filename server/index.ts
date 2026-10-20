@@ -72,7 +72,6 @@ import {
   createDelivery,
   updateDeliveryStatus,
   updateDeliveryItemStatus,
-  releaseDelivery,
   assignDelivery,
 } from "./routes/deliveries";
 import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
@@ -214,7 +213,6 @@ export function createServer() {
   // Receipts routes
   app.get("/api/receipts", authMiddleware, listReceipts);
   app.post("/api/deliveries/:id/items/:itemId/confirm", authMiddleware, confirmDeliveryItem);
-  app.delete("/api/deliveries/:id", authMiddleware, requireRole("admin"), releaseDelivery);
 
   // Audit logs routes
   app.get("/api/audit-logs", authMiddleware, requireRole("admin"), listAuditLogs);

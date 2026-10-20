@@ -61,6 +61,7 @@ export function DeliveryDispatch() {
 
   const [selectedTruck,        setSelectedTruck]        = useState<Truck | null>(null);
   const [selectedDelivery,     setSelectedDelivery]     = useState<DeliveryExt | null>(null);
+  const [deliveryView, setDeliveryView] = useState<"active" | "completed">("active");
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
   const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
@@ -139,6 +140,9 @@ export function DeliveryDispatch() {
   const truckDeliveries = selectedTruck
     ? deliveries.filter((d) => d.truck_id === selectedTruck.id)
     : [];
+  const visibleTruckDeliveries = truckDeliveries.filter((delivery) =>
+    deliveryView === "completed" ? delivery.status === "completed" : delivery.status !== "completed"
+  );
 
   const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
     setPaymentItem({ delivery, item });
@@ -231,21 +235,6 @@ export function DeliveryDispatch() {
              !completedInvoiceIds.has(inv.id)
   );
 
-  const handleReleaseDelivery = async (deliveryId: string) => {
-    if (!token) return;
-    if (!confirm("Release this completed delivery? It will be removed from the list.")) return;
-    try {
-      const res = await fetch(`/api/deliveries/${deliveryId}`, {
-        method: "DELETE",
-        headers: authHeaders(token),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      await fetchAll();
-    } catch (err) {
-      alert("Failed to release: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
   const selectTruck = (truck: Truck) => {
     setSelectedTruck(truck);
     setSelectedDelivery(null);
@@ -317,17 +306,28 @@ export function DeliveryDispatch() {
         </button>
       </div>
 
-      {/* Deliveries */}
-      <p className="text-xs font-semibold text-muted uppercase tracking-wider">
-        Deliveries ({truckDeliveries.length})
-      </p>
+      <div className="flex gap-2 border-b border-border">
+        {([
+          ["active", `Active (${truckDeliveries.filter((delivery) => delivery.status !== "completed").length})`],
+          ["completed", `Completed (${truckDeliveries.filter((delivery) => delivery.status === "completed").length})`],
+        ] as const).map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            onClick={() => setDeliveryView(view)}
+            className={`border-b-2 px-3 py-2 text-sm font-semibold ${deliveryView === view ? "border-accent-2 text-accent-2" : "border-transparent text-muted"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {truckDeliveries.length === 0 ? (
+      {visibleTruckDeliveries.length === 0 ? (
         <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
-          No deliveries for this truck yet.
+          {deliveryView === "active" ? "No active deliveries for this truck." : "No completed deliveries for this truck yet."}
         </div>
       ) : (
-        truckDeliveries.map((delivery) => (
+        visibleTruckDeliveries.map((delivery) => (
           <div
             key={delivery.id}
             className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
@@ -347,14 +347,6 @@ export function DeliveryDispatch() {
                 <span className="text-xs text-muted flex-shrink-0">{delivery.delivery_items.length} stop{delivery.delivery_items.length !== 1 ? "s" : ""}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                {delivery.status === "completed" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleReleaseDelivery(delivery.id); }}
-                    className="px-2 py-1 text-xs font-semibold text-red border border-red/30 rounded hover:bg-red/10 transition-colors"
-                  >
-                    Release
-                  </button>
-                )}
                 <span className="text-xs text-muted hidden sm:block">
                   {new Date(delivery.created_at).toLocaleDateString("en-PH")}
                 </span>

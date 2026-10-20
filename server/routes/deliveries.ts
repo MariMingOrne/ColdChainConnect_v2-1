@@ -271,51 +271,6 @@ export const updateDeliveryItemStatus: RequestHandler = async (
   }
 };
 
-// ─── DELETE /api/deliveries/:id ───────────────────────────────────────────────
-// Releases (removes) a completed delivery. Only completed deliveries can be
-// released — active/in-transit ones are blocked to prevent data loss.
-
-export const releaseDelivery: RequestHandler = async (
-  req: AuthRequest,
-  res
-) => {
-  const { id } = req.params;
-  try {
-    const existing = await db.query.deliveries.findFirst({
-      where: eq(deliveries.id, id),
-      with: { delivery_items: true },
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: "Delivery not found" });
-    }
-
-    if (existing.status !== "completed") {
-      return res
-        .status(400)
-        .json({ error: "Only completed deliveries can be released" });
-    }
-
-    await db.delete(deliveries).where(eq(deliveries.id, id));
-
-    if (req.user) {
-      await logAction(
-        req.user.userId,
-        "delete",
-        "delivery",
-        id,
-        existing,
-        undefined
-      );
-    }
-
-    res.json({ message: "Delivery released" });
-  } catch (error) {
-    console.error("Error releasing delivery:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
 // ─── PATCH /api/deliveries/:id/assign ────────────────────────────────────────
 // Update the driver on an existing delivery. Agent assignment is derived from the sale owner.
 
