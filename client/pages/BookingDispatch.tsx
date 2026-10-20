@@ -51,7 +51,7 @@ export function BookingDispatch() {
 
         {/* Content — add bottom padding for agent so bar doesn't overlap */}
         <div
-          className={`flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}
+          className={`hide-scrollbar flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}
           onScroll={(event) => {
             if (isAgent) setIsAgentNavScrollRevealed(event.currentTarget.scrollTop > 240);
           }}

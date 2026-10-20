@@ -257,6 +257,15 @@
   }
 }
 
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .agent-bottom-nav {
   transform: translateY(100%);
   transition: transform 500ms ease;
