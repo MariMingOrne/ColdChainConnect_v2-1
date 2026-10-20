@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
+import { SwitchCamera } from "lucide-react";
 
 interface AgentBarcodeScannerProps {
   onClose: () => void;
@@ -10,6 +11,7 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
   const videoRef = useRef<HTMLVideoElement>(null);
   const [manualCode, setManualCode] = useState("");
   const [scanError, setScanError] = useState("");
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
@@ -18,7 +20,7 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
 
     if (videoRef.current) {
       reader.decodeFromConstraints(
-        { video: { facingMode: { ideal: "environment" } } },
+        { video: { facingMode: { ideal: facingMode } } },
         videoRef.current,
         (result, _error, controls) => {
           if (!active || !result) return;
@@ -40,7 +42,7 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
       active = false;
       stopScanner?.();
     };
-  }, [onDetected]);
+  }, [facingMode, onDetected]);
 
   const submitManualCode = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,9 +54,23 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
     <div className="fixed inset-x-0 bottom-16 top-16 z-30 flex flex-col bg-black text-white">
       <header className="flex items-center justify-between px-5 pb-4 pt-5">
         <p className="font-rajdhani text-xl font-bold">Barcode Scanner</p>
-        <button type="button" onClick={onClose} aria-label="Close scanner" className="text-3xl leading-none">
-          ×
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setScanError("");
+              setFacingMode((current) => current === "environment" ? "user" : "environment");
+            }}
+            aria-label={`Switch to ${facingMode === "environment" ? "front" : "rear"} camera`}
+            className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white"
+          >
+            <SwitchCamera size={18} />
+            {facingMode === "environment" ? "Rear" : "Front"}
+          </button>
+          <button type="button" onClick={onClose} aria-label="Close scanner" className="text-3xl leading-none">
+            ×
+          </button>
+        </div>
       </header>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 overflow-y-auto px-6 py-4">
         <div className="relative w-full max-w-md overflow-hidden rounded-xl border-2 border-accent-2 bg-black">
@@ -62,7 +78,7 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
           <div className="pointer-events-none absolute inset-[15%] rounded-xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.25)]" />
         </div>
         <p className="max-w-md text-center text-sm text-white/80">
-          Point the rear camera at a pallet or order barcode.
+          Point the {facingMode === "environment" ? "rear" : "front"} camera at a pallet or order barcode.
         </p>
         {scanError && <p role="alert" className="max-w-md text-center text-sm text-red-300">{scanError}</p>}
         <form onSubmit={submitManualCode} className="flex w-full max-w-md gap-2">
