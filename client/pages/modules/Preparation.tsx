@@ -109,7 +109,7 @@ export function Preparation() {
     return true;
   };
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <LoadingSpinner className="fixed inset-0 z-40 min-h-0 bg-off-white" />;
 
   const filtered = orders.filter((order) => {
     const matchesSearch =
