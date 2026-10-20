@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   ClipboardList,
@@ -36,8 +36,13 @@ const moduleIcons: Record<string, React.ElementType> = {
 
 export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const [isScanning, setIsScanning] = useState(false);
+  const handleBarcodeDetected = useCallback((code: string) => {
+    setIsScanning(false);
+    navigate(`${basePath}/preparation?order=${encodeURIComponent(code)}`);
+  }, [basePath, navigate]);
 
   // ── Agent: fixed bottom app bar with icons ──────────────────────
   if (agentMode) {
@@ -94,7 +99,12 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
           </div>
           {modules.slice(half).map(renderModule)}
         </nav>
-        {isScanning && <AgentBarcodeScanner onClose={() => setIsScanning(false)} />}
+        {isScanning && (
+          <AgentBarcodeScanner
+            onClose={() => setIsScanning(false)}
+            onDetected={handleBarcodeDetected}
+          />
+        )}
       </>
     );
   }
