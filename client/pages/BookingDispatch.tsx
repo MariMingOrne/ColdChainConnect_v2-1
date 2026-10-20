@@ -40,7 +40,7 @@ export function BookingDispatch() {
 
   return (
     <InventoryProvider>
-      <div className="flex h-full">
+      <div className="flex h-full min-h-0 min-w-0">
         {/* Sidebar for admin, bottom bar for agent (rendered inside HubSidebar) */}
         <HubSidebar
           modules={modules}
@@ -51,7 +51,7 @@ export function BookingDispatch() {
 
         {/* Content — add bottom padding for agent so bar doesn't overlap */}
         <div
-          className={`hide-scrollbar flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}
+          className={`hide-scrollbar min-h-0 flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}
           onScroll={(event) => {
             if (isAgent) setIsAgentNavScrollRevealed(event.currentTarget.scrollTop > 240);
           }}

@@ -40,12 +40,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 /** Agent layout: topbar only, no bottom nav, no back-to-dashboard */
-const AgentLayout = ({ children }: { children: React.ReactNode }) => {
+const AgentLayout = ({ children, agentMode = false }: { children: React.ReactNode; agentMode?: boolean }) => {
   const { logout, user } = useAuth();
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className={agentMode ? "flex h-dvh min-h-0 flex-col overflow-hidden" : "flex flex-col min-h-screen"}>
       <Topbar userName={user?.username || "User"} onLogout={logout} agentMode />
-      <div className="flex-1 flex flex-col bg-off-white min-w-0 animate-fade-in">
+      <div className={`flex-1 flex flex-col bg-off-white min-w-0 animate-fade-in ${agentMode ? "min-h-0" : ""}`}>
         {children}
       </div>
     </div>
@@ -76,7 +76,7 @@ const AppContent = () => {
         <Route
           path="/booking-dispatch/*"
           element={
-            <AgentLayout>
+            <AgentLayout agentMode>
               <BookingDispatch />
             </AgentLayout>
           }
