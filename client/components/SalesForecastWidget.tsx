@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useQuery } from "@tanstack/react-query";
 import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
 import { SalesForecastResponse } from "@shared/api";
@@ -59,7 +60,7 @@ function ForecastBody({ isLoading, isError, data }: {
   data: SalesForecastResponse | undefined;
 }) {
   if (isLoading) {
-    return <p className="py-10 text-center text-sm text-gray-500">Loading forecast…</p>;
+    return <LoadingSpinner className="py-10" />;
   }
   if (isError || !data) {
     return <p className="py-10 text-center text-sm text-red-600">Could not load the forecast.</p>;

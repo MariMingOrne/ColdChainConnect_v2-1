@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Download, RefreshCw } from "lucide-react";
 import { AuditLog } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -123,7 +124,7 @@ export function AuditLogPage() {
             </Card>
           )}
           {isLoading ? (
-            <div className="p-6 text-gray-500">Loading...</div>
+            <LoadingSpinner className="min-h-32" />
           ) : (
             <AuditLogTable logs={logs} onView={setSelectedLog} />
           )}

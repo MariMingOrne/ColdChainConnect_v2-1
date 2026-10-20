@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -150,7 +151,7 @@ export function MobileBooking() {
     }
   };
 
-  if (isLoading && !isRefreshing) return <div className="p-6">Loading...</div>;
+  if (isLoading && !isRefreshing) return <LoadingSpinner />;
 
   const selectedCustomerName =
     customers.find((c) => c.id === selectedCustomer)?.store_name || "No customer";

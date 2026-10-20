@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   Table,
   TableBody,
@@ -150,7 +151,7 @@ export function AccountsReceivable() {
     );
   });
 
-  if (isLoading) return <div className="p-6 text-sm text-muted">Loading…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <div className="flex-1 flex flex-col p-6 gap-6">

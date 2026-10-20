@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Customer, Truck, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
@@ -508,7 +509,7 @@ export function Customers({ onBack }: CustomersProps) {
   if (isLoading) {
     return (
       <div className="flex-1 px-4 py-4 md:px-6 md:py-6">
-        <div className="text-sm text-muted">Loading customers...</div>
+        <LoadingSpinner className="min-h-64" />
       </div>
     );
   }

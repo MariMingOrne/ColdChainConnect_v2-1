@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ChevronDown, ChevronUp, Package, RefreshCw, Search } from "lucide-react";
 import { Booking, Pallet, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -132,7 +133,7 @@ export function AgentPalletTracking() {
     }
   };
 
-  if (isLoading) return <div className="p-5 text-sm text-muted">Loading pallet tracking…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-4 px-0 pb-24 pt-5 sm:px-4">

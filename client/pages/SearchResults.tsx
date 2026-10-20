@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import type { Booking, Customer, Invoice, InventoryBatch, Product, Truck } from "@shared/api";
 import { useAuth } from "../hooks/useAuth";
 import { EMPTY_SEARCH_DATA, SearchData, searchAll } from "../lib/globalSearch";
@@ -50,7 +51,7 @@ export function SearchResults() {
         <p className="text-navy/60">Type a term in the search bar above to search all modules.</p>
       )}
 
-      {query.trim() && isLoading && <p className="text-navy/60">Searching…</p>}
+      {query.trim() && isLoading && <LoadingSpinner className="min-h-24" />}
 
       {query.trim() && !isLoading && groups.length === 0 && (
         <p className="text-navy/60">No results found.</p>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
@@ -234,7 +235,7 @@ export function DeliveryDispatch() {
     setMobileView("detail");
   };
 
-  if (loading) return <div className="flex-1 px-6 py-8 text-sm text-muted">Loading deliveries…</div>;
+  if (loading) return <LoadingSpinner />;
 
   // ── Truck detail panel (shared between mobile and desktop) ─────────────────
   const DetailPanel = () => (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,7 +109,7 @@ export function Preparation() {
     return true;
   };
 
-  if (isLoading) return <div className="flex-1 px-6 py-8 text-sm text-muted">Loading…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   const filtered = orders.filter((order) => {
     const matchesSearch =

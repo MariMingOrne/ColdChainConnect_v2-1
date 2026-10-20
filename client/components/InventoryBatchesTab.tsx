@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, X, ChevronDown, ChevronUp } from "lucide-react";
@@ -119,7 +120,7 @@ export function InventoryBatchesTab() {
     }
   };
 
-  if (isLoading) return <div className="p-6">Loading batches...</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <div className="flex-1 flex flex-col gap-6">

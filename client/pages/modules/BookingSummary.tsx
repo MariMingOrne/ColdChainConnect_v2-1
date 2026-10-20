@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -348,7 +349,7 @@ export function BookingSummary() {
     }
   };
 
-  if (isLoading) return <div className="flex-1 px-6 py-8 text-sm text-muted">Loading…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   if (isAgent) {
     return (

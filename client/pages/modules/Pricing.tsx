@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useInventoryContext } from "../../context/InventoryContext";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Product } from "@shared/api";
@@ -379,7 +380,7 @@ export function Pricing({ onBack }: PricingProps) {
   if (isLoading) {
     return (
       <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6 space-y-6">
-        <div className="text-muted text-sm">Loading products...</div>
+        <LoadingSpinner className="min-h-64" />
       </div>
     );
   }

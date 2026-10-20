@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { CalendarDays, Clock3, MapPin, PackageCheck, Phone, RefreshCw, Truck as TruckIcon } from "lucide-react";
 import { Agent, Customer, Delivery, DeliveryItem, Invoice, Pallet, Truck, formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -111,7 +112,7 @@ export function AgentDeliverySchedule() {
     0,
   );
 
-  if (isLoading) return <div className="p-6 text-gray-500">Loading your delivery schedule…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <div className="flex-1 flex flex-col gap-5 p-4 pb-24 md:p-6 md:pb-6">

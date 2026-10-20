@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { DriverSchedule, DriverScheduleStop } from "@shared/api";
 import { DriverStopCard } from "./DriverStopCard";
 
@@ -77,7 +78,7 @@ export function DriverScheduleView({ driverId }: { driverId?: string }) {
       </div>
 
       {error && <p className="text-sm text-red">{error}</p>}
-      {isLoading && !schedule && <p className="text-sm text-muted">Loading schedule…</p>}
+      {isLoading && !schedule && <LoadingSpinner className="min-h-24" />}
 
       {schedule && !error && (
         <>

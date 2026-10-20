@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RefreshCw, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pallet, Booking, Customer, Product, Truck, Invoice, Delivery, DeliveryItem, formatCustomerAddress } from "@shared/api";
@@ -148,7 +149,7 @@ export function BookingInventory() {
 
   const selected = entries.find((entry) => entry.pallet.id === selectedPalletId) ?? null;
 
-  if (isLoading) return <div className="p-6 text-gray-500">Loading pallets…</div>;
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <div className="flex-1 flex flex-col gap-6 p-6">

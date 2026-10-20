@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   Table,
   TableBody,
@@ -293,7 +294,7 @@ export function Invoicing() {
     return true;
   };
 
-  if (isLoading && !isRefreshing) return <div className="p-6">Loading...</div>;
+  if (isLoading && !isRefreshing) return <LoadingSpinner />;
 
   const filtered = invoices.filter((inv) => {
     const matchSearch =

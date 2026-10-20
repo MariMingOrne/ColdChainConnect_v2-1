@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RefreshCw } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Driver } from "@shared/api";
@@ -392,7 +393,7 @@ export function Drivers({ onBack }: DriversProps) {
   if (isLoading && !isRefreshing) {
     return (
       <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6">
-        <div className="text-muted text-sm">Loading drivers…</div>
+        <LoadingSpinner className="min-h-64" />
       </div>
     );
   }

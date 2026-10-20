@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RefreshCw, RotateCcw, CheckCircle, XCircle } from "lucide-react";
 import { AgentReturn, Invoice, Customer, Product } from "@shared/api";
 import { LogReturnForm } from "./LogReturnForm";
@@ -237,7 +238,7 @@ export function AgentReports() {
 
       <div className="bg-white rounded-2xl border border-border overflow-hidden">
         {loading ? (
-          <p className="px-6 py-8 text-sm text-muted">Loading…</p>
+          <LoadingSpinner className="min-h-32" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs md:text-sm">
