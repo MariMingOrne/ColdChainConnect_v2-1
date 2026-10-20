@@ -49,7 +49,7 @@ export function AgentBarcodeScanner({ onClose, onDetected }: AgentBarcodeScanner
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+    <div className="fixed inset-x-0 bottom-16 top-16 z-30 flex flex-col bg-black text-white">
       <header className="flex items-center justify-between px-5 pb-4 pt-5">
         <p className="font-rajdhani text-xl font-bold">Barcode Scanner</p>
         <button type="button" onClick={onClose} aria-label="Close scanner" className="text-3xl leading-none">
