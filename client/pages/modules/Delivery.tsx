@@ -372,13 +372,15 @@ export function DeliveryDispatch() {
               <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
                 Driver
                 <select
-                  value={delivery.driver_id ?? ""}
+                  value={delivery.driver_id ?? delivery.truck?.driver_id ?? ""}
                   onChange={(event) => void handleAssignDriver(delivery.id, event.target.value)}
                   className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
                 >
                   <option value="">Unassigned</option>
                   {drivers.filter((driver) => driver.is_active).map((driver) => (
-                    <option key={driver.id} value={driver.id}>{driver.full_name || driver.id.slice(0, 8)}</option>
+                    <option key={driver.id} value={driver.id}>
+                      {driver.full_name || driver.id.slice(0, 8)}{driver.id === delivery.truck?.driver_id ? " · truck default" : ""}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -1007,7 +1009,9 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
           >
             <option value="">No driver assigned</option>
             {drivers.filter((driver) => driver.is_active).map((driver) => (
-              <option key={driver.id} value={driver.id}>{driver.full_name || driver.id.slice(0, 8)}</option>
+              <option key={driver.id} value={driver.id}>
+                {driver.full_name || driver.id.slice(0, 8)}{driver.id === truck.driver_id ? " · truck default" : ""}
+              </option>
             ))}
           </select>
         </div>

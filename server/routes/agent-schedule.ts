@@ -21,7 +21,12 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
       where: eq(deliveries.agent_id, agent.id),
       with: {
         truck: {
-          columns: { id: true, license_plate: true, district: true },
+          columns: { id: true, license_plate: true, district: true, driver_id: true },
+          with: {
+            driver: {
+              columns: { id: true, full_name: true, contact_info: true, license: true },
+            },
+          },
         },
         agent: {
           columns: { id: true, full_name: true },
@@ -54,6 +59,7 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
 
     const schedule = assignedDeliveries.map((delivery) => ({
       ...delivery,
+      driver: delivery.driver ?? delivery.truck?.driver ?? null,
       delivery_items: delivery.delivery_items.map((stop) => ({
         ...stop,
         invoice: stop.invoice

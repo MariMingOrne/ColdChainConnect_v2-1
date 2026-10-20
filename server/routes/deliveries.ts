@@ -136,7 +136,7 @@ export const createDelivery: RequestHandler = async (
     await db.insert(deliveries).values({
       id: deliveryId,
       truck_id,
-      driver_id: driver_id ?? null,
+      driver_id: driver_id ?? truck.driver_id ?? null,
       agent_id: resolvedAgentId,
       scheduled_date: scheduled_date ?? todayIsoDate(),
       status: "pending",

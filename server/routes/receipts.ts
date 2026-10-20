@@ -87,6 +87,7 @@ export const confirmDeliveryItem: RequestHandler = async (
     // 3. Load the parent delivery to get the truck_id
     const delivery = await db.query.deliveries.findFirst({
       where: eq(deliveries.id, deliveryId),
+      with: { truck: { columns: { driver_id: true } } },
     });
 
     if (!delivery) {
@@ -106,7 +107,7 @@ export const confirmDeliveryItem: RequestHandler = async (
         where: eq(drivers.user_id, req.user.userId),
         columns: { id: true },
       });
-      if (!profile || delivery.driver_id !== profile.id) {
+      if (!profile || (delivery.driver_id ?? delivery.truck?.driver_id) !== profile.id) {
         return res.status(403).json({ error: "Only the assigned driver can confirm this delivery" });
       }
     } else if (req.user?.role !== "admin") {

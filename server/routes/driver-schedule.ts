@@ -1,5 +1,5 @@
 import { RequestHandler } from "express";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { deliveries, drivers } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
@@ -37,8 +37,8 @@ export const getDriverSchedule: RequestHandler = async (req: AuthRequest, res) =
       return res.status(404).json({ error: "Driver not found" });
     }
 
-    const runs = await db.query.deliveries.findMany({
-      where: and(eq(deliveries.driver_id, driverId), eq(deliveries.scheduled_date, date)),
+    const scheduledRuns = await db.query.deliveries.findMany({
+      where: eq(deliveries.scheduled_date, date),
       with: {
         truck: true,
         delivery_items: {
@@ -49,6 +49,7 @@ export const getDriverSchedule: RequestHandler = async (req: AuthRequest, res) =
         },
       },
     });
+    const runs = scheduledRuns.filter((run) => (run.driver_id ?? run.truck.driver_id) === driverId);
 
     res.json({ date, driver, deliveries: runs });
   } catch (error) {
