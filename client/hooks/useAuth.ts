@@ -18,6 +18,8 @@ interface AuthStore {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isPostLoginLoading: boolean;
+  postLoginStartedAt: number | null;
   error: string | null;
   login: (credentials: LoginRequest) => Promise<MfaChallengeResponse | null>;
   setupMfa: (challengeToken: string) => Promise<MfaSetupResponse>;
@@ -25,6 +27,7 @@ interface AuthStore {
   logout: () => Promise<void>;
   setToken: (token: string | null) => void;
   setUser: (user: AuthUser | null) => void;
+  finishPostLoginLoading: () => void;
 }
 
 const AUTH_TOKEN_KEY = "auth_token";
@@ -87,6 +90,8 @@ function completeSignIn(
     user: normalizedUser,
     isAuthenticated: true,
     isLoading: false,
+    isPostLoginLoading: true,
+    postLoginStartedAt: Date.now(),
   });
 }
 
@@ -98,6 +103,8 @@ export const useAuth = create<AuthStore>((set, get) => {
     token: storedToken,
     isAuthenticated: Boolean(storedToken),
     isLoading: false,
+    isPostLoginLoading: false,
+    postLoginStartedAt: null,
     error: null,
 
     login: async (credentials) => {
@@ -184,6 +191,8 @@ export const useAuth = create<AuthStore>((set, get) => {
           token: null,
           isAuthenticated: false,
           isLoading: false,
+          isPostLoginLoading: false,
+          postLoginStartedAt: null,
           error: null,
         });
       }
@@ -202,6 +211,18 @@ export const useAuth = create<AuthStore>((set, get) => {
       const token = get().token;
       persistAuth(token, user);
       set({ user });
+    },
+
+    finishPostLoginLoading: () => {
+      const startedAt = get().postLoginStartedAt;
+      if (!get().isPostLoginLoading || startedAt === null) return;
+
+      const delay = Math.max(0, 600 - (Date.now() - startedAt));
+      window.setTimeout(() => {
+        if (get().postLoginStartedAt === startedAt) {
+          set({ isPostLoginLoading: false, postLoginStartedAt: null });
+        }
+      }, delay);
     },
   };
 });

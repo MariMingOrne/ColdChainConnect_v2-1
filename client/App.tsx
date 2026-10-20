@@ -16,6 +16,7 @@ import { AuditLogPage } from "./pages/AuditLog";
 import { SearchResults } from "./pages/SearchResults";
 import { DriverSchedule } from "./pages/DriverSchedule";
 import { Topbar } from "./components/Topbar";
+import { PostLoginLoadingScreen } from "./components/auth/PostLoginLoadingScreen";
 import { BottomNavBar } from "./components/BottomNavBar";
 import { SalesForecastWidget } from "./components/SalesForecastWidget";
 import NotFound from "./pages/NotFound";
@@ -102,6 +103,11 @@ const AppContent = () => {
   );
 };
 
+function PostLoginLoadingGate() {
+  const isPostLoginLoading = useAuth((state) => state.isPostLoginLoading);
+  return isPostLoginLoading ? <PostLoginLoadingScreen /> : null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -109,6 +115,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppContent />
+        <PostLoginLoadingGate />
         <SalesForecastWidget />
       </BrowserRouter>
     </TooltipProvider>

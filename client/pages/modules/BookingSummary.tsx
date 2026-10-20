@@ -20,7 +20,7 @@ export function BookingSummary() {
   const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token, logout, user } = useAuth();
+  const { token, logout, user, finishPostLoginLoading } = useAuth();
   const isAgent = user?.role === "agent";
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,6 +72,7 @@ export function BookingSummary() {
       setError(err instanceof Error ? err.message : "Error loading data");
     } finally {
       setIsLoading(false);
+      finishPostLoginLoading();
     }
   };
 

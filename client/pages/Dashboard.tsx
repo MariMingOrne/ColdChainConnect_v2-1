@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 import {
   Settings,
   BookOpen,
@@ -14,6 +16,12 @@ import {
 } from "lucide-react";
 
 export function Dashboard() {
+  const finishPostLoginLoading = useAuth((state) => state.finishPostLoginLoading);
+
+  useEffect(() => {
+    finishPostLoginLoading();
+  }, [finishPostLoginLoading]);
+
   const hubCards = [
     {
       title: "Information Management",

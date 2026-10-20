@@ -16,6 +16,7 @@ function shiftDate(isoDate: string, days: number) {
 
 export function DriverScheduleView({ driverId }: { driverId?: string }) {
   const token = useAuth((state) => state.token);
+  const finishPostLoginLoading = useAuth((state) => state.finishPostLoginLoading);
   const [date, setDate] = useState(() => toIsoDate(new Date()));
   const [schedule, setSchedule] = useState<DriverSchedule | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +43,10 @@ export function DriverScheduleView({ driverId }: { driverId?: string }) {
         setError(null);
       })
       .catch((err: Error) => setError(err.message))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        setIsLoading(false);
+        finishPostLoginLoading();
+      });
   }, [token, date, driverId]);
 
   const stops: DriverScheduleStop[] = schedule?.deliveries.flatMap((run) => run.delivery_items) ?? [];
