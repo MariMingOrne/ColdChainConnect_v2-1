@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -39,6 +39,11 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const [isScanning, setIsScanning] = useState(false);
+
+  useEffect(() => {
+    setIsScanning(false);
+  }, [location.pathname]);
+
   const handleBarcodeDetected = useCallback((code: string) => {
     setIsScanning(false);
     navigate(`${basePath}/preparation?order=${encodeURIComponent(code)}`);
@@ -58,6 +63,7 @@ export function HubSidebar({ modules, basePath, agentMode = false }: HubSidebarP
         <Link
           key={module.path}
           to={fullPath}
+          onClick={() => setIsScanning(false)}
           className={cn(
             "group relative flex h-full min-w-0 flex-1 flex-col items-center justify-center px-1 text-[10px] font-semibold transition-all duration-500 ease-out",
             isActive
