@@ -260,7 +260,7 @@
 @media (hover: hover) and (pointer: fine) {
   .agent-bottom-nav {
     transform: translateY(calc(100% - 0.5rem));
-    transition: transform 220ms ease;
+    transition: transform 500ms ease;
   }
 
   .agent-bottom-nav:hover,
