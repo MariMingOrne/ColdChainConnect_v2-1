@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
 import { HubSidebar } from "@/components/HubSidebar";
 import { BookingSummary } from "./modules/BookingSummary";
 import { Invoicing } from "./modules/Invoicing";
@@ -35,7 +34,6 @@ const agentModules = [
 export function BookingDispatch() {
   const { user } = useAuth();
   const isAgent = user?.role === "agent";
-  const [isAgentNavScrollRevealed, setIsAgentNavScrollRevealed] = useState(false);
   const modules = isAgent ? agentModules : adminModules;
 
   return (
@@ -46,16 +44,10 @@ export function BookingDispatch() {
           modules={modules}
           basePath="/booking-dispatch"
           agentMode={isAgent}
-          revealOnScroll={isAgentNavScrollRevealed}
         />
 
         {/* Content — add bottom padding for agent so bar doesn't overlap */}
-        <div
-          className={`hide-scrollbar min-h-0 flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}
-          onScroll={(event) => {
-            if (isAgent) setIsAgentNavScrollRevealed(event.currentTarget.scrollTop > 240);
-          }}
-        >
+        <div className={`hide-scrollbar min-h-0 flex-1 overflow-auto ${isAgent ? "pb-20" : ""}`}>
           <Routes>
             <Route path="/order-summary"    element={<BookingSummary />} />
             <Route path="/preparation"      element={isAgent ? <AgentPalletTracking /> : <Preparation />} />

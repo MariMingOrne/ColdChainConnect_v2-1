@@ -266,46 +266,6 @@
   display: none;
 }
 
-.agent-bottom-nav {
-  transform: translateY(100%);
-  transition: transform 500ms ease;
-}
-
-.agent-nav-shell.is-open .agent-bottom-nav,
-.agent-nav-shell.is-scroll-revealed .agent-bottom-nav {
-  transform: translateY(0);
-}
-
-.agent-nav-reveal {
-  transition: transform 500ms ease;
-}
-
-.agent-nav-shell.is-open .agent-nav-reveal,
-.agent-nav-shell.is-scroll-revealed .agent-nav-reveal {
-  transform: translate(-50%, 100%);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .agent-bottom-nav {
-    transform: translateY(calc(100% - 0.5rem));
-  }
-
-  .agent-bottom-nav:hover,
-  .agent-bottom-nav:focus-within {
-    transform: translateY(0);
-  }
-
-  .agent-nav-reveal {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-bottom-nav,
-  .agent-nav-reveal {
-    transition-duration: 0ms;
-  }
-}
 
 @keyframes fade-in {
   from { opacity: 0; }
