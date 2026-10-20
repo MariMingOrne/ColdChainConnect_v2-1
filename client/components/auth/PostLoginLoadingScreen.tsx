@@ -9,7 +9,7 @@ export function PostLoginLoadingScreen() {
     >
       <div className="flex flex-col items-center gap-4 px-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-navy shadow-lg">
-          <LoaderCircle size={30} className="animate-spin text-white" />
+          <LoaderCircle size={30} className="animate-spin [animation-duration:2s] text-white" />
         </div>
         <div>
           <p className="font-rajdhani text-2xl font-bold text-navy">ACDP</p>

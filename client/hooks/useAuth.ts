@@ -76,6 +76,7 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
 
 function completeSignIn(
   set: (partial: Partial<AuthStore>) => void,
+  get: () => AuthStore,
   data: LoginResponse
 ) {
   const normalizedUser: AuthUser = {
@@ -85,14 +86,21 @@ function completeSignIn(
   };
 
   persistAuth(data.token, normalizedUser);
+  const startedAt = Date.now();
   set({
     token: data.token,
     user: normalizedUser,
     isAuthenticated: true,
     isLoading: false,
     isPostLoginLoading: true,
-    postLoginStartedAt: Date.now(),
+    postLoginStartedAt: startedAt,
   });
+
+  window.setTimeout(() => {
+    if (get().postLoginStartedAt === startedAt) {
+      set({ isPostLoginLoading: false, postLoginStartedAt: null });
+    }
+  }, 5000);
 }
 
 export const useAuth = create<AuthStore>((set, get) => {
@@ -128,7 +136,7 @@ export const useAuth = create<AuthStore>((set, get) => {
           return data;
         }
 
-        completeSignIn(set, data);
+        completeSignIn(set, get, data);
         return null;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Login failed";
@@ -162,7 +170,7 @@ export const useAuth = create<AuthStore>((set, get) => {
           throw new Error(await readErrorMessage(response, "Verification failed"));
         }
 
-        completeSignIn(set, (await response.json()) as LoginResponse);
+        completeSignIn(set, get, (await response.json()) as LoginResponse);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Verification failed";
         set({ error: message, isLoading: false });
@@ -224,5 +232,6 @@ export const useAuth = create<AuthStore>((set, get) => {
         }
       }, delay);
     },
+
   };
 });
