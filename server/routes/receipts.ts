@@ -8,6 +8,9 @@ import {
   deliveries,
   invoices,
   accounts_receivable,
+  agents,
+  drivers,
+  order_pallets,
 } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
@@ -88,6 +91,34 @@ export const confirmDeliveryItem: RequestHandler = async (
 
     if (!delivery) {
       return res.status(404).json({ error: "Delivery not found" });
+    }
+
+    if (req.user?.role === "agent") {
+      const profile = await db.query.agents.findFirst({
+        where: eq(agents.user_id, req.user.userId),
+        columns: { id: true },
+      });
+      if (!profile || delivery.agent_id !== profile.id) {
+        return res.status(403).json({ error: "Only the assigned agent can confirm this delivery" });
+      }
+    } else if (req.user?.role === "driver") {
+      const profile = await db.query.drivers.findFirst({
+        where: eq(drivers.user_id, req.user.userId),
+        columns: { id: true },
+      });
+      if (!profile || delivery.driver_id !== profile.id) {
+        return res.status(403).json({ error: "Only the assigned driver can confirm this delivery" });
+      }
+    } else if (req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Not authorized to confirm this delivery" });
+    }
+
+    const pallets = await db.query.order_pallets.findMany({
+      where: eq(order_pallets.order_id, invoice.booking_id),
+      columns: { status: true },
+    });
+    if (pallets.length === 0 || pallets.some((pallet) => pallet.status !== "shipped")) {
+      return res.status(409).json({ error: "All pallets for this order must be shipped before delivery confirmation" });
     }
 
     // 4. Generate receipt number: OR-YYYYMMDD-XXXX

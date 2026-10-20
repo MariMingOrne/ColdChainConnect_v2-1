@@ -33,7 +33,7 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
           with: {
             destination_customer: true,
             invoice: {
-              columns: { id: true, booking_id: true, receipt_number: true, agent_id: true },
+              columns: { id: true, booking_id: true, receipt_number: true, total_amount: true, agent_id: true },
               with: {
                 agent: {
                   columns: { id: true, username: true },
@@ -61,6 +61,7 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
               id: stop.invoice.id,
               booking_id: stop.invoice.booking_id,
               receipt_number: stop.invoice.receipt_number,
+              total_amount: stop.invoice.total_amount,
             }
           : null,
         sale_agent: stop.invoice?.agent ?? null,

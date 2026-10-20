@@ -487,7 +487,7 @@ export interface DeliveryItem {
 
 export interface AgentScheduleStop extends DeliveryItem {
   destination_customer: Customer;
-  invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number"> | null;
+  invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number" | "total_amount"> | null;
   sale_agent: Pick<User, "id" | "username"> | null;
   pallets: Pick<Pallet, "id" | "order_id" | "status">[];
 }
