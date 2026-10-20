@@ -47,7 +47,7 @@ function truckStatusLabel(status: string) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function DeliveryDispatch() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
 
   const [trucks,      setTrucks]      = useState<Truck[]>([]);
   const [drivers,     setDrivers]     = useState<Driver[]>([]);
@@ -64,7 +64,6 @@ export function DeliveryDispatch() {
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
   const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
-  const [showChangeDriverModal,setShowChangeDriverModal]= useState(false);
   const [showChangeTruckDriverModal, setShowChangeTruckDriverModal] = useState(false);
   const [showPaymentModal,     setShowPaymentModal]     = useState(false);
   const [paymentItem,          setPaymentItem]          = useState<{ delivery: DeliveryExt; item: DeliveryItemExt } | null>(null);
@@ -176,6 +175,8 @@ export function DeliveryDispatch() {
 
   const handleCreateDelivery = async (
     destinations: { invoice_id: string; destination_customer_id: string }[],
+    agentId: string,
+    scheduledDate: string,
   ) => {
     if (!token || !selectedTruck) return;
     try {
@@ -185,6 +186,8 @@ export function DeliveryDispatch() {
         body: JSON.stringify({
           truck_id: selectedTruck.id,
           destinations,
+          agent_id: agentId || undefined,
+          scheduled_date: scheduledDate,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -192,6 +195,21 @@ export function DeliveryDispatch() {
       setShowAddDeliveryModal(false);
     } catch (err) {
       alert("Failed to create delivery: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleAssignAgent = async (deliveryId: string, agentId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/deliveries/${deliveryId}/assign`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ agent_id: agentId || null }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not assign agent.");
     }
   };
 
@@ -264,30 +282,6 @@ export function DeliveryDispatch() {
               Edit
             </button>
           </div>
-        </div>
-
-        {/* Agent */}
-        <div className="border-t border-border pt-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider">Agent</p>
-            {truckDeliveries.some((d) => d.status !== "completed") ? (
-              <span className="text-xs font-semibold text-accent-2 bg-accent-2/10 px-2 py-1 rounded">Locked</span>
-            ) : (
-              <button onClick={() => setShowChangeDriverModal(true)} className="text-xs font-semibold text-accent-2 hover:opacity-70">
-                Change
-              </button>
-            )}
-          </div>
-          {selectedTruck!.driver_id ? (
-            <div className="bg-off-white rounded-lg p-3">
-              <p className="font-semibold text-navy text-sm">{drivers.find((d) => d.id === selectedTruck!.driver_id)?.full_name || selectedTruck!.driver_id.slice(0, 8)}</p>
-              {drivers.find((d) => d.id === selectedTruck!.driver_id)?.contact_info && (
-                <p className="text-xs text-muted mt-0.5">{drivers.find((d) => d.id === selectedTruck!.driver_id)?.contact_info}</p>
-              )}
-            </div>
-          ) : (
-            <div className="bg-off-white rounded-lg p-3 text-center text-xs text-muted">No agent assigned</div>
-          )}
         </div>
 
         {/* Driver — assigned to the truck for this run */}
@@ -371,21 +365,26 @@ export function DeliveryDispatch() {
               </div>
             </div>
 
-            {/* Driver / Agent badges */}
-            {(delivery.driver || delivery.agent) && (
-              <div className="flex items-center gap-3 px-4 pb-2 flex-wrap">
-                {delivery.driver && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-0.5">
-                    🚗 {delivery.driver.full_name || delivery.driver_id?.slice(0, 8)}
-                  </span>
-                )}
-                {delivery.agent && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-0.5">
-                    👤 {delivery.agent.full_name || delivery.agent_id?.slice(0, 8)}
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-3 px-4 pb-3 flex-wrap">
+              {delivery.driver && (
+                <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-0.5">
+                  {delivery.driver.full_name || delivery.driver_id?.slice(0, 8)}
+                </span>
+              )}
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+                Agent
+                <select
+                  value={delivery.agent_id ?? ""}
+                  onChange={(event) => void handleAssignAgent(delivery.id, event.target.value)}
+                  className="rounded-md border border-border bg-white px-2 py-1 text-xs font-normal text-navy"
+                >
+                  <option value="">Unassigned</option>
+                  {agents.filter((agent) => agent.is_active).map((agent) => (
+                    <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             {/* Delivery stops — card layout on mobile, table on md+ */}
             {selectedDelivery?.id === delivery.id && (
@@ -661,29 +660,6 @@ export function DeliveryDispatch() {
         />
       )}
 
-      {showChangeDriverModal && selectedTruck && (
-        <ChangeDriverModal
-          truck={selectedTruck}
-          drivers={drivers}
-          token={token!}
-          onClose={() => setShowChangeDriverModal(false)}
-          onSave={async (driverId) => {
-            try {
-              const res = await fetch(`/api/trucks/${selectedTruck.id}`, {
-                method: "PATCH",
-                headers: authHeaders(token!),
-                body: JSON.stringify({ driver_id: driverId }),
-              });
-              if (!res.ok) throw new Error(await res.text());
-              await fetchAll();
-              setShowChangeDriverModal(false);
-            } catch (err) {
-              alert("Failed to update agent: " + (err instanceof Error ? err.message : String(err)));
-            }
-          }}
-        />
-      )}
-
       {showChangeTruckDriverModal && selectedTruck && (
         <ChangeTruckDriverModal
           truck={selectedTruck}
@@ -712,6 +688,7 @@ export function DeliveryDispatch() {
           truck={selectedTruck}
           eligibleInvoices={eligibleInvoices}
           customers={customers}
+          agents={agents}
           onClose={() => setShowAddDeliveryModal(false)}
           onSave={handleCreateDelivery}
         />
@@ -732,9 +709,6 @@ export function DeliveryDispatch() {
 }
 
 // ─── Change Truck Driver Modal ────────────────────────────────────────────────
-// Mirrors the existing ChangeDriverModal (for agents) but targets the Driver
-// field on the truck — populated from the drivers table in the DB.
-
 function ChangeTruckDriverModal({ truck, drivers, token, onClose, onSave }: {
   truck: Truck; drivers: Driver[]; token: string; onClose: () => void; onSave: (id: string) => Promise<void>;
 }) {
@@ -851,7 +825,7 @@ function AddTruckModal({ drivers, token, onClose, onCreated }: {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Assign Agent (Optional)</label>
+          <label className="block text-xs font-semibold text-navy mb-1">Assign Driver (Optional)</label>
           <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
             <option value="">No agent assigned</option>
@@ -934,54 +908,22 @@ function EditTruckModal({ truck, token, onClose, onSaved }: {
   );
 }
 
-// ─── Change Driver Modal ──────────────────────────────────────────────────────
-
-function ChangeDriverModal({ truck, drivers, token, onClose, onSave }: {
-  truck: Truck; drivers: Driver[]; token: string; onClose: () => void; onSave: (id: string) => Promise<void>;
-}) {
-  const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id || "");
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!selectedDriverId) { alert("Please select an agent"); return; }
-    setSaving(true);
-    try { await onSave(selectedDriverId); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <ModalShell title={`Change Agent — ${truck.license_plate}`} onClose={onClose}>
-      <div>
-        <label className="block text-xs font-semibold text-navy mb-2">Select Agent *</label>
-        <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-accent-2">
-          <option value="">Choose an agent…</option>
-          {drivers.filter((d) => d.is_active).map((d) => (
-            <option key={d.id} value={d.id}>{d.full_name || d.id.slice(0, 8)}{d.contact_info && ` — ${d.contact_info}`}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex justify-end gap-2 pt-4 border-t border-border">
-        <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-off-white">Cancel</button>
-        <button onClick={handleSave} disabled={!selectedDriverId || saving}
-          className="px-4 py-2 bg-accent-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
-          {saving ? "Updating…" : "Change Agent"}
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
 // ─── Add Delivery Modal ────────────────────────────────────────────────────────
 
-function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave }: {
+function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, onClose, onSave }: {
   truck: Truck;
   eligibleInvoices: Invoice[];
   customers: Customer[];
+  agents: Agent[];
   onClose: () => void;
-  onSave: (d: { invoice_id: string; destination_customer_id: string }[]) => Promise<void>;
+  onSave: (d: { invoice_id: string; destination_customer_id: string }[], agentId: string, scheduledDate: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [scheduledDate, setScheduledDate] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  });
   const [saving, setSaving] = useState(false);
 
   function customerFor(inv: Invoice): Customer | undefined {
@@ -1029,15 +971,37 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, onClose, onSave 
   const pickedIds = new Set(stops.map((s) => s.invoice_id).filter(Boolean));
 
   const handleSave = async () => {
-    if (!valid) { alert("All stops need a valid order with a matched customer."); return; }
+    if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
     setSaving(true);
-    try { await onSave(buildPayload()); }
+    try { await onSave(buildPayload(), selectedAgentId, scheduledDate); }
     finally { setSaving(false); }
   };
 
   return (
     <ModalShell title={`Add Delivery — ${truck.license_plate}`} onClose={onClose}>
       <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Scheduled Date *</label>
+          <input
+            type="date"
+            value={scheduledDate}
+            onChange={(event) => setScheduledDate(event.target.value)}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-navy mb-1">Assign Agent (Optional)</label>
+          <select
+            value={selectedAgentId}
+            onChange={(event) => setSelectedAgentId(event.target.value)}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+          >
+            <option value="">No agent assigned</option>
+            {agents.filter((agent) => agent.is_active).map((agent) => (
+              <option key={agent.id} value={agent.id}>{agent.full_name || agent.id.slice(0, 8)}</option>
+            ))}
+          </select>
+        </div>
 
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-navy">Delivery Stops *</label>
