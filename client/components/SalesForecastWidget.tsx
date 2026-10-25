@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useQuery } from "@tanstack/react-query";
@@ -94,6 +94,26 @@ export function SalesForecastWidget() {
   const role = useAuth((state) => state.user?.role);
   const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [hasPopup, setHasPopup] = useState(false);
+
+  useEffect(() => {
+    const updatePopupVisibility = () => {
+      const popupIsOpen = Boolean(document.querySelector(
+        '[data-popup-open="true"], [role="dialog"][aria-modal="true"], [role="alertdialog"], [class~="fixed"][class~="inset-0"]'
+      ));
+      setHasPopup(popupIsOpen);
+    };
+
+    updatePopupVisibility();
+    const observer = new MutationObserver(updatePopupVisibility);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class", "data-popup-open", "role", "aria-modal"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["sales-forecast", token],
@@ -102,7 +122,7 @@ export function SalesForecastWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!token || role === "agent" || !isForecastPath(pathname)) return null;
+  if (!token || role === "agent" || !isForecastPath(pathname) || hasPopup) return null;
 
   if (!isOpen) {
     return (

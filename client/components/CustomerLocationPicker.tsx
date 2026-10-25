@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Circle, MapPin, Maximize2, Minimize2, Search } from "lucide-react";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
@@ -174,6 +175,49 @@ export function CustomerLocationPicker({ position, onSelect }: CustomerLocationP
   };
 
   const center = pin ?? [14.5995, 120.9842];
+  const mapView = (
+    <div
+      data-popup-open={expanded ? "true" : undefined}
+      role={expanded ? "dialog" : undefined}
+      aria-modal={expanded ? true : undefined}
+      aria-label={expanded ? "Choose customer location" : undefined}
+      className={expanded ? "fixed inset-0 z-[100] flex h-dvh w-screen flex-col bg-white p-3" : "relative"}
+    >
+      <div className="flex h-11 shrink-0 items-center justify-between gap-3 px-1">
+        <span className="font-semibold text-navy">{expanded ? "Choose the customer’s exact location" : ""}</span>
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-label={expanded ? "Exit fullscreen map" : "Expand map"}
+          title={expanded ? "Exit fullscreen map" : "Expand map"}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-semibold text-navy shadow-md hover:bg-off-white"
+        >
+          {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+          <span>{expanded ? "Close map" : "Expand map"}</span>
+        </button>
+      </div>
+      <MapContainer
+        center={center}
+        zoom={pin ? 16 : 11}
+        scrollWheelZoom
+        style={expanded ? { flex: "1 1 0%", height: "100%", minHeight: 0, width: "100%" } : { height: 224, width: "100%" }}
+        className="w-full min-h-0 rounded-lg border border-border"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapViewport position={pin} expanded={expanded} />
+        <MapPinEvents onPick={(latitude, longitude) => void reverseGeocode(latitude, longitude)} />
+        {pin && (
+          <Marker position={pin} icon={pinIcon} draggable eventHandlers={{ dragend: (event) => {
+            const point = event.target.getLatLng();
+            void reverseGeocode(point.lat, point.lng);
+          } }} />
+        )}
+      </MapContainer>
+    </div>
+  );
 
   return (
     <section className="space-y-2">
@@ -208,33 +252,7 @@ export function CustomerLocationPicker({ position, onSelect }: CustomerLocationP
           ))}
         </ul>
       )}
-      <div className={expanded ? "fixed inset-0 z-[100] flex flex-col bg-white p-3 pt-16" : "relative"}>
-        {expanded && <p className="absolute left-4 top-4 z-[1001] font-semibold text-navy">Choose the customer’s exact location</p>}
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          aria-label={expanded ? "Exit fullscreen map" : "Expand map"}
-          title={expanded ? "Exit fullscreen map" : "Expand map"}
-          className="absolute right-3 top-3 z-[1001] inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-semibold text-navy shadow-md hover:bg-off-white"
-        >
-          {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-          <span>{expanded ? "Close map" : "Expand map"}</span>
-        </button>
-        <MapContainer center={center} zoom={pin ? 16 : 11} scrollWheelZoom className={expanded ? "min-h-0 w-full flex-1 rounded-lg border border-border" : "h-56 w-full rounded-lg border border-border"}>
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapViewport position={pin} expanded={expanded} />
-          <MapPinEvents onPick={(latitude, longitude) => void reverseGeocode(latitude, longitude)} />
-          {pin && (
-            <Marker position={pin} icon={pinIcon} draggable eventHandlers={{ dragend: (event) => {
-              const point = event.target.getLatLng();
-              void reverseGeocode(point.lat, point.lng);
-            } }} />
-          )}
-        </MapContainer>
-      </div>
+      {expanded ? createPortal(mapView, document.body) : mapView}
       <p className="text-xs text-muted">Search for the address or tap/drag the pin to fill the address fields. OpenStreetMap contributors.</p>
       {(isLookingUp || error) && (
         <p role={error ? "alert" : undefined} className={`text-xs ${error ? "text-amber-700" : "text-muted"}`}>
