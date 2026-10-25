@@ -404,3 +404,18 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+@media (max-width: 767px) {
+  html,
+  body,
+  * {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
