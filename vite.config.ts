@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     fs: {
-      allow: ["./client", "./shared", "index.html"],
+      allow: ["./client", "./shared", "./node_modules/.pnpm/leaflet@1.9.4/node_modules/leaflet", "index.html"],
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
     },
   },
