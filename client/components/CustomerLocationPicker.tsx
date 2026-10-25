@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Circle, MapPin, Search } from "lucide-react";
+import { Circle, MapPin, Maximize2, Minimize2, Search } from "lucide-react";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -69,11 +69,15 @@ function selectedPosition(position?: CustomerLocationPickerProps["position"]) {
   return Number.isFinite(latitude) && Number.isFinite(longitude) ? [latitude, longitude] as [number, number] : null;
 }
 
-function MapViewport({ position }: { position: [number, number] | null }) {
+function MapViewport({ position, expanded }: { position: [number, number] | null; expanded: boolean }) {
   const map = useMap();
   useEffect(() => {
     if (position) map.setView(position, 16);
   }, [map, position]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => map.invalidateSize(), 100);
+    return () => window.clearTimeout(timeout);
+  }, [expanded, map]);
   return null;
 }
 
@@ -96,8 +100,23 @@ export function CustomerLocationPicker({ position, onSelect }: CustomerLocationP
   const [isSearching, setIsSearching] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => setPin(selectedPosition(position)), [position?.latitude, position?.longitude]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [expanded]);
 
   const selectResult = (result: PlaceResult) => {
     const details = toLocationDetails(result);
@@ -189,20 +208,33 @@ export function CustomerLocationPicker({ position, onSelect }: CustomerLocationP
           ))}
         </ul>
       )}
-      <MapContainer center={center} zoom={pin ? 16 : 11} scrollWheelZoom className="h-56 w-full rounded-lg border border-border">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <MapViewport position={pin} />
-        <MapPinEvents onPick={(latitude, longitude) => void reverseGeocode(latitude, longitude)} />
-        {pin && (
-          <Marker position={pin} icon={pinIcon} draggable eventHandlers={{ dragend: (event) => {
-            const point = event.target.getLatLng();
-            void reverseGeocode(point.lat, point.lng);
-          } }} />
-        )}
-      </MapContainer>
+      <div className={expanded ? "fixed inset-0 z-[100] flex flex-col bg-white p-3 pt-16" : "relative"}>
+        {expanded && <p className="absolute left-4 top-4 z-[1001] font-semibold text-navy">Choose the customer’s exact location</p>}
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-label={expanded ? "Exit fullscreen map" : "Expand map"}
+          title={expanded ? "Exit fullscreen map" : "Expand map"}
+          className="absolute right-3 top-3 z-[1001] inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-semibold text-navy shadow-md hover:bg-off-white"
+        >
+          {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+          <span>{expanded ? "Close map" : "Expand map"}</span>
+        </button>
+        <MapContainer center={center} zoom={pin ? 16 : 11} scrollWheelZoom className={expanded ? "min-h-0 w-full flex-1 rounded-lg border border-border" : "h-56 w-full rounded-lg border border-border"}>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapViewport position={pin} expanded={expanded} />
+          <MapPinEvents onPick={(latitude, longitude) => void reverseGeocode(latitude, longitude)} />
+          {pin && (
+            <Marker position={pin} icon={pinIcon} draggable eventHandlers={{ dragend: (event) => {
+              const point = event.target.getLatLng();
+              void reverseGeocode(point.lat, point.lng);
+            } }} />
+          )}
+        </MapContainer>
+      </div>
       <p className="text-xs text-muted">Search for the address or tap/drag the pin to fill the address fields. OpenStreetMap contributors.</p>
       {(isLookingUp || error) && (
         <p role={error ? "alert" : undefined} className={`text-xs ${error ? "text-amber-700" : "text-muted"}`}>
