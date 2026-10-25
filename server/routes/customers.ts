@@ -56,7 +56,7 @@ export const createCustomer: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, latitude, longitude, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
 
   if (!store_name || !location) {
     return res
@@ -86,6 +86,8 @@ export const createCustomer: RequestHandler = async (
         street_address,
         state,
         postal_code,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
         contact_person,
         contact_info,
         agent_id,
@@ -124,7 +126,7 @@ export const updateCustomer: RequestHandler = async (
   res
 ) => {
   const { id } = req.params;
-  const { store_name, location, district, street_number, street_address, state, postal_code, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
+  const { store_name, location, district, street_number, street_address, state, postal_code, latitude, longitude, contact_person, contact_info, agent_id, payment_type, discounts, credit_limit, credit_terms_days } = req.body;
 
   const creditError = validateCreditFields(req.body);
   if (creditError) {
@@ -151,6 +153,8 @@ export const updateCustomer: RequestHandler = async (
           street_address: street_address ?? existing.street_address,
           state: state ?? existing.state,
           postal_code: postal_code ?? existing.postal_code,
+          latitude: latitude === undefined ? existing.latitude : latitude,
+          longitude: longitude === undefined ? existing.longitude : longitude,
           contact_person: contact_person ?? existing.contact_person,
           contact_info: contact_info ?? existing.contact_info,
           agent_id: agent_id ?? existing.agent_id,

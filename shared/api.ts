@@ -83,6 +83,8 @@ export interface Customer {
   street_address?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   contact_person?: string;
   contact_info?: string;
   agent_id?: string;
@@ -126,6 +128,8 @@ export const CreateCustomerSchema = z.object({
   street_address: z.string().optional(),
   state: z.string().optional(),
   postal_code: z.string().optional(),
+  latitude: z.number().finite().nullable().optional(),
+  longitude: z.number().finite().nullable().optional(),
   contact_person: z.string().optional(),
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
@@ -325,6 +329,8 @@ export interface DriverScheduleStop {
     store_name: string;
     location: string;
     street_address: string | null;
+    latitude: number | null;
+    longitude: number | null;
     contact_person: string | null;
     contact_info: string | null;
   };

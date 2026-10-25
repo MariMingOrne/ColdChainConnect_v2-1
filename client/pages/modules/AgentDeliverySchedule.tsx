@@ -183,7 +183,10 @@ export function AgentDeliverySchedule() {
                     {(delivery.delivery_items ?? []).map((stop, index) => {
                       const customer = stop.destination_customer;
                       const address = customer ? formatCustomerAddress(customer) : "Address unavailable";
-                      const mapQuery = encodeURIComponent([customer?.store_name, address].filter(Boolean).join(", "));
+                      const destination = customer?.latitude != null && customer.longitude != null
+                        ? `${customer.latitude},${customer.longitude}`
+                        : [customer?.store_name, address].filter(Boolean).join(", ");
+                      const mapQuery = encodeURIComponent(destination);
                       const invoiceLabel = stop.invoice?.receipt_number ?? stop.invoice_id.slice(0, 8);
 
                       return (
