@@ -325,12 +325,74 @@
   box-shadow: 0 8px 20px -10px rgb(0 0 0 / 0.25);
 }
 
-.fixed.inset-0.bg-black\/50 {
+.fixed.inset-0.bg-black\/50,
+.fixed.inset-0.bg-black\/60 {
   animation: fade-in 0.2s ease-out backwards;
 }
 
-.fixed.inset-0.bg-black\/50 > div {
+.fixed.inset-0.bg-black\/50 > div,
+.fixed.inset-0.bg-black\/60 > div {
   animation: scale-in 0.2s ease-out backwards;
+}
+
+@keyframes mobile-sheet-in {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 639px) {
+  .fixed.inset-0.bg-black\/50,
+  .fixed.inset-0.bg-black\/60 {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .fixed.inset-0.bg-black\/50 > div,
+  .fixed.inset-0.bg-black\/60 > div {
+    position: relative;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92vh !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.25rem 1.25rem 0 0 !important;
+    animation: mobile-sheet-in 0.24s ease-out backwards !important;
+  }
+
+  .fixed.inset-0.bg-black\/50 > div::before,
+  .fixed.inset-0.bg-black\/60 > div::before,
+  .mobile-dialog-content::before,
+  .mobile-alert-dialog-content::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    border-radius: 9999px;
+    background: hsl(var(--muted));
+    opacity: 0.55;
+    transform: translateX(-50%);
+    z-index: 2;
+  }
+
+  .mobile-dialog-content,
+  .mobile-alert-dialog-content {
+    position: fixed !important;
+    inset: auto 0 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92vh !important;
+    max-height: 92dvh !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.25rem 1.25rem 0 0 !important;
+    transform: none !important;
+    animation: mobile-sheet-in 0.24s ease-out backwards !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
