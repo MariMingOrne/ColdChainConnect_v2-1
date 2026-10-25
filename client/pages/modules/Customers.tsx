@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Customer, Truck, formatCustomerAddress, totalDiscountRate } from "@shared/api";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
+import { ExcelImportDialog } from "@/components/ExcelImportDialog";
+import { ExcelColumn, exportExcelFile } from "@/lib/excel";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { ActionButtons } from "@/components/ActionButtons";
 import {
@@ -32,6 +34,24 @@ interface CustomerForm {
   credit_terms_days: string;
   discounts: DiscountRow[];
 }
+
+const customerExcelColumns: ExcelColumn[] = [
+  { header: "Store Name", key: "store_name", required: true, width: 28 },
+  { header: "City", key: "location", required: true, width: 20 },
+  { header: "Street No.", key: "street_number", width: 14 },
+  { header: "Street Address", key: "street_address", width: 30 },
+  { header: "Truck District", key: "district", width: 20 },
+  { header: "State / Province", key: "state", width: 22 },
+  { header: "Postal Code", key: "postal_code", width: 14 },
+  { header: "Latitude", key: "latitude", width: 14 },
+  { header: "Longitude", key: "longitude", width: 14 },
+  { header: "Contact Person", key: "contact_person", width: 22 },
+  { header: "Contact Info", key: "contact_info", width: 22 },
+  { header: "Payment Type", key: "payment_type", width: 16 },
+  { header: "Credit Limit", key: "credit_limit", width: 14 },
+  { header: "Credit Terms Days", key: "credit_terms_days", width: 18 },
+  { header: "Discounts JSON", key: "discounts_json", width: 42 },
+];
 
 function StatsBox({
   label,
@@ -332,6 +352,7 @@ export function Customers({ onBack }: CustomersProps) {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [truckDistricts, setTruckDistricts] = useState<string[]>([]);
   const [formData, setFormData] = useState<CustomerForm>({
     store_name: "",
@@ -374,6 +395,48 @@ export function Customers({ onBack }: CustomersProps) {
     setIsRefreshing(true);
     await fetchCustomers();
     setIsRefreshing(false);
+  };
+
+  const validateCustomerImportRow = (row: Record<string, unknown>) => {
+    const storeName = String(row.store_name ?? "").trim();
+    const location = String(row.location ?? "").trim();
+    const errors = [];
+    if (!storeName || !location) errors.push("Store name and city are required");
+    if (customers.some((customer) => customer.store_name.toLowerCase() === storeName.toLowerCase() && customer.location.toLowerCase() === location.toLowerCase())) {
+      errors.push("Store and city already exist");
+    }
+    return errors;
+  };
+
+  const importCustomerRows = async (rows: Record<string, unknown>[]) => {
+    const response = await fetch("/api/customers/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ rows }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Customer import failed.");
+    await fetchCustomers();
+  };
+
+  const handleCustomerExport = async () => {
+    await exportExcelFile("customers.xlsx", "Customers", customerExcelColumns, customers.map((customer) => ({
+      store_name: customer.store_name,
+      location: customer.location,
+      street_number: customer.street_number ?? "",
+      street_address: customer.street_address ?? "",
+      district: customer.district ?? "",
+      state: customer.state ?? "",
+      postal_code: customer.postal_code ?? "",
+      latitude: customer.latitude ?? "",
+      longitude: customer.longitude ?? "",
+      contact_person: customer.contact_person ?? "",
+      contact_info: customer.contact_info ?? "",
+      payment_type: customer.payment_type ?? "",
+      credit_limit: customer.credit_limit ? Number(customer.credit_limit) : "",
+      credit_terms_days: customer.credit_terms_days ?? 30,
+      discounts_json: JSON.stringify((customer.discounts ?? []).map(({ label, rate }) => ({ label, rate: Number(rate) }))),
+    })));
   };
 
   useEffect(() => {
@@ -554,11 +617,11 @@ export function Customers({ onBack }: CustomersProps) {
             <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
             Refresh
           </button>
-          <button className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white">
+          <button onClick={() => setShowExcelImport(true)} className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white">
             ⬇ Import Excel
           </button>
-          <button className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white">
-            ⬆ Export Excel
+          <button onClick={() => void handleCustomerExport()} className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy transition-colors hover:bg-off-white">
+            <Download size={15} className="mr-1 inline" />Export Excel
           </button>
         </div>
       </div>
@@ -717,6 +780,16 @@ export function Customers({ onBack }: CustomersProps) {
       <div className="text-xs text-muted">
         Total customers: {filteredCustomers.length}
       </div>
+
+      {showExcelImport && (
+        <ExcelImportDialog
+          title="Customers"
+          columns={customerExcelColumns}
+          validateRow={validateCustomerImportRow}
+          onImport={importCustomerRows}
+          onClose={() => setShowExcelImport(false)}
+        />
+      )}
 
       {viewingCustomer && (
         <ViewCustomerModal customer={viewingCustomer} onClose={() => setViewingCustomer(null)} />

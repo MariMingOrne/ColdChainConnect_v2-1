@@ -4,8 +4,10 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useInventoryContext } from "../../context/InventoryContext";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Product } from "@shared/api";
-import { Upload, RefreshCw } from "lucide-react";
+import { Download, Upload, RefreshCw } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
+import { ExcelImportDialog } from "@/components/ExcelImportDialog";
+import { ExcelColumn, exportExcelFile } from "@/lib/excel";
 
 interface PricingProps {
   onBack?: () => void;
@@ -20,6 +22,16 @@ interface ProductForm {
   is_discontinued: boolean;
   reorder_point?: number;
 }
+
+const productExcelColumns: ExcelColumn[] = [
+  { header: "Name", key: "name", required: true, width: 30 },
+  { header: "SKU", key: "sku", width: 18 },
+  { header: "Price", key: "price", required: true, width: 14 },
+  { header: "Reorder Point", key: "reorder_point", width: 16 },
+  { header: "Manufacturer", key: "manufacturer", width: 28 },
+  { header: "Discontinued", key: "is_discontinued", width: 16 },
+  { header: "Batch Tracking", key: "batch_tracking_enabled", width: 16 },
+];
 
 function StatsBox({
   label,
@@ -263,6 +275,7 @@ export function Pricing({ onBack }: PricingProps) {
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [previewImageFilename, setPreviewImageFilename] = useState<string | null>(null);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [formData, setFormData] = useState<ProductForm>({
     name: "",
     sku: "",
@@ -297,6 +310,42 @@ export function Pricing({ onBack }: PricingProps) {
     setIsRefreshing(true);
     await fetchProducts();
     setIsRefreshing(false);
+  };
+
+  const validateProductImportRow = (row: Record<string, unknown>) => {
+    const name = String(row.name ?? "").trim();
+    const price = Number(row.price);
+    const sku = String(row.sku ?? "").trim();
+    const issues = [];
+    if (!name) issues.push("Name is required");
+    if (!Number.isFinite(price) || price <= 0) issues.push("Price must be greater than zero");
+    if (products.some((product) => product.name.toLowerCase() === name.toLowerCase() || (sku && product.sku?.toLowerCase() === sku.toLowerCase()))) {
+      issues.push("Name or SKU already exists");
+    }
+    return issues;
+  };
+
+  const importProductRows = async (rows: Record<string, unknown>[]) => {
+    const response = await fetch("/api/products/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ rows }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Product import failed.");
+    await fetchProducts();
+  };
+
+  const handleProductExport = async () => {
+    await exportExcelFile("products.xlsx", "Products", productExcelColumns, products.map((product) => ({
+      name: product.name,
+      sku: product.sku ?? "",
+      price: Number(product.price),
+      reorder_point: product.reorder_point ?? 0,
+      manufacturer: product.manufacturer ?? "",
+      is_discontinued: product.is_discontinued ?? false,
+      batch_tracking_enabled: product.batch_tracking_enabled,
+    })));
   };
 
   useEffect(() => {
@@ -409,11 +458,11 @@ export function Pricing({ onBack }: PricingProps) {
             <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
             Refresh
           </button>
-          <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
+          <button onClick={() => setShowExcelImport(true)} className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
             ⬇ Import Excel
           </button>
-          <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
-            ⬆ Export Excel
+          <button onClick={() => void handleProductExport()} className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">
+            <Download size={15} className="mr-1 inline" />Export Excel
           </button>
         </div>
       </div>
@@ -589,6 +638,16 @@ export function Pricing({ onBack }: PricingProps) {
       )}
 
       {/* Image Preview Modal */}
+      {showExcelImport && (
+        <ExcelImportDialog
+          title="Products"
+          columns={productExcelColumns}
+          validateRow={validateProductImportRow}
+          onImport={importProductRows}
+          onClose={() => setShowExcelImport(false)}
+        />
+      )}
+
       {previewImageFilename && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setPreviewImageFilename(null)}>
           <div className="bg-white rounded-2xl border border-border max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>

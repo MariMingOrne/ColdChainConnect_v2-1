@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useInventoryContext } from "../context/InventoryContext";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
+import { ExcelImportDialog } from "@/components/ExcelImportDialog";
+import { ExcelColumn, exportExcelFile } from "@/lib/excel";
 
 interface InventoryProduct {
   id: string;
@@ -19,6 +21,18 @@ interface InventoryProduct {
   manufacturer: string;
   isDiscontinued: boolean;
 }
+
+const inventoryExcelColumns: ExcelColumn[] = [
+  { header: "Batch Name", key: "batch_name", required: true, width: 24 },
+  { header: "Pallet ID", key: "pallet_id", required: true, width: 18 },
+  { header: "SKU", key: "sku", required: true, width: 18 },
+  { header: "Quantity", key: "quantity", required: true, width: 14 },
+  { header: "Expiration Date Note", key: "expiration_date_note", width: 20 },
+  { header: "Supplier Name", key: "supplier_name", width: 24 },
+  { header: "Received Date", key: "received_date", width: 16 },
+  { header: "Storage Zone", key: "storage_zone", width: 18 },
+  { header: "Placement Location", key: "placement_location", width: 22 },
+];
 
 interface PalletDisplay {
   id: string;
@@ -37,6 +51,7 @@ export function Inventory() {
   const [newBatchName, setNewBatchName] = useState("");
   const [startBatchCreation, setStartBatchCreation] = useState(false);
   const [batchSearch, setBatchSearch] = useState("");
+  const [showExcelImport, setShowExcelImport] = useState(false);
 
   const emptyForm = (): InventoryProduct => ({
     id: "", sku: "", description: "", unitPrice: 0, supplierId: "",
@@ -150,6 +165,54 @@ export function Inventory() {
 
   const suppliers = Array.from(new Set(products.map((p) => p.supplierId))).sort();
 
+  const validateInventoryImportRow = (row: Record<string, unknown>) => {
+    const batchName = String(row.batch_name ?? "").trim();
+    const palletId = String(row.pallet_id ?? "").trim();
+    const sku = String(row.sku ?? "").trim();
+    const quantity = Number(row.quantity);
+    const issues = [];
+    if (!batchName || !palletId || !sku) issues.push("Batch name, pallet ID, and SKU are required");
+    if (!Number.isInteger(quantity) || quantity <= 0) issues.push("Quantity must be a positive whole number");
+    if (sku && !products.some((product) => product.sku.toLowerCase() === sku.toLowerCase() || product.description.toLowerCase() === sku.toLowerCase())) {
+      issues.push("SKU does not match an existing product");
+    }
+    if (batches.some((batch) => batch.name.toLowerCase() === batchName.toLowerCase() && batch.pallets.some((pallet) => pallet.palletId.toLowerCase() === palletId.toLowerCase()))) {
+      issues.push("Pallet already exists in this batch");
+    }
+    return issues;
+  };
+
+  const importInventoryRows = async (rows: Record<string, unknown>[]) => {
+    const token = localStorage.getItem("auth_token") || "";
+    const response = await fetch("/api/batches/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ rows }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Inventory import failed.");
+    await refreshBatchesFromDB();
+    await fetchProductsFromApi();
+  };
+
+  const handleInventoryExport = async () => {
+    const stockRows = batches.filter((batch) => batch.id !== "batch-all" && !batch.isArchived).flatMap((batch) => batch.pallets.flatMap((pallet) => pallet.items.map((item) => {
+      const product = products.find((entry) => entry.id === item.productId);
+      return {
+        batch_name: batch.name,
+        pallet_id: pallet.palletId,
+        sku: product?.sku || product?.description || "",
+        quantity: item.quantity,
+        expiration_date_note: item.expirationNote ?? "",
+        supplier_name: pallet.supplierName ?? "",
+        received_date: pallet.receivedDate ?? "",
+        storage_zone: pallet.storageZone ?? "",
+        placement_location: pallet.placementLocation ?? "",
+      };
+    })));
+    await exportExcelFile("inventory.xlsx", "Stock", inventoryExcelColumns, stockRows);
+  };
+
   const getReorderStatus = (qty: number, reorderPoint: number) => qty <= reorderPoint ? "RE-ORDER" : "OK";
 
   const getStockHighlightColor = (qty: number, reorderPoint: number) => {
@@ -241,8 +304,8 @@ export function Inventory() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <button onClick={() => navigate("/information-management/products")} className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-colors">👁 Show All Products</button>
-          <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">⬇ Import Excel</button>
-          <button className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">⬆ Export Excel</button>
+          <button onClick={() => setShowExcelImport(true)} className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors">⬇ Import Excel</button>
+          <button onClick={() => void handleInventoryExport()} className="px-4 py-2 bg-white border border-border text-navy rounded-lg font-semibold text-sm hover:bg-off-white transition-colors"><Download size={15} className="mr-1 inline" />Export Excel</button>
         </div>
       </div>
 
@@ -432,6 +495,16 @@ export function Inventory() {
           </div>
         </div>
       </div>
+
+      {showExcelImport && (
+        <ExcelImportDialog
+          title="Inventory Stock"
+          columns={inventoryExcelColumns}
+          validateRow={validateInventoryImportRow}
+          onImport={importInventoryRows}
+          onClose={() => setShowExcelImport(false)}
+        />
+      )}
 
       {/* Extra Info Popup */}
       {extraInfoProduct && (

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { ExcelColumn, exportExcelFile } from "@/lib/excel";
 
 type ReportTab = "sales" | "inventory" | "customer" | "supplier" | "performance" | "profit";
 type DateRange = "daily" | "weekly" | "monthly";
@@ -240,6 +241,30 @@ export function Reports() {
   const handleExport = async (format: "excel" | "pdf", reportType: string) => {
     setIsExporting(true);
     try {
+      if (format === "excel") {
+        const rowsByReport: Record<string, object[]> = {
+          "Sales Report": mockSalesReports,
+          "Inventory Report": mockInventoryReports,
+          "Customer Report": mockCustomerReports,
+          "Performance Metrics": mockPerformanceMetrics,
+          "Profit Report": mockProfitData,
+        };
+        const rows = (rowsByReport[reportType] ?? []).map((row) => ({ ...row })) as Record<string, unknown>[];
+        const columns: ExcelColumn[] = Object.keys(rows[0] ?? {}).map((key) => ({
+          key,
+          header: key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase()),
+          width: 22,
+        }));
+        await exportExcelFile(
+          `${reportType.replace(/\s+/g, "_")}.xlsx`,
+          reportType.slice(0, 31),
+          columns,
+          rows,
+        );
+        toast({ title: "Success", description: `${reportType} exported as an Excel workbook.` });
+        return;
+      }
+
       let csvContent = "";
       const currentDate = new Date().toLocaleDateString();
 

@@ -19,6 +19,7 @@ import {
   updateCustomer,
   deleteCustomer,
 } from "./routes/customers";
+import { importCustomers, importProducts, importInventory } from "./routes/excel-imports";
 import {
   listProducts,
   createProduct,
@@ -116,7 +117,7 @@ export function createServer() {
 
   // Middleware
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: "6mb" }));
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static("public"));
 
@@ -151,15 +152,18 @@ export function createServer() {
   app.post("/api/customers", authMiddleware, requireRole("admin"), createCustomer);
   app.patch("/api/customers/:id", authMiddleware, requireRole("admin"), updateCustomer);
   app.delete("/api/customers/:id", authMiddleware, requireRole("admin"), deleteCustomer);
+  app.post("/api/customers/import", authMiddleware, requireRole("admin"), importCustomers);
 
   // Products routes
   app.get("/api/products", authMiddleware, listProducts);
   app.post("/api/products", authMiddleware, requireRole("admin"), createProduct);
   app.patch("/api/products/:id", authMiddleware, requireRole("admin"), updateProduct);
   app.delete("/api/products/:id", authMiddleware, requireRole("admin"), deleteProduct);
+  app.post("/api/products/import", authMiddleware, requireRole("admin"), importProducts);
 
   // Batches routes
   app.get("/api/batches", authMiddleware, listBatches);
+  app.post("/api/batches/import", authMiddleware, requireRole("admin"), importInventory);
   app.post("/api/batches", authMiddleware, requireRole("admin"), createBatch);
   app.patch("/api/batches/:id", authMiddleware, requireRole("admin"), updateBatch);
   app.patch("/api/batches/:id/archive", authMiddleware, requireRole("admin"), archiveBatch);

@@ -134,6 +134,8 @@ export const CreateCustomerSchema = z.object({
   contact_info: z.string().optional(),
   agent_id: z.string().optional(),
   payment_type: z.enum(["cash", "check", "bank_transfer", "cod", "credit"]).optional(),
+  credit_limit: z.number().nonnegative().nullable().optional(),
+  credit_terms_days: z.number().int().min(1).max(365).optional(),
   discounts: z
     .array(z.object({ label: z.string().min(1), rate: z.number().gt(0).max(1) }))
     .refine((list) => list.reduce((sum, d) => sum + d.rate, 0) <= 1 + 1e-9, {
@@ -168,6 +170,9 @@ export const CreateProductSchema = z.object({
   }, "Price must be a positive number"),
   image_filename: z.string().optional(),
   batch_tracking_enabled: z.boolean().default(true),
+  reorder_point: z.number().int().nonnegative().optional(),
+  manufacturer: z.string().optional(),
+  is_discontinued: z.boolean().optional(),
 });
 
 export const UpdateProductSchema = CreateProductSchema.partial();

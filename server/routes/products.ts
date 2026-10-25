@@ -26,7 +26,7 @@ export const createProduct: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { name, sku, price, image_filename, batch_tracking_enabled } = req.body;
+  const { name, sku, price, image_filename, batch_tracking_enabled, reorder_point, manufacturer, is_discontinued } = req.body;
 
   if (!name || !price) {
     return res.status(400).json({ error: "Name and price are required" });
@@ -41,6 +41,9 @@ export const createProduct: RequestHandler = async (
       price: price.toString(),
       image_filename: image_filename || null,
       batch_tracking_enabled: batch_tracking_enabled ?? true,
+      reorder_point: reorder_point ?? null,
+      manufacturer: manufacturer || null,
+      is_discontinued: is_discontinued ?? false,
     });
 
     const newProduct = await db.query.products.findFirst({
