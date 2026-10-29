@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Search, Truck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "./NotificationPanel";
-import type { AgentScheduleResponse } from "@shared/api";
+import { useNotifications } from "@/hooks/useNotifications";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,46 +19,21 @@ interface TopbarProps {
 
 export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") ?? "");
   const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadCount] = useState(4);
   const role = useAuth((state) => state.user?.role);
-  const token = useAuth((state) => state.token);
-  const [truckAssignments, setTruckAssignments] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (role !== "agent" || !token) {
-      setTruckAssignments([]);
-      return;
-    }
-
-    let active = true;
-    fetch("/api/agent-schedule", { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => {
-        if (!response.ok) throw new Error("Could not load truck assignment.");
-        return response.json() as Promise<AgentScheduleResponse>;
-      })
-      .then((schedule) => {
-        if (!active) return;
-        const assignments = new Map<string, string>();
-        for (const delivery of schedule.deliveries) {
-          if (delivery.status === "completed") continue;
-          const key = delivery.truck?.id ?? delivery.id;
-          const label = `${delivery.truck?.license_plate ?? "Truck not assigned"} · ${delivery.truck?.district ?? "District not assigned"}`;
-          assignments.set(key, label);
-        }
-        setTruckAssignments([...assignments.values()]);
-      })
-      .catch(() => {
-        if (active) setTruckAssignments([]);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [location.pathname, role, token]);
+  const {
+    notifications,
+    unreadCount,
+    truckAssignments,
+    isLoading: isLoadingNotifications,
+    error: notificationError,
+    refresh: refreshNotifications,
+    markAsRead,
+    markAllAsRead,
+    dismiss,
+  } = useNotifications();
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -133,8 +108,8 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
         >
           <span className="text-lg">🔔</span>
           {unreadCount > 0 && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red rounded-full text-xs flex items-center justify-center text-white font-bold">
-              {unreadCount}
+            <div className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red rounded-full text-[10px] flex items-center justify-center text-white font-bold">
+              {unreadCount > 9 ? "9+" : unreadCount}
             </div>
           )}
         </button>
@@ -156,7 +131,16 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
 
         {/* Notification Panel */}
         {showNotifications && (
-          <NotificationPanel onClose={() => setShowNotifications(false)} />
+          <NotificationPanel
+            notifications={notifications}
+            isLoading={isLoadingNotifications}
+            error={notificationError}
+            onRefresh={() => void refreshNotifications()}
+            onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
+            onDismiss={dismiss}
+            onClose={() => setShowNotifications(false)}
+          />
         )}
       </div>
     </header>
