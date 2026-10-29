@@ -57,6 +57,14 @@ export function AgentDeliverySchedule() {
   }, [token]);
 
   const currentDeliveries = deliveries.filter((delivery) => delivery.status !== "completed");
+  const assignedTrucks = [...new Map(currentDeliveries.map((delivery) => {
+    const key = delivery.truck?.id ?? delivery.id;
+    return [key, {
+      id: key,
+      licensePlate: delivery.truck?.license_plate ?? "Truck not assigned",
+      district: delivery.truck?.district ?? "District not assigned",
+    }];
+  })).values()];
   const historyDeliveries = deliveries.filter((delivery) => delivery.status === "completed");
   const visibleDeliveries = view === "current" ? currentDeliveries : historyDeliveries;
   const scheduledDays = useMemo(() => {
@@ -110,6 +118,36 @@ export function AgentDeliverySchedule() {
           Refresh
         </Button>
       </div>
+
+      <section className="rounded-xl border border-blue-200 bg-white p-4 shadow-sm" aria-label="Assigned truck and district">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-accent-2">
+            <TruckIcon size={20} />
+          </span>
+          <div>
+            <h2 className="font-semibold text-navy">Assigned truck &amp; district</h2>
+            <p className="text-xs text-muted">Vehicle and destination for your current delivery runs</p>
+          </div>
+        </div>
+        {assignedTrucks.length ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {assignedTrucks.map((assignment) => (
+              <div key={assignment.id} className="grid grid-cols-2 gap-3 rounded-lg bg-off-white px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Truck number</p>
+                  <p className="mt-0.5 truncate font-rajdhani text-lg font-bold text-navy">{assignment.licensePlate}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Destination district</p>
+                  <p className="mt-0.5 truncate font-semibold text-navy">{assignment.district}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-lg bg-off-white px-3 py-2.5 text-sm text-muted">No active truck assignment yet.</p>
+        )}
+      </section>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
