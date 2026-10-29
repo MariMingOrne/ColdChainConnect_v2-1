@@ -283,9 +283,9 @@ export function BookingSummary() {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to approve booking");
       }
-      const { booking: updated, invoice } = await res.json();
+      const { booking: updated } = await res.json();
       setBookings((prev) => prev.map((b) => b.id === updated.id ? updated : b));
-      setApproveSuccess(invoice ? `Invoice #${invoice.id.slice(0, 8)} created successfully.` : "Order approved and truck assigned.");
+      setApproveSuccess("Order approved. The invoice will be created after stock picking is complete.");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to approve booking");
     } finally {

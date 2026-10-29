@@ -23,7 +23,7 @@ export function Preparation() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -443,7 +443,6 @@ export function Preparation() {
             setSelectedOrder(null);
           }}
           token={token}
-          userId={user?.id || ""}
           isPrepared={isOrderPrepared(selectedOrder.id)}
         />
       )}
@@ -457,7 +456,6 @@ interface CreatePalletModalProps {
   onClose: () => void;
   onCreated: () => void;
   token: string;
-  userId: string;
   isPrepared?: boolean;
 }
 
@@ -480,7 +478,6 @@ function CreatePalletModal({
   onClose,
   onCreated,
   token,
-  userId,
   isPrepared = false,
 }: CreatePalletModalProps) {
   const [isCreating, setIsCreating] = useState(false);
@@ -577,6 +574,10 @@ function CreatePalletModal({
       setError("Please select items for at least one pallet");
       return;
     }
+    if (!hasCompletePick()) {
+      setError("Picked quantities must exactly match the order before pallets can be created.");
+      return;
+    }
 
     setIsCreating(true);
     setError(null);
@@ -602,18 +603,6 @@ function CreatePalletModal({
         if (!response.ok) throw new Error("Failed to create pallet");
       }
 
-      // Auto-create invoice for this order after pallets are made
-      await fetch("/api/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          booking_id: order.id,
-          agent_id: userId,
-        }),
-      });
 
       onCreated();
     } catch (err) {
@@ -764,6 +753,22 @@ function CreatePalletModal({
     return Object.entries(totalSelections)
       .filter(([productId]) => !neededProductIds.has(productId))
       .map(([productId, { name, qty }]) => ({ productId, name, qty }));
+  };
+
+  const hasCompletePick = () => {
+    const requested = new Map<string, number>();
+    for (const item of order.booking_items || []) {
+      requested.set(item.product_id, (requested.get(item.product_id) ?? 0) + item.qty_ordered);
+    }
+    const selected = new Map<string, number>();
+    const selectedPallets = mode === "automatic" ? suggestedPallets : manualPallets;
+    for (const pallet of selectedPallets) {
+      for (const item of pallet.items) {
+        selected.set(item.product_id, (selected.get(item.product_id) ?? 0) + item.qty_units);
+      }
+    }
+    return requested.size === selected.size &&
+      [...requested].every(([productId, quantity]) => selected.get(productId) === quantity);
   };
 
   if (isPrepared) {
@@ -1071,6 +1076,7 @@ function CreatePalletModal({
             onClick={handleCreatePallet}
             disabled={
               isCreating ||
+              !hasCompletePick() ||
               (mode === "automatic" ? suggestedPallets.every((p) => p.items.length === 0) : manualPallets.every((p) => p.items.length === 0))
             }
             className="px-4 py-2 bg-accent-2 text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50"

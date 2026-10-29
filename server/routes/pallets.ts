@@ -3,9 +3,11 @@ import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 import { db } from "../db";
-import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products } from "../db/schema";
+import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products, invoices, bookings } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { getAgentOrderIds } from "../services/agent-bookings";
+import { createInvoiceAfterPicking } from "../services/booking-invoices";
+import { logAction } from "../middleware/audit-logger";
 
 async function calculateProductInventory(): Promise<Record<string, number>> {
   try {
@@ -64,6 +66,14 @@ function formatPallet(dbPallet: any): Pallet {
       updated_at: item.updated_at.toISOString(),
     })),
   };
+}
+
+async function tryInvoiceAfterPicking(orderId: string, userId?: string) {
+  const result = await createInvoiceAfterPicking(orderId);
+  if (result.status === "created" && userId && result.invoice) {
+    await logAction(userId, "create", "invoice", result.invoice.id, undefined, result.invoice);
+  }
+  return result;
 }
 
 export const listPallets: RequestHandler = async (req: AuthRequest, res) => {
@@ -126,24 +136,38 @@ export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
       .where(inArray(products.id, items.map((item) => item.product_id)));
     const priceByProductId = new Map(productRows.map((p) => [p.id, p.price]));
 
-    await db.insert(order_pallets).values({
-      id: palletId,
-      order_id,
-      status: "draft",
+    const creationStatus = await db.transaction(async (tx) => {
+      const [booking] = await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.id, order_id)).for("update");
+      if (!booking) return "not_found";
+
+      const existingInvoice = await tx.query.invoices.findFirst({
+        where: eq(invoices.booking_id, order_id),
+      });
+      if (existingInvoice) return "invoiced";
+
+      await tx.insert(order_pallets).values({
+        id: palletId,
+        order_id,
+        status: "draft",
+      });
+
+      const itemsData = items.map((item) => ({
+        id: randomUUID(),
+        pallet_id: palletId,
+        product_id: item.product_id,
+        qty_units: item.qty_units,
+        batch_item_id: item.batch_item_id,
+        unit_cost: priceByProductId.get(item.product_id) ?? "0.00",
+      }));
+
+      for (const item of itemsData) {
+        await tx.insert(order_pallet_items).values(item);
+      }
+      return "created";
     });
 
-    const itemsData = items.map((item) => ({
-      id: randomUUID(),
-      pallet_id: palletId,
-      product_id: item.product_id,
-      qty_units: item.qty_units,
-      batch_item_id: item.batch_item_id,
-      unit_cost: priceByProductId.get(item.product_id) ?? "0.00",
-    }));
-
-    for (const item of itemsData) {
-      await db.insert(order_pallet_items).values(item);
-    }
+    if (creationStatus === "not_found") return res.status(404).json({ error: "Booking not found" });
+    if (creationStatus === "invoiced") return res.status(409).json({ error: "This order has already been invoiced." });
 
     const newPallet = await db.query.order_pallets.findFirst({
       where: eq(order_pallets.id, palletId),
@@ -181,16 +205,68 @@ export const updatePalletStatus: RequestHandler = async (req: AuthRequest, res) 
       }
     }
 
-    await db.update(order_pallets)
-      .set({ status, updated_at: new Date() })
-      .where(eq(order_pallets.id, id));
+    const statusRank: Record<Pallet["status"], number> = {
+      draft: 0,
+      prepared: 1,
+      approved: 2,
+      shipped: 3,
+    };
+    if (existing.status === "prepared" && status === "approved") {
+      const inventory = await calculateProductInventory();
+      for (const item of existing.items) {
+        const available = inventory[item.product_id] || 0;
+        if (available < item.qty_units) {
+          return res.status(400).json({
+            error: `Insufficient inventory for product ${item.product_id}. Available: ${available}, Needed: ${item.qty_units}`,
+          });
+        }
+      }
+    }
+
+    const updateResult = await db.transaction(async (tx) => {
+      await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.id, existing.order_id)).for("update");
+      const current = await tx.query.order_pallets.findFirst({ where: eq(order_pallets.id, id) });
+      if (!current) return "not_found";
+
+      const existingInvoice = await tx.query.invoices.findFirst({
+        where: eq(invoices.booking_id, current.order_id),
+      });
+      const movingBackward = statusRank[status] < statusRank[current.status as Pallet["status"]];
+      if (existingInvoice && movingBackward) return "invoiced";
+
+      const isAllowedTransition =
+        status === current.status ||
+        (current.status === "draft" && status === "prepared") ||
+        (current.status === "prepared" && status === "approved") ||
+        (current.status === "approved" && status === "shipped") ||
+        (movingBackward && !existingInvoice);
+      if (!isAllowedTransition) return "invalid_transition";
+
+      await tx.update(order_pallets)
+        .set({ status, updated_at: new Date() })
+        .where(eq(order_pallets.id, id));
+      return "updated";
+    });
+
+    if (updateResult === "not_found") return res.status(404).json({ error: "Pallet not found" });
+    if (updateResult === "invoiced") {
+      return res.status(409).json({ error: "Pallet status cannot be moved backward after invoicing." });
+    }
+    if (updateResult === "invalid_transition") {
+      return res.status(400).json({ error: "Prepare pallets before marking them ready, then mark ready pallets as shipped." });
+    }
 
     const updated = await db.query.order_pallets.findFirst({
       where: eq(order_pallets.id, id),
       with: { items: true },
     });
 
-    res.json(formatPallet(updated));
+    const invoiceResult = await tryInvoiceAfterPicking(existing.order_id, req.user?.userId);
+    const invoicePendingReason = invoiceResult.status === "incomplete_pick"
+      ? "Invoice not created: picked quantities must exactly match the booking."
+      : undefined;
+
+    res.json({ ...formatPallet(updated), invoice_pending_reason: invoicePendingReason });
   } catch (error: any) {
     console.error("Error updating pallet status:", error);
     res.status(400).json({ error: error.message });
@@ -212,9 +288,8 @@ export const approvePallet: RequestHandler = async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "You can only approve pallets for your own or assigned orders" });
     }
 
-    const requiredStatus = req.user?.role === "agent" ? "prepared" : "draft";
-    if (pallet.status !== requiredStatus) {
-      return res.status(400).json({ error: `Only ${requiredStatus} pallets can be approved` });
+    if (pallet.status !== "prepared") {
+      return res.status(400).json({ error: "Only prepared pallets can be marked ready" });
     }
 
     const inventory = await calculateProductInventory();
@@ -239,7 +314,12 @@ export const approvePallet: RequestHandler = async (req: AuthRequest, res) => {
       with: { items: true },
     });
 
-    res.json(formatPallet(updated));
+    const invoiceResult = await tryInvoiceAfterPicking(pallet.order_id, req.user?.userId);
+    const invoicePendingReason = invoiceResult.status === "incomplete_pick"
+      ? "Invoice not created: picked quantities must exactly match the booking."
+      : undefined;
+
+    res.json({ ...formatPallet(updated), invoice_pending_reason: invoicePendingReason });
   } catch (error: any) {
     console.error("Error approving pallet:", error);
     res.status(400).json({ error: error.message });
@@ -255,7 +335,24 @@ export const deletePalletForOrder: RequestHandler = async (req: AuthRequest, res
     );
     if (!existing) return res.status(404).json({ error: "Pallet not found" });
 
-    await db.delete(order_pallets).where(eq(order_pallets.id, id));
+    const deleteResult = await db.transaction(async (tx) => {
+      await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.id, existing.order_id)).for("update");
+      const current = await tx.query.order_pallets.findFirst({ where: eq(order_pallets.id, id) });
+      if (!current) return "not_found";
+
+      const existingInvoice = await tx.query.invoices.findFirst({
+        where: eq(invoices.booking_id, current.order_id),
+      });
+      if (existingInvoice) return "invoiced";
+
+      await tx.delete(order_pallets).where(eq(order_pallets.id, id));
+      return "deleted";
+    });
+
+    if (deleteResult === "not_found") return res.status(404).json({ error: "Pallet not found" });
+    if (deleteResult === "invoiced") {
+      return res.status(409).json({ error: "Pallets cannot be removed after invoicing." });
+    }
     res.json({ message: "Pallet deleted" });
   } catch (error) {
     console.error("Error deleting pallet:", error);

@@ -78,7 +78,8 @@ export function BookingInventory() {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to update pallet status");
       }
-      const updated: Pallet = await res.json();
+      const updated: Pallet & { invoice_pending_reason?: string } = await res.json();
+      if (updated.invoice_pending_reason) alert(updated.invoice_pending_reason);
       setPallets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update pallet status");

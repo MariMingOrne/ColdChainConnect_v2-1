@@ -123,6 +123,7 @@ export function AgentPalletTracking() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update pallet status.");
 
+      if (data.invoice_pending_reason) setError(data.invoice_pending_reason);
       setPallets((current) => current.map((item) =>
         item.id === pallet.id ? { ...data, order: item.order } : item,
       ));
