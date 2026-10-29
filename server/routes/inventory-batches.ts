@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { InventoryBatch, InventoryBatchItem, CreateInventoryBatchSchema, UpdateInventoryBatchSchema } from "../../shared/api";
 import { db } from "../db";
 import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
+import { getReservedUnitsBySource } from "../services/inventory-reservations";
 
 const inventoryBatches: InventoryBatch[] = [
   {
@@ -66,6 +67,8 @@ export const listInventoryBatches: RequestHandler = async (_req, res) => {
       },
     });
 
+    const sourceItems = dbBatches.flatMap((batch) => batch.pallets.flatMap((pallet) => pallet.items));
+    const reservedBySource = await getReservedUnitsBySource(sourceItems.map((item) => item.id));
     const result: InventoryBatch[] = dbBatches.map((batch) => ({
       id: batch.id,
       name: batch.batch_name,
@@ -78,6 +81,7 @@ export const listInventoryBatches: RequestHandler = async (_req, res) => {
           batch_id: batch.id,
           product_id: item.product_id,
           qty_units: item.qty_units,
+          available_units: Math.max(0, item.qty_units - (reservedBySource.get(item.id) ?? 0)),
           unit_cost: "0.00",
           created_at: item.created_at.toISOString(),
           updated_at: item.updated_at.toISOString(),

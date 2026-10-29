@@ -244,12 +244,20 @@ export const updateBookingStatus: RequestHandler = async (req: AuthRequest, res)
           where: eq(invoices.booking_id, id),
         });
         if (existingInvoice) return "invoiced";
+
+        const reservedPallet = await tx.query.order_pallets.findFirst({
+          where: eq(order_pallets.order_id, id),
+        });
+        if (reservedPallet) return "reserved";
       }
       await tx.update(bookings).set(updates).where(eq(bookings.id, id));
       return "updated";
     });
     if (updateResult === "invoiced") {
       return res.status(409).json({ error: "An invoiced order cannot be moved out of approved status." });
+    }
+    if (updateResult === "reserved") {
+      return res.status(409).json({ error: "Remove the order's unshipped pallets before moving it out of approved status." });
     }
 
     const updated = await db.query.bookings.findFirst({

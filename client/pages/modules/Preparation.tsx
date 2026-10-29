@@ -494,6 +494,7 @@ function CreatePalletModal({
     // Auto-find matching items from inventory sorted by expiry date, splitting into multiple pallets
     const orderItems = order.booking_items || [];
     const pallets: PalletDraft[] = [];
+    const assignedBySource = new Map<string, number>();
     let currentPallet: PalletDraft = { items: [], totalQty: 0 };
 
     for (const orderItem of orderItems) {
@@ -523,7 +524,10 @@ function CreatePalletModal({
       for (const { batchId, batchName, item } of matchingItems) {
         if (remainingQty <= 0) break;
 
-        const qtyToTake = Math.min(remainingQty, item.qty_units);
+        const available = Math.max(0, (item.available_units ?? item.qty_units) - (assignedBySource.get(item.id) ?? 0));
+        const qtyToTake = Math.min(remainingQty, available);
+        if (qtyToTake <= 0) continue;
+        assignedBySource.set(item.id, (assignedBySource.get(item.id) ?? 0) + qtyToTake);
         let qtyAdded = 0;
 
         while (qtyAdded < qtyToTake) {
@@ -582,28 +586,27 @@ function CreatePalletModal({
     setIsCreating(true);
     setError(null);
     try {
-      // Create pallets in sequence
-      for (const pallet of validPallets) {
-        const response = await fetch("/api/pallets", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            order_id: order.id,
+      const response = await fetch("/api/pallets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          pallets: validPallets.map((pallet) => ({
             items: pallet.items.map((item) => ({
               product_id: item.product_id,
               qty_units: item.qty_units,
               batch_item_id: item.batch_item_id,
             })),
-          }),
-        });
-
-        if (!response.ok) throw new Error("Failed to create pallet");
+          })),
+        }),
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to reserve stock for pallets.");
       }
-
-
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create pallets");
@@ -620,7 +623,7 @@ function CreatePalletModal({
           .map((item) => ({
             batch_item_id: item.id,
             batch_name: batch.name,
-            qty_available: item.qty_units,
+            qty_available: item.available_units ?? item.qty_units,
             item,
           }))
       )
@@ -643,6 +646,16 @@ function CreatePalletModal({
       const existingIdx = pallet.items.findIndex(
         (s) => s.product_id === productId && s.batch_item_id === batchItemId
       );
+      const sourceItem = batches.flatMap((batch) => batch.items || []).find((item) => item.id === batchItemId);
+      const usedElsewhere = prev.reduce((sum, otherPallet, index) =>
+        sum + (index === palletIdx ? 0 : otherPallet.items
+          .filter((item) => item.batch_item_id === batchItemId)
+          .reduce((itemSum, item) => itemSum + item.qty_units, 0)), 0);
+      const available = Math.max(0, (sourceItem?.available_units ?? sourceItem?.qty_units ?? 0) - usedElsewhere);
+      if (qty > available) {
+        setError(`Only ${available} units are available from this stock item.`);
+        return prev;
+      }
 
       if (qty === 0) {
         if (existingIdx >= 0) {
@@ -945,6 +958,11 @@ function CreatePalletModal({
                                       s.product_id === orderItem.product_id &&
                                       s.batch_item_id === batch.batch_item_id
                                   );
+                                  const usedOnOtherPallets = manualPallets.reduce((sum, otherPallet, otherIndex) =>
+                                    sum + (otherIndex === palletIdx ? 0 : otherPallet.items
+                                      .filter((item) => item.batch_item_id === batch.batch_item_id)
+                                      .reduce((itemSum, item) => itemSum + item.qty_units, 0)), 0);
+                                  const availableForThisPallet = Math.max(0, batch.qty_available - usedOnOtherPallets);
                                   return (
                                     <div key={batch.batch_item_id} className="flex items-center gap-2">
                                       <div className="flex-1">
@@ -952,7 +970,7 @@ function CreatePalletModal({
                                           {batch.batch_name}
                                           <span className="text-muted">
                                             {" "}
-                                            ({batch.qty_available} available)
+                                            ({availableForThisPallet} available)
                                           </span>
                                         </p>
                                       </div>
@@ -960,9 +978,8 @@ function CreatePalletModal({
                                         type="number"
                                         min="0"
                                         max={Math.min(
-                                          batch.qty_available,
-                                          PALLET_CAPACITY - pallet.totalQty +
-                                            (selected?.qty_units || 0)
+                                          availableForThisPallet,
+                                          PALLET_CAPACITY - pallet.totalQty + (selected?.qty_units || 0)
                                         )}
                                         value={selected?.qty_units || 0}
                                         onChange={(e) =>

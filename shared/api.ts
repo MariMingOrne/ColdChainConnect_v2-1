@@ -215,6 +215,7 @@ export interface InventoryBatchItem {
   batch_id: string;
   product_id: string;
   qty_units: number;
+  available_units?: number;
   unit_cost: string;
   created_at: string;
   updated_at: string;
@@ -257,11 +258,13 @@ export interface PalletItem {
 
 export const CreatePalletSchema = z.object({
   order_id: z.string().min(1, "Order ID is required"),
-  items: z.array(z.object({
-    product_id: z.string().min(1, "Product ID is required"),
-    qty_units: z.number().int().positive("Quantity must be positive"),
-    batch_item_id: z.string().min(1, "Batch item ID is required"),
-  })).min(1, "At least one item is required"),
+  pallets: z.array(z.object({
+    items: z.array(z.object({
+      product_id: z.string().min(1, "Product ID is required"),
+      qty_units: z.number().int().positive("Quantity must be positive"),
+      batch_item_id: z.string().min(1, "Batch item ID is required"),
+    })).min(1, "Each pallet needs at least one item"),
+  })).min(1, "At least one pallet is required"),
 });
 
 export const UpdatePalletStatusSchema = z.object({

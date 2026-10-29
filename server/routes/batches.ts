@@ -1,10 +1,21 @@
 import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../db";
-import { inventory_batches, batch_pallets, pallet_items } from "../db/schema";
+import { inventory_batches, batch_pallets, pallet_items, order_pallet_items, order_pallets } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+
+async function hasActiveReservations(executor: any, sourceItemIds: string[]) {
+  if (sourceItemIds.length === 0) return false;
+  const [reservation] = await executor
+    .select({ id: order_pallet_items.id })
+    .from(order_pallet_items)
+    .innerJoin(order_pallets, eq(order_pallet_items.pallet_id, order_pallets.id))
+    .where(and(inArray(order_pallet_items.batch_item_id, sourceItemIds), ne(order_pallets.status, "shipped")))
+    .limit(1);
+  return Boolean(reservation);
+}
 
 export const listBatches: RequestHandler = async (_req, res) => {
   try {
@@ -137,7 +148,21 @@ export const deleteBatch: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const existing = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
     if (!existing) return res.status(404).json({ error: "Batch not found" });
-    await db.delete(inventory_batches).where(eq(inventory_batches.id, id));
+
+    const deleteResult = await db.transaction(async (tx) => {
+      const sourceItems = await tx
+        .select({ id: pallet_items.id })
+        .from(pallet_items)
+        .innerJoin(batch_pallets, eq(pallet_items.pallet_id, batch_pallets.id))
+        .where(eq(batch_pallets.batch_id, id));
+      const sourceIds = sourceItems.map((item) => item.id);
+      await tx.select({ id: pallet_items.id }).from(pallet_items).where(inArray(pallet_items.id, sourceIds)).for("update");
+      if (await hasActiveReservations(tx, sourceIds)) return "reserved";
+      await tx.delete(inventory_batches).where(eq(inventory_batches.id, id));
+      return "deleted";
+    });
+
+    if (deleteResult === "reserved") return res.status(409).json({ error: "This batch contains stock reserved for unshipped orders." });
     if (req.user) await logAction(req.user.userId, "delete", "batch", id, existing, undefined);
     res.json({ message: "Batch deleted" });
   } catch (error) {
@@ -151,7 +176,17 @@ export const deletePallet: RequestHandler = async (req: AuthRequest, res) => {
   try {
     const existing = await db.query.batch_pallets.findFirst({ where: eq(batch_pallets.id, id) });
     if (!existing) return res.status(404).json({ error: "Pallet not found" });
-    await db.delete(batch_pallets).where(eq(batch_pallets.id, id));
+
+    const deleteResult = await db.transaction(async (tx) => {
+      const sourceItems = await tx.select({ id: pallet_items.id }).from(pallet_items).where(eq(pallet_items.pallet_id, id));
+      const sourceIds = sourceItems.map((item) => item.id);
+      await tx.select({ id: pallet_items.id }).from(pallet_items).where(inArray(pallet_items.id, sourceIds)).for("update");
+      if (await hasActiveReservations(tx, sourceIds)) return "reserved";
+      await tx.delete(batch_pallets).where(eq(batch_pallets.id, id));
+      return "deleted";
+    });
+
+    if (deleteResult === "reserved") return res.status(409).json({ error: "This pallet contains stock reserved for unshipped orders." });
     if (req.user) await logAction(req.user.userId, "delete", "pallet", id, existing, undefined);
     res.json({ message: "Pallet deleted" });
   } catch (error) {
@@ -165,7 +200,15 @@ export const deletePalletItem: RequestHandler = async (req: AuthRequest, res) =>
   try {
     const existing = await db.query.pallet_items.findFirst({ where: eq(pallet_items.id, id) });
     if (!existing) return res.status(404).json({ error: "Pallet item not found" });
-    await db.delete(pallet_items).where(eq(pallet_items.id, id));
+
+    const deleteResult = await db.transaction(async (tx) => {
+      await tx.select({ id: pallet_items.id }).from(pallet_items).where(eq(pallet_items.id, id)).for("update");
+      if (await hasActiveReservations(tx, [id])) return "reserved";
+      await tx.delete(pallet_items).where(eq(pallet_items.id, id));
+      return "deleted";
+    });
+
+    if (deleteResult === "reserved") return res.status(409).json({ error: "This stock is reserved for unshipped orders." });
     if (req.user) await logAction(req.user.userId, "delete", "pallet_item", id, existing, undefined);
     res.json({ message: "Item removed" });
   } catch (error) {
@@ -176,28 +219,37 @@ export const deletePalletItem: RequestHandler = async (req: AuthRequest, res) =>
 
 export const archiveBatch: RequestHandler = async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const { is_archived } = req.body;
+  const shouldArchive = req.body.is_archived ?? true;
 
   try {
     const existing = await db.query.inventory_batches.findFirst({ where: eq(inventory_batches.id, id) });
     if (!existing) return res.status(404).json({ error: "Batch not found" });
 
-    await db.update(inventory_batches).set({
-      is_archived: is_archived ?? true,
-      updated_at: new Date(),
-    }).where(eq(inventory_batches.id, id));
+    const archiveResult = await db.transaction(async (tx) => {
+      if (shouldArchive) {
+        const sourceItems = await tx
+          .select({ id: pallet_items.id })
+          .from(pallet_items)
+          .innerJoin(batch_pallets, eq(pallet_items.pallet_id, batch_pallets.id))
+          .where(eq(batch_pallets.batch_id, id));
+        const sourceIds = sourceItems.map((item) => item.id);
+        await tx.select({ id: pallet_items.id }).from(pallet_items).where(inArray(pallet_items.id, sourceIds)).for("update");
+        if (await hasActiveReservations(tx, sourceIds)) return "reserved";
+      }
+
+      await tx.update(inventory_batches).set({
+        is_archived: shouldArchive,
+        updated_at: new Date(),
+      }).where(eq(inventory_batches.id, id));
+      return "updated";
+    });
+    if (archiveResult === "reserved") return res.status(409).json({ error: "This batch contains stock reserved for unshipped orders." });
 
     const updated = await db.query.inventory_batches.findFirst({
       where: eq(inventory_batches.id, id),
-      with: {
-        pallets: {
-          with: {
-            items: { with: { product: true } },
-          },
-        },
-      },
+      with: { pallets: { with: { items: { with: { product: true } } } } },
     });
-    if (req.user) await logAction(req.user.userId, is_archived ? "archive" : "unarchive", "batch", id, existing, updated);
+    if (req.user) await logAction(req.user.userId, shouldArchive ? "archive" : "unarchive", "batch", id, existing, updated);
     res.json(updated);
   } catch (error) {
     console.error("Error archiving batch:", error);

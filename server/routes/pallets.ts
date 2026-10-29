@@ -1,9 +1,10 @@
 import { RequestHandler } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { Pallet, PalletItem, CreatePalletSchema, UpdatePalletStatusSchema } from "../../shared/api";
 import { db } from "../db";
 import { inventory_batches, batch_pallets, pallet_items, order_pallets, order_pallet_items, products, invoices, bookings } from "../db/schema";
+import { getReservedUnitsBySource } from "../services/inventory-reservations";
 import { AuthRequest } from "../middleware/auth";
 import { getAgentOrderIds } from "../services/agent-bookings";
 import { createInvoiceAfterPicking } from "../services/booking-invoices";
@@ -28,16 +29,11 @@ async function calculateProductInventory(): Promise<Record<string, number>> {
       },
     });
 
-    for (const batch of batches) {
-      for (const pallet of batch.pallets) {
-        for (const item of pallet.items) {
-          const productId = item.product_id;
-          if (!result[productId]) {
-            result[productId] = 0;
-          }
-          result[productId] += item.qty_units;
-        }
-      }
+    const stockItems = batches.flatMap((batch) => batch.pallets.flatMap((pallet) => pallet.items));
+    const reservedBySource = await getReservedUnitsBySource(stockItems.map((item) => item.id));
+
+    for (const item of stockItems) {
+      result[item.product_id] = (result[item.product_id] ?? 0) + Math.max(0, item.qty_units - (reservedBySource.get(item.id) ?? 0));
     }
 
     return result;
@@ -123,58 +119,95 @@ export const getPallet: RequestHandler = async (req: AuthRequest, res) => {
 
 export const createPallet: RequestHandler = async (req: AuthRequest, res) => {
   try {
-    const { order_id, items } = CreatePalletSchema.parse(req.body);
-    const palletId = randomUUID();
+    const { order_id, pallets } = CreatePalletSchema.parse(req.body);
 
     if (req.user?.role === "agent" && !(await getAgentOrderIds(req.user.userId)).includes(order_id)) {
       return res.status(403).json({ error: "You can only create pallets for your own or assigned orders" });
     }
 
+    const requestedItems = pallets.flatMap((pallet) => pallet.items);
+    const sourceIds = [...new Set(requestedItems.map((item) => item.batch_item_id))];
     const productRows = await db
       .select({ id: products.id, price: products.price })
       .from(products)
-      .where(inArray(products.id, items.map((item) => item.product_id)));
-    const priceByProductId = new Map(productRows.map((p) => [p.id, p.price]));
+      .where(inArray(products.id, [...new Set(requestedItems.map((item) => item.product_id))]));
+    const priceByProductId = new Map(productRows.map((product) => [product.id, product.price]));
 
-    const creationStatus = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [booking] = await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.id, order_id)).for("update");
-      if (!booking) return "not_found";
+      if (!booking) return { status: "not_found" as const, palletIds: [] as string[] };
 
-      const existingInvoice = await tx.query.invoices.findFirst({
-        where: eq(invoices.booking_id, order_id),
+      const existingInvoice = await tx.query.invoices.findFirst({ where: eq(invoices.booking_id, order_id) });
+      if (existingInvoice) return { status: "invoiced" as const, palletIds: [] as string[] };
+
+      await tx.select({ id: pallet_items.id }).from(pallet_items).where(inArray(pallet_items.id, sourceIds)).for("update");
+      const sourceItems = await tx.query.pallet_items.findMany({
+        where: inArray(pallet_items.id, sourceIds),
+        with: { pallet: { with: { batch: true } } },
       });
-      if (existingInvoice) return "invoiced";
-
-      await tx.insert(order_pallets).values({
-        id: palletId,
-        order_id,
-        status: "draft",
-      });
-
-      const itemsData = items.map((item) => ({
-        id: randomUUID(),
-        pallet_id: palletId,
-        product_id: item.product_id,
-        qty_units: item.qty_units,
-        batch_item_id: item.batch_item_id,
-        unit_cost: priceByProductId.get(item.product_id) ?? "0.00",
-      }));
-
-      for (const item of itemsData) {
-        await tx.insert(order_pallet_items).values(item);
+      const sourceById = new Map(sourceItems.map((item) => [item.id, item]));
+      if (sourceItems.length !== sourceIds.length) {
+        return { status: "invalid_source" as const, palletIds: [] as string[] };
       }
-      return "created";
+
+      const reservedRows = await tx
+        .select({
+          sourceItemId: order_pallet_items.batch_item_id,
+          quantity: sql<number>`sum(${order_pallet_items.qty_units})::int`,
+        })
+        .from(order_pallet_items)
+        .innerJoin(order_pallets, eq(order_pallet_items.pallet_id, order_pallets.id))
+        .where(and(inArray(order_pallet_items.batch_item_id, sourceIds), ne(order_pallets.status, "shipped")))
+        .groupBy(order_pallet_items.batch_item_id);
+      const reservedBySource = new Map(reservedRows.map((row) => [row.sourceItemId, row.quantity]));
+      const requestedBySource = new Map<string, number>();
+
+      for (const item of requestedItems) {
+        const source = sourceById.get(item.batch_item_id);
+        if (!source || source.product_id !== item.product_id || source.pallet.batch.is_archived) {
+          return { status: "invalid_source" as const, palletIds: [] as string[] };
+        }
+        requestedBySource.set(item.batch_item_id, (requestedBySource.get(item.batch_item_id) ?? 0) + item.qty_units);
+      }
+
+      for (const [sourceItemId, requested] of requestedBySource) {
+        const source = sourceById.get(sourceItemId)!;
+        const available = source.qty_units - (reservedBySource.get(sourceItemId) ?? 0);
+        if (requested > available) {
+          return {
+            status: "insufficient_stock" as const,
+            palletIds: [] as string[],
+            error: `Only ${Math.max(0, available)} units remain available from source item ${sourceItemId}.`,
+          };
+        }
+      }
+
+      const palletIds = pallets.map(() => randomUUID());
+      for (const [index, pallet] of pallets.entries()) {
+        const palletId = palletIds[index];
+        await tx.insert(order_pallets).values({ id: palletId, order_id, status: "draft" });
+        await tx.insert(order_pallet_items).values(pallet.items.map((item) => ({
+          id: randomUUID(),
+          pallet_id: palletId,
+          product_id: item.product_id,
+          qty_units: item.qty_units,
+          batch_item_id: item.batch_item_id,
+          unit_cost: priceByProductId.get(item.product_id) ?? "0.00",
+        })));
+      }
+      return { status: "created" as const, palletIds };
     });
 
-    if (creationStatus === "not_found") return res.status(404).json({ error: "Booking not found" });
-    if (creationStatus === "invoiced") return res.status(409).json({ error: "This order has already been invoiced." });
+    if (result.status === "not_found") return res.status(404).json({ error: "Booking not found" });
+    if (result.status === "invoiced") return res.status(409).json({ error: "This order has already been invoiced." });
+    if (result.status === "invalid_source") return res.status(409).json({ error: "A selected inventory item is unavailable or no longer matches the product." });
+    if (result.status === "insufficient_stock") return res.status(409).json({ error: result.error });
 
-    const newPallet = await db.query.order_pallets.findFirst({
-      where: eq(order_pallets.id, palletId),
+    const createdPallets = await db.query.order_pallets.findMany({
+      where: inArray(order_pallets.id, result.palletIds),
       with: { items: true },
     });
-
-    res.status(201).json(formatPallet(newPallet));
+    res.status(201).json(createdPallets.map(formatPallet));
   } catch (error: any) {
     console.error("Error creating pallet:", error);
     res.status(400).json({ error: error.message });
@@ -185,87 +218,87 @@ export const updatePalletStatus: RequestHandler = async (req: AuthRequest, res) 
   try {
     const { id } = req.params;
     const { status } = UpdatePalletStatusSchema.parse(req.body);
-
-    const existing = await db.query.order_pallets.findFirst({
-      where: eq(order_pallets.id, id),
-      with: { items: true, order: true },
-    });
+    const existing = await db.query.order_pallets.findFirst({ where: eq(order_pallets.id, id) });
     if (!existing) return res.status(404).json({ error: "Pallet not found" });
 
-    if (req.user?.role === "agent") {
-      if (!(await getAgentOrderIds(req.user.userId)).includes(existing.order_id)) {
-        return res.status(403).json({ error: "You can only update pallets for your own or assigned orders" });
-      }
-
-      const validTransition =
-        (existing.status === "draft" && status === "prepared") ||
-        (existing.status === "approved" && status === "shipped");
-      if (!validTransition) {
-        return res.status(400).json({ error: "Pallets must be prepared and approved before shipping" });
-      }
+    if (req.user?.role === "agent" && !(await getAgentOrderIds(req.user.userId)).includes(existing.order_id)) {
+      return res.status(403).json({ error: "You can only update pallets for your own or assigned orders" });
     }
 
-    const statusRank: Record<Pallet["status"], number> = {
-      draft: 0,
-      prepared: 1,
-      approved: 2,
-      shipped: 3,
-    };
-    if (existing.status === "prepared" && status === "approved") {
-      const inventory = await calculateProductInventory();
-      for (const item of existing.items) {
-        const available = inventory[item.product_id] || 0;
-        if (available < item.qty_units) {
-          return res.status(400).json({
-            error: `Insufficient inventory for product ${item.product_id}. Available: ${available}, Needed: ${item.qty_units}`,
-          });
-        }
-      }
-    }
-
+    const statusRank: Record<Pallet["status"], number> = { draft: 0, prepared: 1, approved: 2, shipped: 3 };
     const updateResult = await db.transaction(async (tx) => {
       await tx.select({ id: bookings.id }).from(bookings).where(eq(bookings.id, existing.order_id)).for("update");
-      const current = await tx.query.order_pallets.findFirst({ where: eq(order_pallets.id, id) });
-      if (!current) return "not_found";
-
-      const existingInvoice = await tx.query.invoices.findFirst({
-        where: eq(invoices.booking_id, current.order_id),
+      const current = await tx.query.order_pallets.findFirst({
+        where: eq(order_pallets.id, id),
+        with: { items: true },
       });
+      if (!current) return { status: "not_found" as const };
+
+      const invoice = await tx.query.invoices.findFirst({ where: eq(invoices.booking_id, current.order_id) });
+      if (req.user?.role === "agent") {
+        const agentTransition =
+          (current.status === "draft" && status === "prepared") ||
+          (current.status === "prepared" && status === "approved") ||
+          (current.status === "approved" && status === "shipped");
+        if (!agentTransition) return { status: "invalid_transition" as const };
+      }
       const movingBackward = statusRank[status] < statusRank[current.status as Pallet["status"]];
-      if (existingInvoice && movingBackward) return "invoiced";
+      if (invoice && movingBackward) return { status: "invoiced" as const };
 
       const isAllowedTransition =
         status === current.status ||
         (current.status === "draft" && status === "prepared") ||
         (current.status === "prepared" && status === "approved") ||
         (current.status === "approved" && status === "shipped") ||
-        (movingBackward && !existingInvoice);
-      if (!isAllowedTransition) return "invalid_transition";
+        (movingBackward && !invoice);
+      if (!isAllowedTransition) return { status: "invalid_transition" as const };
+      if (status === "shipped" && !invoice) return { status: "invoice_required" as const };
 
-      await tx.update(order_pallets)
-        .set({ status, updated_at: new Date() })
-        .where(eq(order_pallets.id, id));
-      return "updated";
+      if (status === "shipped" && current.status !== "shipped") {
+        const sourceIds = [...new Set(current.items.map((item) => item.batch_item_id))];
+        await tx.select({ id: pallet_items.id }).from(pallet_items).where(inArray(pallet_items.id, sourceIds)).for("update");
+        const sourceItems = await tx.query.pallet_items.findMany({
+          where: inArray(pallet_items.id, sourceIds),
+          with: { pallet: { with: { batch: true } } },
+        });
+        const sourceById = new Map(sourceItems.map((item) => [item.id, item]));
+        const quantitiesBySource = new Map<string, number>();
+        for (const item of current.items) {
+          quantitiesBySource.set(item.batch_item_id, (quantitiesBySource.get(item.batch_item_id) ?? 0) + item.qty_units);
+        }
+        if (sourceItems.length !== sourceIds.length) return { status: "invalid_source" as const };
+        for (const [sourceId, quantity] of quantitiesBySource) {
+          const source = sourceById.get(sourceId)!;
+          if (source.pallet.batch.is_archived || source.qty_units < quantity) {
+            return { status: "insufficient_stock" as const };
+          }
+        }
+        for (const [sourceId, quantity] of quantitiesBySource) {
+          const source = sourceById.get(sourceId)!;
+          await tx.update(pallet_items)
+            .set({ qty_units: source.qty_units - quantity, updated_at: new Date() })
+            .where(eq(pallet_items.id, sourceId));
+        }
+      }
+
+      await tx.update(order_pallets).set({ status, updated_at: new Date() }).where(eq(order_pallets.id, id));
+      return { status: "updated" as const };
     });
 
-    if (updateResult === "not_found") return res.status(404).json({ error: "Pallet not found" });
-    if (updateResult === "invoiced") {
-      return res.status(409).json({ error: "Pallet status cannot be moved backward after invoicing." });
-    }
-    if (updateResult === "invalid_transition") {
+    if (updateResult.status === "not_found") return res.status(404).json({ error: "Pallet not found" });
+    if (updateResult.status === "invoiced") return res.status(409).json({ error: "Pallet status cannot be moved backward after invoicing." });
+    if (updateResult.status === "invalid_transition") {
       return res.status(400).json({ error: "Prepare pallets before marking them ready, then mark ready pallets as shipped." });
     }
+    if (updateResult.status === "invoice_required") return res.status(409).json({ error: "An issued invoice is required before shipping." });
+    if (updateResult.status === "invalid_source") return res.status(409).json({ error: "A selected source inventory item no longer exists." });
+    if (updateResult.status === "insufficient_stock") return res.status(409).json({ error: "Source stock is insufficient to ship this pallet." });
 
-    const updated = await db.query.order_pallets.findFirst({
-      where: eq(order_pallets.id, id),
-      with: { items: true },
-    });
-
+    const updated = await db.query.order_pallets.findFirst({ where: eq(order_pallets.id, id), with: { items: true } });
     const invoiceResult = await tryInvoiceAfterPicking(existing.order_id, req.user?.userId);
     const invoicePendingReason = invoiceResult.status === "incomplete_pick"
       ? "Invoice not created: picked quantities must exactly match the booking."
       : undefined;
-
     res.json({ ...formatPallet(updated), invoice_pending_reason: invoicePendingReason });
   } catch (error: any) {
     console.error("Error updating pallet status:", error);
@@ -273,57 +306,9 @@ export const updatePalletStatus: RequestHandler = async (req: AuthRequest, res) 
   }
 };
 
-export const approvePallet: RequestHandler = async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
-
-    const pallet = await db.query.order_pallets.findFirst({
-      where: eq(order_pallets.id, id),
-      with: { items: true, order: true },
-    });
-
-    if (!pallet) return res.status(404).json({ error: "Pallet not found" });
-
-    if (req.user?.role === "agent" && !(await getAgentOrderIds(req.user.userId)).includes(pallet.order_id)) {
-      return res.status(403).json({ error: "You can only approve pallets for your own or assigned orders" });
-    }
-
-    if (pallet.status !== "prepared") {
-      return res.status(400).json({ error: "Only prepared pallets can be marked ready" });
-    }
-
-    const inventory = await calculateProductInventory();
-
-    if (pallet.items) {
-      for (const item of pallet.items) {
-        const available = inventory[item.product_id] || 0;
-        if (available < item.qty_units) {
-          return res.status(400).json({
-            error: `Insufficient inventory for product ${item.product_id}. Available: ${available}, Needed: ${item.qty_units}`,
-          });
-        }
-      }
-    }
-
-    await db.update(order_pallets)
-      .set({ status: "approved", updated_at: new Date() })
-      .where(eq(order_pallets.id, id));
-
-    const updated = await db.query.order_pallets.findFirst({
-      where: eq(order_pallets.id, id),
-      with: { items: true },
-    });
-
-    const invoiceResult = await tryInvoiceAfterPicking(pallet.order_id, req.user?.userId);
-    const invoicePendingReason = invoiceResult.status === "incomplete_pick"
-      ? "Invoice not created: picked quantities must exactly match the booking."
-      : undefined;
-
-    res.json({ ...formatPallet(updated), invoice_pending_reason: invoicePendingReason });
-  } catch (error: any) {
-    console.error("Error approving pallet:", error);
-    res.status(400).json({ error: error.message });
-  }
+export const approvePallet: RequestHandler = (req: AuthRequest, res, next) => {
+  req.body = { ...req.body, status: "approved" };
+  return updatePalletStatus(req, res, next);
 };
 
 export const deletePalletForOrder: RequestHandler = async (req: AuthRequest, res) => {

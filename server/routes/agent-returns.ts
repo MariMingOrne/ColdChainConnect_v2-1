@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { randomUUID } from "crypto";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   agent_returns,
@@ -83,7 +83,7 @@ export const acceptAgentReturn: RequestHandler = async (req: AuthRequest, res) =
       if (existingPalletItem) {
         await db
           .update(pallet_items)
-          .set({ qty_units: existingPalletItem.qty_units + ret.qty_returned, updated_at: new Date() })
+          .set({ qty_units: sql`${pallet_items.qty_units} + ${ret.qty_returned}`, updated_at: new Date() })
           .where(eq(pallet_items.id, existingPalletItem.id));
         restoredPalletId = existingPalletItem.pallet_id;
       }
