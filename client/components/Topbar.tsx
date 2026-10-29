@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft, Search, Truck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "./NotificationPanel";
+import type { AgentScheduleResponse } from "@shared/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,11 +19,46 @@ interface TopbarProps {
 
 export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") ?? "");
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount] = useState(4);
   const role = useAuth((state) => state.user?.role);
+  const token = useAuth((state) => state.token);
+  const [truckAssignments, setTruckAssignments] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (role !== "agent" || !token) {
+      setTruckAssignments([]);
+      return;
+    }
+
+    let active = true;
+    fetch("/api/agent-schedule", { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => {
+        if (!response.ok) throw new Error("Could not load truck assignment.");
+        return response.json() as Promise<AgentScheduleResponse>;
+      })
+      .then((schedule) => {
+        if (!active) return;
+        const assignments = new Map<string, string>();
+        for (const delivery of schedule.deliveries) {
+          if (delivery.status === "completed") continue;
+          const key = delivery.truck?.id ?? delivery.id;
+          const label = `${delivery.truck?.license_plate ?? "Truck not assigned"} · ${delivery.truck?.district ?? "District not assigned"}`;
+          assignments.set(key, label);
+        }
+        setTruckAssignments([...assignments.values()]);
+      })
+      .catch(() => {
+        if (active) setTruckAssignments([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [location.pathname, role, token]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,6 +90,18 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
               ACDP
             </div>
           </div>
+
+          {role === "agent" && (
+            <div className="flex min-w-0 flex-1 items-center gap-2 border-l border-white/20 pl-3 sm:pl-4" aria-label="Assigned truck and district">
+              <Truck size={16} className="shrink-0 text-white/80" />
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="text-[9px] font-semibold uppercase tracking-wide text-white/60">Assigned truck · district</span>
+                <span className="truncate text-xs font-semibold text-white" title={truckAssignments.join(" / ")}>
+                  {truckAssignments.length ? truckAssignments.join(" / ") : "No active truck assignment"}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {role !== "agent" && (
