@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Search, Truck } from "lucide-react";
+import { ChevronLeft, Search, ShieldCheck, Truck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "./NotificationPanel";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -114,6 +114,21 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
           )}
         </button>
 
+        {role === "admin" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button aria-label="Administration" className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition-all hover:bg-white/20">
+                <ShieldCheck size={17} aria-hidden="true" />
+                <span className="hidden sm:inline">Administration</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-navy text-white border-white/20">
+              <DropdownMenuItem onClick={() => navigate("/audit")} className="focus:bg-white/10 focus:text-white cursor-pointer">Audit Log</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/manage-accounts")} className="focus:bg-white/10 focus:text-white cursor-pointer">Manage Accounts</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {/* Settings dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -122,9 +137,6 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-navy text-white border-white/20">
-            {role === "admin" && (
-              <DropdownMenuItem onClick={() => navigate("/manage-accounts")} className="focus:bg-white/10 focus:text-white cursor-pointer">Manage Accounts</DropdownMenuItem>
-            )}
             <DropdownMenuItem onClick={onLogout} className="focus:bg-white/10 focus:text-white cursor-pointer">Log Out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
