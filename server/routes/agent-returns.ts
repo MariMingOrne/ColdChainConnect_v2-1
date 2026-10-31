@@ -9,7 +9,6 @@ import {
   pallet_items,
   batch_pallets,
   accounts_receivable,
-  products,
 } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
@@ -31,31 +30,64 @@ export const listAgentReturns: RequestHandler = async (_req, res) => {
 
 // ─── POST /api/agent-returns ──────────────────────────────────────────────────
 export const createAgentReturn: RequestHandler = async (req: AuthRequest, res) => {
-  const { invoice_id, customer_id, product_id, qty_returned, return_type, reason } = req.body;
-  if (!invoice_id || !customer_id || !product_id || !qty_returned || !return_type) {
-    return res.status(400).json({ error: "invoice_id, customer_id, product_id, qty_returned, return_type are required" });
+  const { invoice_id, customer_id, items, return_type, reason } = req.body;
+  if (
+    typeof invoice_id !== "string" ||
+    typeof customer_id !== "string" ||
+    !Array.isArray(items) || items.length === 0 ||
+    !["good", "damaged"].includes(return_type)
+  ) {
+    return res.status(400).json({ error: "invoice_id, customer_id, items, and a valid return_type are required" });
   }
+
+  if (
+    items.some((item: any) =>
+      typeof item?.product_id !== "string" ||
+      !Number.isInteger(item.qty_returned) ||
+      item.qty_returned < 1
+    ) ||
+    new Set(items.map((item: any) => item.product_id)).size !== items.length
+  ) {
+    return res.status(400).json({ error: "Each return item must have a unique product and a positive whole-number quantity" });
+  }
+
   try {
-    // Resolve product name from invoice_items or products table
-    const prod = await db.query.products.findFirst({ where: eq(products.id, product_id) });
-    const id = randomUUID();
-    await db.insert(agent_returns).values({
-      id,
-      invoice_id,
-      customer_id,
-      product_id,
-      product_name: prod?.name || product_id,
-      qty_returned: Number(qty_returned),
-      return_type,
-      reason: reason ?? null,
-      status: "pending",
-      created_by: req.user?.userId ?? null,
+    const invoice = await db.query.invoices.findFirst({
+      where: eq(invoices.id, invoice_id),
+      with: { booking: true, invoice_items: true },
     });
-    const created = await db.query.agent_returns.findFirst({
-      where: eq(agent_returns.id, id),
-      with: { invoice: true, customer: true, product: true },
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+    if (invoice.booking?.customer_id !== customer_id) {
+      return res.status(400).json({ error: "Invoice does not belong to the selected customer" });
+    }
+
+    const invoiceLines = new Map(invoice.invoice_items.map((line) => [line.product_id, line]));
+    if (items.some((item: any) => !invoiceLines.has(item.product_id))) {
+      return res.status(400).json({ error: "Every returned product must belong to the selected invoice" });
+    }
+
+    const created = await db.transaction(async (tx) => {
+      const values = items.map((item: { product_id: string; qty_returned: number }) => {
+        const line = invoiceLines.get(item.product_id)!;
+        return {
+          id: randomUUID(),
+          invoice_id,
+          customer_id,
+          product_id: item.product_id,
+          product_name: line.product_name,
+          qty_returned: item.qty_returned,
+          return_type,
+          reason: reason ?? null,
+          status: "pending",
+          created_by: req.user?.userId ?? null,
+        };
+      });
+      return tx.insert(agent_returns).values(values).returning();
     });
-    if (req.user) await logAction(req.user.userId, "create", "agent_return", id, undefined, created);
+
+    if (req.user) {
+      await Promise.all(created.map((item) => logAction(req.user!.userId, "create", "agent_return", item.id)));
+    }
     res.status(201).json(created);
   } catch (err) {
     console.error("Error creating agent return:", err);

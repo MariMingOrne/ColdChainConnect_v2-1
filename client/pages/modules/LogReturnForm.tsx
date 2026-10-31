@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2 } from "lucide-react";
 import { Invoice, Customer, Product } from "@shared/api";
 
 type ReturnType = "good" | "damaged";
@@ -20,8 +20,7 @@ export function LogReturnForm({
 }) {
   const [customerId, setCustomerId] = useState("");
   const [invoiceId, setInvoiceId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [qty, setQty] = useState(1);
+  const [items, setItems] = useState([{ product_id: "", qty_returned: 1 }]);
   const [returnType, setReturnType] = useState<ReturnType>("good");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -31,35 +30,34 @@ export function LogReturnForm({
     : [];
 
   const invoiceProducts = invoiceId
-    ? (invoices.find((i) => i.id === invoiceId)?.invoice_items ?? []).map((item) => ({
-        id: item.product_id,
-        name: item.product_name,
-      }))
+    ? Array.from(new Map((invoices.find((i) => i.id === invoiceId)?.invoice_items ?? []).map((item) => [
+        item.product_id,
+        { id: item.product_id, name: item.product_name },
+      ])).values())
     : [];
 
   const handleCustomerChange = (id: string) => {
     setCustomerId(id);
     setInvoiceId("");
-    setProductId("");
+    setItems([{ product_id: "", qty_returned: 1 }]);
   };
 
   const handleInvoiceChange = (id: string) => {
     setInvoiceId(id);
-    setProductId("");
+    setItems([{ product_id: "", qty_returned: 1 }]);
   };
 
   const reset = () => {
     setCustomerId("");
     setInvoiceId("");
-    setProductId("");
-    setQty(1);
+    setItems([{ product_id: "", qty_returned: 1 }]);
     setReturnType("good");
     setReason("");
   };
 
   const handleSave = async () => {
-    if (!customerId || !invoiceId || !productId || qty < 1) {
-      alert("Fill in all required fields.");
+    if (!customerId || !invoiceId || items.some((item) => !item.product_id || !Number.isInteger(item.qty_returned) || item.qty_returned < 1)) {
+      alert("Select a product and enter a valid quantity for every item.");
       return;
     }
     setSaving(true);
@@ -70,8 +68,7 @@ export function LogReturnForm({
         body: JSON.stringify({
           invoice_id: invoiceId,
           customer_id: customerId,
-          product_id: productId,
-          qty_returned: qty,
+          items,
           return_type: returnType,
           reason,
         }),
@@ -120,21 +117,59 @@ export function LogReturnForm({
           )}
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Product *</label>
-          <select value={productId} onChange={(e) => setProductId(e.target.value)}
-            disabled={!invoiceId} className={selectClass}>
-            <option value="">{invoiceId ? "Select product…" : "Select an order first"}</option>
-            {invoiceProducts.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Quantity Returned *</label>
-          <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-accent-2" />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-navy">Returned Items *</label>
+            <button
+              type="button"
+              onClick={() => setItems((current) => [...current, { product_id: "", qty_returned: 1 }])}
+              disabled={!invoiceId || items.length >= invoiceProducts.length}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-accent-2 disabled:opacity-50"
+            >
+              <Plus size={14} /> Add item
+            </button>
+          </div>
+          {items.map((item, index) => {
+            const selectedElsewhere = new Set(items.filter((_, itemIndex) => itemIndex !== index).map((entry) => entry.product_id));
+            return (
+              <div key={index} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] gap-2 items-end">
+                <div>
+                  <label className="block text-xs text-muted mb-1">Product</label>
+                  <select
+                    value={item.product_id}
+                    onChange={(e) => setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { ...entry, product_id: e.target.value } : entry))}
+                    disabled={!invoiceId}
+                    className={selectClass}
+                  >
+                    <option value="">{invoiceId ? "Select product…" : "Select an order first"}</option>
+                    {invoiceProducts.filter((product) => !selectedElsewhere.has(product.id) || product.id === item.product_id).map((product) => (
+                      <option key={product.id} value={product.id}>{product.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={item.qty_returned}
+                    onChange={(e) => setItems((current) => current.map((entry, itemIndex) => itemIndex === index ? { ...entry, qty_returned: Number(e.target.value) } : entry))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-accent-2"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                  disabled={items.length === 1}
+                  aria-label="Remove item"
+                  className="h-[42px] px-2 text-muted hover:text-red disabled:opacity-30"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div>
@@ -165,7 +200,7 @@ export function LogReturnForm({
 
       <div className="flex justify-end gap-2 p-5 border-t border-border flex-shrink-0">
         <button onClick={() => { reset(); onCancel(); }} className="btn-ghost">Cancel</button>
-        <button onClick={handleSave} disabled={!customerId || !invoiceId || !productId || qty < 1 || saving}
+        <button onClick={handleSave} disabled={!customerId || !invoiceId || items.some((item) => !item.product_id || !Number.isInteger(item.qty_returned) || item.qty_returned < 1) || saving}
           className="btn-primary">
           {saving ? "Saving…" : "Log Return"}
         </button>
