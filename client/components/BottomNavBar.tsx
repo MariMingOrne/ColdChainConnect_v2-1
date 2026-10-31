@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import {
   LayoutDashboard,
@@ -19,15 +20,11 @@ interface BottomNavBarProps {
 }
 
 const globalNavItems = [
-  { path: "/",          label: "Dashboard",   icon: LayoutDashboard },
-  { path: "/inventory", label: "Inventory",   icon: Package },
-  { path: "/sales",     label: "Sales Tracking", icon: TrendingUp },
-  { path: "/customers", label: "Customers",   icon: Users },
-  { path: "/trucks",    label: "Trucks in Transit", icon: Truck },
-  { path: "/payroll",   label: "Payroll",     icon: Wallet },
-  { path: "/expenses",  label: "Expenses & Finance", icon: BarChart3 },
-  { path: "/reports",   label: "Reports",     icon: FileText },
-  { path: "/employees", label: "Employees",   icon: Users2 },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/information-management/inventory", label: "Inventory", icon: Package },
+  { path: "/booking-dispatch/order-summary", label: "Orders", icon: ClipboardList },
+  { path: "/booking-dispatch/delivery", label: "Logistics", icon: Truck },
+  { path: "/reports", label: "Reports", icon: FileText },
 ];
 
 // Map of hub paths to their sub-modules
@@ -55,8 +52,40 @@ const hubMainModules = [
 export function BottomNavBar({ onLogout }: BottomNavBarProps) {
   const location = useLocation();
   const currentPath = location.pathname;
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [counts, setCounts] = useState({ pendingOrders: 0, activeDeliveries: 0 });
+
+  useEffect(() => {
+    if (!isAdmin || !token) return;
+    let active = true;
+    const loadCounts = async () => {
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const [ordersResponse, deliveriesResponse] = await Promise.all([
+          fetch("/api/bookings", { headers }),
+          fetch("/api/deliveries", { headers }),
+        ]);
+        if (!ordersResponse.ok || !deliveriesResponse.ok) return;
+        const [orders, deliveries] = await Promise.all([ordersResponse.json(), deliveriesResponse.json()]);
+        if (active) setCounts({
+          pendingOrders: orders.filter((order: { status: string }) => order.status === "pending").length,
+          activeDeliveries: deliveries.filter((delivery: { status: string }) => delivery.status !== "completed").length,
+        });
+      } catch {
+        if (active) setCounts({ pendingOrders: 0, activeDeliveries: 0 });
+      }
+    };
+    void loadCounts();
+    const intervalId = window.setInterval(() => void loadCounts(), 60_000);
+    return () => { active = false; window.clearInterval(intervalId); };
+  }, [isAdmin, token]);
+
+  const countForPath = (path: string) => {
+    if (path.endsWith("/order-summary")) return counts.pendingOrders;
+    if (path.endsWith("/delivery")) return counts.activeDeliveries;
+    return 0;
+  };
 
   // Hide navbar for Dashboard and Audit Log (single-view modules)
   if (currentPath === "/" || currentPath === "/audit") {
@@ -92,7 +121,7 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
                     : "text-white/60 hover:text-white hover:bg-white/10"
                 }`}
               >
-                <Icon size={16} />
+                <span className="relative"><Icon size={16} />{countForPath(path) > 0 && <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-red px-1 text-center text-[9px] font-bold leading-4 text-white">{countForPath(path) > 99 ? "99+" : countForPath(path)}</span>}</span>
                 <span className="truncate">{label}</span>
               </Link>
             );
@@ -118,7 +147,7 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
                   : "text-white/60 hover:text-white hover:bg-white/10"
               }`}
             >
-              <Icon size={16} />
+              <span className="relative"><Icon size={16} />{countForPath(path) > 0 && <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-red px-1 text-center text-[9px] font-bold leading-4 text-white">{countForPath(path) > 99 ? "99+" : countForPath(path)}</span>}</span>
               <span>{label}</span>
             </Link>
           );

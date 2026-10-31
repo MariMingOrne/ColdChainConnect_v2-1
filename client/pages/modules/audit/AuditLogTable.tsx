@@ -1,19 +1,14 @@
 import { useMemo, useState } from "react";
-import { Eye } from "lucide-react";
+import { Check, Copy, Eye } from "lucide-react";
 import { AuditLog } from "@shared/api";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
-import { describeLog } from "./auditDescribe";
+import { useToast } from "@/hooks/use-toast";
+import { describeLog, getActionBadgeClass, getActionLabel } from "./auditDescribe";
 
 interface AuditLogTableProps {
   logs: AuditLog[];
   onView: (log: AuditLog) => void;
 }
-
-const ACTION_COLORS: Record<string, string> = {
-  create: "bg-green-100 text-green-800",
-  update: "bg-blue-100 text-blue-800",
-  delete: "bg-red-100 text-red-800",
-};
 
 const HEAD_CLASS =
   "bg-navy-mid text-muted font-barlow-cond text-xs font-bold uppercase tracking-wider px-3 py-3 border-b border-border whitespace-nowrap";
@@ -22,6 +17,20 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [resourceFilter, setResourceFilter] = useState("all");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const copyResourceId = async (log: AuditLog) => {
+    if (!log.resource_id) return;
+    try {
+      await navigator.clipboard.writeText(log.resource_id);
+      setCopiedId(log.id);
+      window.setTimeout(() => setCopiedId((current) => current === log.id ? null : current), 1500);
+      toast({ title: "Copied", description: "Full reference ID copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Clipboard access is unavailable.", variant: "destructive" });
+    }
+  };
 
   const actions = useMemo(() => Array.from(new Set(logs.map((log) => log.action))).sort(), [logs]);
   const resources = useMemo(() => Array.from(new Set(logs.map((log) => log.resource_type))).sort(), [logs]);
@@ -108,8 +117,8 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
                       <div className="font-mono text-xs text-muted">{log.user_id.slice(0, 8)}</div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${ACTION_COLORS[log.action] ?? "bg-gray-100 text-gray-800"}`}>
-                        {log.action.toUpperCase()}
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${getActionBadgeClass(log.action)}`}>
+                        {getActionLabel(log.action)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-navy">{describeLog(log)}</td>
@@ -117,7 +126,19 @@ export function AuditLogTable({ logs, onView }: AuditLogTableProps) {
                       {log.resource_type.replace(/_/g, " ")}
                     </td>
                     <td className="px-3 py-3 font-mono text-xs text-muted whitespace-nowrap">
-                      {log.resource_id?.slice(0, 8) || "-"}
+                      {log.resource_id ? (
+                        <span className="inline-flex items-center gap-1.5" title={log.resource_id}>
+                          <span>#{log.resource_id.slice(0, 6).toUpperCase()}</span>
+                          <button
+                            type="button"
+                            onClick={() => void copyResourceId(log)}
+                            aria-label={`Copy full ID ${log.resource_id}`}
+                            className="rounded p-1 text-gray-500 hover:bg-off-white hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-2"
+                          >
+                            {copiedId === log.id ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+                          </button>
+                        </span>
+                      ) : "-"}
                     </td>
                     <td className="px-3 py-3 text-right">
                       <button

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useQuery } from "@tanstack/react-query";
 import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
@@ -7,11 +6,6 @@ import { SalesForecastResponse } from "@shared/api";
 import { useAuth } from "@/hooks/useAuth";
 import { SalesForecastChart } from "./SalesForecastChart";
 import { SalesForecastProducts } from "./SalesForecastProducts";
-
-const FORECAST_PATHS = ["/", "/information-management", "/booking-dispatch", "/audit"];
-
-const isForecastPath = (pathname: string) =>
-  FORECAST_PATHS.some((path) => path === "/" ? pathname === "/" : pathname === path || pathname.startsWith(path + "/"));
 
 const fetchSalesForecast = async (token: string): Promise<SalesForecastResponse> => {
   const response = await fetch("/api/sales/forecast", {
@@ -92,7 +86,6 @@ function ForecastBody({ isLoading, isError, data }: {
 export function SalesForecastWidget() {
   const token = useAuth((state) => state.token);
   const role = useAuth((state) => state.user?.role);
-  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [hasPopup, setHasPopup] = useState(false);
 
@@ -122,24 +115,24 @@ export function SalesForecastWidget() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (!token || role === "agent" || !isForecastPath(pathname) || hasPopup) return null;
+  if (!token || role !== "admin" || hasPopup) return null;
 
   if (!isOpen) {
     return (
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-navy px-4 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 md:bottom-4 animate-pop-out"
+        className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-semibold text-navy shadow-sm transition-colors hover:bg-off-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
         aria-label="Open sales forecast"
       >
         <TrendingUp className="h-4 w-4" />
-        <span className="hidden md:inline">Sales Forecast</span>
+        <span>Sales Forecast</span>
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-20 left-2 right-2 z-50 max-h-[80vh] overflow-y-auto rounded-lg border bg-white p-4 shadow-xl md:bottom-4 md:left-auto md:right-4 md:w-[440px] animate-fade-in-up">
+    <div className="absolute right-0 top-full z-50 mt-2 max-h-[min(75vh,640px)] w-[min(440px,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-white p-4 shadow-xl animate-fade-in-up">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">Sales Forecast</h2>

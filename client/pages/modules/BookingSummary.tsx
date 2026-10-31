@@ -8,6 +8,7 @@ import { RefreshCw, Plus, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Truck, Customer, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
+import { useSearchParams } from "react-router-dom";
 import { AddOrderModal } from "./AddOrderModal";
 import { AgentOrderScreen } from "./AgentOrderScreen";
 import { OrderTotalsBreakdown } from "@/components/OrderTotalsBreakdown";
@@ -53,6 +54,22 @@ export function BookingSummary() {
   const [orderItems, setOrderItems] = useState<{ product_id: string; qty_ordered: number }[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const requestedStatus = searchParams.get("status");
+    if (["pending", "approved", "prep", "ready"].includes(requestedStatus ?? "")) {
+      setStatusFilter(requestedStatus as "pending" | "approved" | "prep" | "ready");
+      setDateRangeFilter("all");
+    }
+
+    if (!isAgent && searchParams.get("action") === "new") {
+      setShowAddModal(true);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("action");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [isAgent, searchParams, setSearchParams]);
 
   const fetchAll = async () => {
     try {

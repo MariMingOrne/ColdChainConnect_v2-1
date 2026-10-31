@@ -17,9 +17,9 @@ import { Reports } from "./pages/Reports";
 import { SearchResults } from "./pages/SearchResults";
 import { DriverSchedule } from "./pages/DriverSchedule";
 import { Topbar } from "./components/Topbar";
+import { AdminNavigation } from "./components/AdminNavigation";
 import { PostLoginLoadingScreen } from "./components/auth/PostLoginLoadingScreen";
 import { BottomNavBar } from "./components/BottomNavBar";
-import { SalesForecastWidget } from "./components/SalesForecastWidget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +30,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex flex-col min-h-screen">
       <Topbar userName={user?.username || "User"} onLogout={logout} />
+      <AdminNavigation />
       <div className="flex flex-1">
         <div className="flex-1 flex flex-col bg-off-white min-w-0 pb-32 md:pb-0 animate-fade-in">
           {children}
@@ -118,7 +119,6 @@ const App = () => (
       <BrowserRouter>
         <AppContent />
         <PostLoginLoadingGate />
-        <SalesForecastWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

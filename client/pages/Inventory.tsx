@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useInventoryContext } from "../context/InventoryContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Download } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { ExcelImportDialog } from "@/components/ExcelImportDialog";
@@ -43,6 +43,7 @@ interface PalletDisplay {
 
 export function Inventory() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const { batches, setBatches, selectedBatchId, setSelectedBatchId, selectedPalletId, setSelectedPalletId, searchQuery, setSearchQuery, refreshBatchesFromDB } = useInventoryContext();
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +62,16 @@ export function Inventory() {
   });
 
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("action") !== "receive") return;
+    setNewBatchName("");
+    setStartBatchCreation(true);
+    setIsBatchModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("action");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const itemsPerPage = 10;
 

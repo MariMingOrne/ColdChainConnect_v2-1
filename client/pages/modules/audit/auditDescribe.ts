@@ -12,7 +12,36 @@ const ACTION_VERBS: Record<string, string> = {
   create: "created",
   update: "updated",
   delete: "deleted",
+  rollback: "rolled back",
+  approve: "approved",
+  reject: "rejected",
 };
+
+const ACTION_LABELS: Record<string, string> = {
+  create: "Created",
+  update: "Updated",
+  delete: "Deleted",
+  rollback: "Rolled back",
+  approve: "Approved",
+  reject: "Rejected",
+};
+
+const ACTION_BADGES: Record<string, string> = {
+  create: "bg-green-100 text-green-800",
+  update: "bg-blue-100 text-blue-800",
+  delete: "bg-red-100 text-red-800",
+  rollback: "bg-orange-100 text-orange-800",
+  approve: "bg-green-100 text-green-800",
+  reject: "bg-red-100 text-red-800",
+};
+
+export function getActionLabel(action: string) {
+  return ACTION_LABELS[action] ?? action.replace(/_/g, " ").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+export function getActionBadgeClass(action: string) {
+  return ACTION_BADGES[action] ?? "bg-gray-100 text-gray-700";
+}
 
 const NAME_FIELDS = ["store_name", "name", "username", "full_name", "receipt_number"];
 const HIDDEN_FIELDS = new Set(["password_hash", "password", "updated_at"]);
@@ -47,7 +76,7 @@ export function describeLog(log: AuditLog): string {
   const subject = name
     ? `"${name}"`
     : log.resource_id
-      ? `#${log.resource_id.slice(0, 8)}`
+      ? `#${log.resource_id.slice(0, 6).toUpperCase()}`
       : "";
   const sentence = `${verb} ${resource}${subject ? ` ${subject}` : ""}`;
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
