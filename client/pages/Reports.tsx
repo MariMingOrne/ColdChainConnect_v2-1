@@ -1,11 +1,31 @@
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Boxes,
+  ChartNoAxesCombined,
+  Download,
+  FileBarChart,
+  Search,
+  TriangleAlert,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelColumn, exportExcelFile } from "@/lib/excel";
 
-type ReportTab = "sales" | "inventory" | "customer" | "supplier" | "performance" | "profit";
-type DateRange = "daily" | "weekly" | "monthly";
+type ReportTab = "overview" | "sales" | "inventory" | "customers" | "products" | "profit";
+type ReportRow = SalesReport | InventoryReport | CustomerReport | PerformanceMetric | ProfitData;
+const getValue = (row: ReportRow, key: string) => (row as unknown as Record<string, string | number>)[key];
 
 interface SalesReport {
   period: string;
@@ -35,15 +55,6 @@ interface CustomerReport {
   frequency: string;
 }
 
-interface SupplierReport {
-  supplierId: string;
-  supplierName: string;
-  productsSupplied: number;
-  totalInventoryValue: number;
-  lastRestock: string;
-  reorderDue: string;
-}
-
 interface PerformanceMetric {
   productName: string;
   unitsSold: number;
@@ -61,977 +72,315 @@ interface ProfitData {
   totalProfit: number;
 }
 
-// Mock Data
-const mockSalesReports: SalesReport[] = [
-  {
-    period: "2024-01-15 (Today)",
-    totalRevenue: 4250,
-    totalTransactions: 12,
-    averageTransaction: 354.17,
-    topProduct: "Premium Chicken Breast",
-    topProductSales: 1200,
-  },
-  {
-    period: "2024-01-08 - 2024-01-14 (This Week)",
-    totalRevenue: 28450,
-    totalTransactions: 82,
-    averageTransaction: 346.95,
-    topProduct: "Frozen Fish",
-    topProductSales: 8200,
-  },
-  {
-    period: "January 2024 (This Month)",
-    totalRevenue: 125680,
-    totalTransactions: 356,
-    averageTransaction: 353.06,
-    topProduct: "Ice Cream Varieties",
-    topProductSales: 35400,
-  },
+const salesReports: SalesReport[] = [
+  { period: "Today", totalRevenue: 4250, totalTransactions: 12, averageTransaction: 354.17, topProduct: "Premium Chicken Breast", topProductSales: 1200 },
+  { period: "This week", totalRevenue: 28450, totalTransactions: 82, averageTransaction: 346.95, topProduct: "Frozen Fish", topProductSales: 8200 },
+  { period: "This month", totalRevenue: 125680, totalTransactions: 356, averageTransaction: 353.06, topProduct: "Ice Cream Varieties", topProductSales: 35400 },
 ];
 
-const mockInventoryReports: InventoryReport[] = [
-  {
-    sku: "SKU-2301",
-    productName: "Premium Chicken Breast",
-    currentStock: 45,
-    reorderLevel: 50,
-    expiryDate: "2024-01-25",
-    status: "low-stock",
-    value: 2700,
-  },
-  {
-    sku: "SKU-3405",
-    productName: "Frozen Fish",
-    currentStock: 120,
-    reorderLevel: 80,
-    expiryDate: "2024-01-22",
-    status: "expiring",
-    value: 7200,
-  },
-  {
-    sku: "SKU-5102",
-    productName: "Ice Cream Varieties",
-    currentStock: 300,
-    reorderLevel: 100,
-    expiryDate: "2024-03-15",
-    status: "in-stock",
-    value: 9000,
-  },
-  {
-    sku: "SKU-1450",
-    productName: "Beef Cuts",
-    currentStock: 75,
-    reorderLevel: 60,
-    expiryDate: "2024-01-28",
-    status: "in-stock",
-    value: 4500,
-  },
+const inventoryReports: InventoryReport[] = [
+  { sku: "SKU-2301", productName: "Premium Chicken Breast", currentStock: 45, reorderLevel: 50, expiryDate: "2024-01-25", status: "low-stock", value: 2700 },
+  { sku: "SKU-3405", productName: "Frozen Fish", currentStock: 120, reorderLevel: 80, expiryDate: "2024-01-22", status: "expiring", value: 7200 },
+  { sku: "SKU-5102", productName: "Ice Cream Varieties", currentStock: 300, reorderLevel: 100, expiryDate: "2024-03-15", status: "in-stock", value: 9000 },
+  { sku: "SKU-1450", productName: "Beef Cuts", currentStock: 75, reorderLevel: 60, expiryDate: "2024-01-28", status: "in-stock", value: 4500 },
 ];
 
-const mockCustomerReports: CustomerReport[] = [
-  {
-    customerId: "CUST-001",
-    customerName: "Restaurant ABC",
-    totalPurchases: 45,
-    totalSpent: 15750,
-    lastPurchaseDate: "2024-01-15",
-    frequency: "Daily",
-  },
-  {
-    customerId: "CUST-002",
-    customerName: "Cafe XYZ",
-    totalPurchases: 32,
-    totalSpent: 11200,
-    lastPurchaseDate: "2024-01-14",
-    frequency: "3x/Week",
-  },
-  {
-    customerId: "CUST-003",
-    customerName: "Supermarket DEF",
-    totalPurchases: 28,
-    totalSpent: 18900,
-    lastPurchaseDate: "2024-01-13",
-    frequency: "2x/Week",
-  },
+const customerReports: CustomerReport[] = [
+  { customerId: "CUST-001", customerName: "Restaurant ABC", totalPurchases: 45, totalSpent: 15750, lastPurchaseDate: "2024-01-15", frequency: "Daily" },
+  { customerId: "CUST-002", customerName: "Cafe XYZ", totalPurchases: 32, totalSpent: 11200, lastPurchaseDate: "2024-01-14", frequency: "3x/week" },
+  { customerId: "CUST-003", customerName: "Supermarket DEF", totalPurchases: 28, totalSpent: 18900, lastPurchaseDate: "2024-01-13", frequency: "2x/week" },
 ];
 
-const mockSupplierReports: SupplierReport[] = [
-  {
-    supplierId: "Frabelle Food Corp",
-    supplierName: "Frabelle Food Corp",
-    productsSupplied: 25,
-    totalInventoryValue: 74900,
-    lastRestock: "2024-01-10",
-    reorderDue: "2024-01-20",
-  },
+const performanceMetrics: PerformanceMetric[] = [
+  { productName: "Ice Cream Varieties", unitsSold: 1250, revenue: 35400, growth: 12.5, ranking: 1 },
+  { productName: "Frozen Fish", unitsSold: 890, revenue: 28900, growth: 8.3, ranking: 2 },
+  { productName: "Premium Chicken Breast", unitsSold: 750, revenue: 25200, growth: 5.8, ranking: 3 },
+  { productName: "Beef Cuts", unitsSold: 620, revenue: 18600, growth: 3.2, ranking: 4 },
 ];
 
-const mockPerformanceMetrics: PerformanceMetric[] = [
-  {
-    productName: "Ice Cream Varieties",
-    unitsSold: 1250,
-    revenue: 35400,
-    growth: 12.5,
-    ranking: 1,
-  },
-  {
-    productName: "Frozen Fish",
-    unitsSold: 890,
-    revenue: 28900,
-    growth: 8.3,
-    ranking: 2,
-  },
-  {
-    productName: "Premium Chicken Breast",
-    unitsSold: 750,
-    revenue: 25200,
-    growth: 5.8,
-    ranking: 3,
-  },
-  {
-    productName: "Beef Cuts",
-    unitsSold: 620,
-    revenue: 18600,
-    growth: 3.2,
-    ranking: 4,
-  },
+const profitData: ProfitData[] = [
+  { productName: "Ice Cream Varieties", unitPrice: 28.32, costPrice: 18.5, profitMargin: 34.5, quantitySold: 1250, totalProfit: 12277.5 },
+  { productName: "Frozen Fish", unitPrice: 32.47, costPrice: 19.2, profitMargin: 40.8, quantitySold: 890, totalProfit: 11807.04 },
+  { productName: "Premium Chicken Breast", unitPrice: 33.6, costPrice: 19.5, profitMargin: 42.1, quantitySold: 750, totalProfit: 10626 },
+  { productName: "Beef Cuts", unitPrice: 30, costPrice: 17.8, profitMargin: 40.7, quantitySold: 620, totalProfit: 7597.6 },
 ];
 
-const mockProfitData: ProfitData[] = [
-  {
-    productName: "Ice Cream Varieties",
-    unitPrice: 28.32,
-    costPrice: 18.5,
-    profitMargin: 34.5,
-    quantitySold: 1250,
-    totalProfit: 12277.5,
-  },
-  {
-    productName: "Frozen Fish",
-    unitPrice: 32.47,
-    costPrice: 19.2,
-    profitMargin: 40.8,
-    quantitySold: 890,
-    totalProfit: 11807.04,
-  },
-  {
-    productName: "Premium Chicken Breast",
-    unitPrice: 33.6,
-    costPrice: 19.5,
-    profitMargin: 42.1,
-    quantitySold: 750,
-    totalProfit: 10626,
-  },
-  {
-    productName: "Beef Cuts",
-    unitPrice: 30,
-    costPrice: 17.8,
-    profitMargin: 40.7,
-    quantitySold: 620,
-    totalProfit: 7597.6,
-  },
+const tabs: { id: ReportTab; label: string; icon: typeof FileBarChart }[] = [
+  { id: "overview", label: "Executive summary", icon: ChartNoAxesCombined },
+  { id: "sales", label: "Sales", icon: FileBarChart },
+  { id: "inventory", label: "Inventory", icon: Boxes },
+  { id: "customers", label: "Customers", icon: Users },
+  { id: "products", label: "Product performance", icon: ChartNoAxesCombined },
+  { id: "profit", label: "Profit & margins", icon: FileBarChart },
 ];
 
-export function Reports() {
-  const [activeTab, setActiveTab] = useState<ReportTab>("sales");
-  const [dateRange, setDateRange] = useState<DateRange>("monthly");
-  const [isExporting, setIsExporting] = useState(false);
-  const { toast } = useToast();
+const tableRows: Record<ReportTab, ReportRow[]> = {
+  overview: salesReports,
+  sales: salesReports,
+  inventory: inventoryReports,
+  customers: customerReports,
+  products: performanceMetrics,
+  profit: profitData,
+};
 
-  const handleExport = async (format: "excel" | "pdf", reportType: string) => {
-    setIsExporting(true);
-    try {
-      if (format === "excel") {
-        const rowsByReport: Record<string, object[]> = {
-          "Sales Report": mockSalesReports,
-          "Inventory Report": mockInventoryReports,
-          "Customer Report": mockCustomerReports,
-          "Performance Metrics": mockPerformanceMetrics,
-          "Profit Report": mockProfitData,
-        };
-        const rows = (rowsByReport[reportType] ?? []).map((row) => ({ ...row })) as Record<string, unknown>[];
-        const columns: ExcelColumn[] = Object.keys(rows[0] ?? {}).map((key) => ({
-          key,
-          header: key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase()),
-          width: 22,
-        }));
-        await exportExcelFile(
-          `${reportType.replace(/\s+/g, "_")}.xlsx`,
-          reportType.slice(0, 31),
-          columns,
-          rows,
-        );
-        toast({ title: "Success", description: `${reportType} exported as an Excel workbook.` });
-        return;
-      }
+const tableTitles: Record<ReportTab, string> = {
+  overview: "Sales snapshot data",
+  sales: "Sales by period",
+  inventory: "Stock and expiry details",
+  customers: "Customer purchase details",
+  products: "Product performance details",
+  profit: "Product margin details",
+};
 
-      let csvContent = "";
-      const currentDate = new Date().toLocaleDateString();
+const descriptions: Record<ReportTab, string> = {
+  overview: "A quick read of sales, stock value, and items needing attention.",
+  sales: "Revenue, order volume, and average transaction by period.",
+  inventory: "On-hand sample quantities compared with reorder levels.",
+  customers: "Customer purchase frequency and spend patterns.",
+  products: "Units sold, revenue, and growth by product.",
+  profit: "Sample gross profit and margin estimates by product.",
+};
 
-      if (reportType === "Sales Report") {
-        csvContent = "Sales Report\n";
-        csvContent += `Generated: ${currentDate}\n\n`;
-        csvContent += "Period,Total Revenue,Total Transactions,Average Transaction,Top Product,Top Product Sales\n";
-        mockSalesReports.forEach((report) => {
-          csvContent += `${report.period},${report.totalRevenue},${report.totalTransactions},${report.averageTransaction.toFixed(2)},${report.topProduct},${report.topProductSales}\n`;
-        });
-      } else if (reportType === "Inventory Report") {
-        csvContent = "Inventory Report\n";
-        csvContent += `Generated: ${currentDate}\n\n`;
-        csvContent += "SKU,Product Name,Current Stock,Reorder Level,Status,Value,Expiry Date\n";
-        mockInventoryReports.forEach((item) => {
-          csvContent += `${item.sku},"${item.productName}",${item.currentStock},${item.reorderLevel},${item.status},${item.value},${item.expiryDate}\n`;
-        });
-      } else if (reportType === "Customer Report") {
-        csvContent = "Customer Report\n";
-        csvContent += `Generated: ${currentDate}\n\n`;
-        csvContent += "Customer ID,Customer Name,Total Purchases,Total Spent,Last Purchase Date,Frequency\n";
-        mockCustomerReports.forEach((customer) => {
-          csvContent += `${customer.customerId},"${customer.customerName}",${customer.totalPurchases},${customer.totalSpent},${customer.lastPurchaseDate},"${customer.frequency}"\n`;
-        });
-      } else if (reportType === "Performance Metrics") {
-        csvContent = "Performance Metrics Report\n";
-        csvContent += `Generated: ${currentDate}\n\n`;
-        csvContent += "Ranking,Product Name,Units Sold,Revenue,Growth %\n";
-        mockPerformanceMetrics.forEach((metric) => {
-          csvContent += `#${metric.ranking},${metric.productName},${metric.unitsSold},${metric.revenue},${metric.growth}\n`;
-        });
-      } else if (reportType === "Profit Report") {
-        csvContent = "Profit Report\n";
-        csvContent += `Generated: ${currentDate}\n\n`;
-        csvContent += "Product Name,Unit Price,Cost Price,Profit Margin %,Quantity Sold,Total Profit\n";
-        mockProfitData.forEach((profit) => {
-          csvContent += `"${profit.productName}",${profit.unitPrice},${profit.costPrice},${profit.profitMargin},${profit.quantitySold},${profit.totalProfit}\n`;
-        });
-      }
+const peso = (value: number) => `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
+const currencyKeys = new Set(["totalRevenue", "averageTransaction", "topProductSales", "value", "totalSpent", "revenue", "unitPrice", "costPrice", "totalProfit"]);
+const percentKeys = new Set(["growth", "profitMargin"]);
+const formatHeader = (key: string) => key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
 
-      const element = document.createElement('a');
-      const file = new Blob([csvContent], { type: 'text/csv' });
-      element.href = URL.createObjectURL(file);
-      element.download = `${reportType.replace(/\s+/g, '_')}_${new Date().getTime()}.csv`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      URL.revokeObjectURL(element.href);
+function formatValue(key: string, value: string | number) {
+  if (typeof value === "number" && currencyKeys.has(key)) return peso(value);
+  if (typeof value === "number" && percentKeys.has(key)) return `${value}%`;
+  if (key === "status" && typeof value === "string") return value.replace(/-/g, " ").replace(/^./, (letter) => letter.toUpperCase());
+  return value;
+}
 
-      toast({
-        title: "Success",
-        description: `${reportType} exported as ${format.toUpperCase()} successfully.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to export report.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleGenerateDocument = async (docType: string) => {
-    setIsExporting(true);
-    try {
-      const currentDate = new Date();
-      const formattedDate = currentDate.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      const printedBy = "Administrator"; // Could be dynamic based on current user
-
-      let contentDetails = "";
-      let additionalContent = "";
-
-      switch (docType) {
-        case "Sales Receipt":
-          contentDetails = "Contains sales transaction records, customer details, itemized products, prices, and payment method information.";
-          break;
-        case "Invoice":
-          contentDetails = "Contains billing information, line items, pricing details, payment terms, and invoice reference numbers.";
-          break;
-        case "Inventory Summary":
-          contentDetails = "Contains stock levels, product codes, quantities on hand, reorder points, and inventory valuation summaries.";
-          break;
-        case "Performance Report":
-          contentDetails = "Contains operational metrics, performance indicators, trend analysis, and comparative data for decision-making.";
-          break;
-        case "Monthly Report":
-          contentDetails = "Contains consolidated monthly sales data, inventory status, financial summaries, and performance metrics.";
-          // Add sales data from mockSalesReports (monthly entry is index 2)
-          const monthlySales = mockSalesReports[2];
-          const monthlyInventory = mockInventoryReports.slice(0, 5); // Sample inventory items
-
-          additionalContent = `
-================================================================================
-MONTHLY SALES SUMMARY (${monthlySales.period})
-================================================================================
-
-Total Revenue: ₱${monthlySales.totalRevenue.toLocaleString()}
-Total Transactions: ${monthlySales.totalTransactions}
-Average Transaction Value: ₱${monthlySales.averageTransaction.toFixed(2)}
-Top Selling Product: ${monthlySales.topProduct}
-Top Product Revenue: ₱${monthlySales.topProductSales.toLocaleString()}
-
-================================================================================
-INVENTORY STATUS SNAPSHOT
-================================================================================
-
-${monthlyInventory.map((item, idx) => `
-${idx + 1}. ${item.productName} (${item.sku})
-   Current Stock: ${item.currentStock} units
-   Reorder Level: ${item.reorderLevel} units
-   Status: ${item.status.toUpperCase()}
-   Inventory Value: ₱${item.value.toLocaleString()}
-   Expiry Date: ${item.expiryDate}
-`).join('')}
-
-================================================================================
-MONTHLY PERFORMANCE SUMMARY
-================================================================================
-
-✓ Total Inventory Value: ₱${monthlyInventory.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
-✓ Products with Low Stock: ${monthlyInventory.filter(item => item.status === 'low-stock').length}
-✓ Products Expiring Soon: ${monthlyInventory.filter(item => item.status === 'expiring').length}
-✓ Critical Review Items: ${monthlyInventory.filter(item => item.currentStock <= item.reorderLevel).length}
-`;
-          break;
-        default:
-          contentDetails = "Contains relevant document data and information.";
-      }
-
-      const documentContent = `================================================================================
-                           ${docType.toUpperCase()}
-================================================================================
-
-Date Generated: ${formattedDate}
-
-================================================================================
-OVERVIEW
-================================================================================
-
-This document contains comprehensive information regarding ${docType.toLowerCase()}.
-Generated for record-keeping and operational purposes.
-
-================================================================================
-WHAT WAS DONE
-================================================================================
-
-This ${docType.toLowerCase()} was generated to provide a complete and detailed record of
-the business activities, transactions, and data relevant to this reporting period.
-The document consolidates all necessary information for review, analysis, and archival purposes.
-
-================================================================================
-WHAT'S INCLUDED IN THIS DOCUMENT
-================================================================================
-
-${contentDetails}
-
-The document includes all relevant details necessary for:
-- Record keeping and compliance
-- Business analysis and reporting
-- Customer/stakeholder communication
-- Audit and verification purposes
-
-================================================================================
-DOCUMENT OUTLINE
-================================================================================
-
-1. HEADER INFORMATION
-   - Document Type: ${docType}
-   - Generated Date: ${formattedDate}
-   - Printed By: ${printedBy}
-
-2. OVERVIEW & SUMMARY
-   - Document purpose and scope
-   - Key information and highlights
-
-3. DETAILED CONTENT
-   - Complete transaction or operational records
-   - Itemized data and breakdowns
-   - Supporting documentation
-
-4. NOTES & REMARKS
-   - Additional notes and observations
-   - Special instructions or remarks
-   - Next steps or follow-up actions
-
-5. FOOTER INFORMATION
-   - Document reference number
-   - Approval status
-   - Contact information
-
-${additionalContent}
-
-================================================================================
-DOCUMENT FOOTER
-================================================================================
-
-Generated by: ${printedBy}
-Date & Time: ${formattedDate}
-Document Type: ${docType}
-Status: Official Record
-
-For questions or concerns regarding this document, please contact the
-appropriate department or management personnel.
-
-This is an official document and should be retained for record-keeping purposes.
-
-================================================================================
-                              END OF DOCUMENT
-================================================================================`;
-
-      const element = document.createElement('a');
-      const file = new Blob([documentContent], { type: 'text/plain' });
-      element.href = URL.createObjectURL(file);
-      element.download = `${docType.replace(/\s+/g, '_')}_${currentDate.getTime()}.txt`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-      URL.revokeObjectURL(element.href);
-
-      toast({
-        title: "Success",
-        description: `${docType} generated and downloaded successfully.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to generate document.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "in-stock":
-        return "bg-green-100 text-green-800";
-      case "low-stock":
-        return "bg-yellow-100 text-yellow-800";
-      case "expiring":
-        return "bg-orange-100 text-orange-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
+function MetricCard({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof FileBarChart }) {
   return (
-    <div className="flex-1 px-4 md:px-6 lg:px-7 py-4 md:py-6 overflow-y-auto scrollbar-visible">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-navy mb-2">Reports & Documents</h1>
-          <p className="text-gray-600">
-            Generate comprehensive reports, track metrics, and export data
-          </p>
+    <div className="rounded-2xl border border-border bg-white p-4 shadow-sm md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>
+          <p className="mt-2 text-2xl font-bold text-navy md:text-3xl">{value}</p>
+          <p className="mt-1 text-xs text-gray-500">{detail}</p>
         </div>
-
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-6 border-b border-border pb-4 overflow-x-auto scrollbar-visible">
-          {[
-            { id: "sales", label: "Sales Reports", icon: "📊" },
-            { id: "inventory", label: "Inventory", icon: "📦" },
-            { id: "customer", label: "Customer", icon: "👥" },
-            { id: "performance", label: "Performance", icon: "📈" },
-            { id: "profit", label: "Profit", icon: "💰" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as ReportTab)}
-              className={`px-4 py-2 whitespace-nowrap font-semibold transition-all rounded-lg ${
-                activeTab === tab.id
-                  ? "bg-accent text-white"
-                  : "bg-off-white text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              <span className="mr-2">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Sales Reports */}
-        {activeTab === "sales" && (
-          <div className="space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-navy">Sales Reports</h2>
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value as DateRange)}
-                  className="px-3 py-2 border border-border rounded bg-white text-navy"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-              <p className="text-gray-600 mb-6">
-                Detailed breakdown of sales performance
-              </p>
-
-              <div className="space-y-4">
-                {mockSalesReports.map((report, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-border rounded-lg p-4 hover:bg-off-white transition-colors"
-                  >
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-600">Period</p>
-                        <p className="font-semibold text-navy">{report.period}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Total Revenue</p>
-                        <p className="font-semibold text-navy">
-                          ₱{report.totalRevenue.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Transactions</p>
-                        <p className="font-semibold text-navy">
-                          {report.totalTransactions}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Avg Transaction</p>
-                        <p className="font-semibold text-navy">
-                          ₱{report.averageTransaction.toFixed(2)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Top Product</p>
-                        <p className="font-semibold text-navy text-sm">
-                          {report.topProduct}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleExport("excel", "Sales Report")
-                  }
-                  disabled={isExporting}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
-                  📥 Export to Excel
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleExport("pdf", "Sales Report")
-                  }
-                  disabled={isExporting}
-                  variant="outline"
-                >
-                  📄 Export to PDF
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Inventory Reports */}
-        {activeTab === "inventory" && (
-          <div className="space-y-6">
-            <Card className="p-6 overflow-hidden">
-              <h2 className="text-2xl font-bold text-navy mb-4">
-                Inventory Reports
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Current stock levels, product details, and expiry dates
-              </p>
-
-              <div className="overflow-x-auto scrollbar-visible">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-off-white">
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        SKU
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Product
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Current Stock
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Reorder Level
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Expiry Date
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Value
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockInventoryReports.map((item, idx) => (
-                      <tr key={idx} className="border-b border-border hover:bg-off-white">
-                        <td className="py-3 px-4 font-mono text-gray-700">
-                          {item.sku}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {item.productName}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          {item.currentStock}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700">
-                          {item.reorderLevel}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {item.expiryDate}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          ₱{item.value.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusBadgeColor(
-                              item.status
-                            )}`}
-                          >
-                            {item.status
-                              .replace("-", " ")
-                              .split(" ")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                              .join(" ")}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-6 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleExport("excel", "Inventory Report")
-                  }
-                  disabled={isExporting}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
-                  📥 Export to Excel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Customer Reports */}
-        {activeTab === "customer" && (
-          <div className="space-y-6">
-            <Card className="p-6 overflow-hidden">
-              <h2 className="text-2xl font-bold text-navy mb-4">
-                Customer Purchase History
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Customer transaction details and purchase patterns
-              </p>
-
-              <div className="overflow-x-auto scrollbar-visible">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-off-white">
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Customer ID
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Customer Name
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Total Purchases
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Total Spent
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Last Purchase
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Frequency
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockCustomerReports.map((customer, idx) => (
-                      <tr key={idx} className="border-b border-border hover:bg-off-white">
-                        <td className="py-3 px-4 font-mono text-gray-700">
-                          {customer.customerId}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700 font-medium">
-                          {customer.customerName}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          {customer.totalPurchases}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          ₱{customer.totalSpent.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {customer.lastPurchaseDate}
-                        </td>
-                        <td className="py-3 px-4 text-gray-700">
-                          {customer.frequency}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-6 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleExport("excel", "Customer Report")
-                  }
-                  disabled={isExporting}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
-                  📥 Export to Excel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-
-        {/* Performance Metrics */}
-        {activeTab === "performance" && (
-          <div className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold text-navy mb-4">
-                Sales Performance Metrics
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Sales performance by product and time period
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {mockPerformanceMetrics.map((metric, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-border rounded-lg p-4 hover:bg-off-white transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-navy">
-                          #{metric.ranking} {metric.productName}
-                        </p>
-                        <p className="text-xs text-gray-600">Top Performer</p>
-                      </div>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        metric.growth > 10
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}>
-                        ↑ {metric.growth}%
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-xs text-gray-600">Units Sold</p>
-                        <p className="font-semibold text-navy">
-                          {metric.unitsSold.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600">Revenue</p>
-                        <p className="font-semibold text-navy">
-                          ₱{metric.revenue.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleExport("excel", "Performance Metrics")
-                  }
-                  disabled={isExporting}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
-                  📥 Export to Excel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Profit Tracking */}
-        {activeTab === "profit" && (
-          <div className="space-y-6">
-            <Card className="p-6 overflow-hidden">
-              <h2 className="text-2xl font-bold text-navy mb-4">
-                Profit Tracking & Margins
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Profit margins and total profit per product
-              </p>
-
-              <div className="overflow-x-auto scrollbar-visible">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-off-white">
-                      <th className="text-left py-3 px-4 font-semibold text-navy">
-                        Product
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Unit Price
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Cost Price
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Profit Margin
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Qty Sold
-                      </th>
-                      <th className="text-right py-3 px-4 font-semibold text-navy">
-                        Total Profit
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockProfitData.map((profit, idx) => (
-                      <tr key={idx} className="border-b border-border hover:bg-off-white">
-                        <td className="py-3 px-4 text-gray-700 font-medium">
-                          {profit.productName}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          ₱{profit.unitPrice.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700">
-                          ₱{profit.costPrice.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            {profit.profitMargin.toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-semibold">
-                          {profit.quantitySold}
-                        </td>
-                        <td className="py-3 px-4 text-right text-navy font-bold">
-                          ₱{profit.totalProfit.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="bg-off-white font-bold border-t border-border">
-                      <td colSpan={5} className="py-3 px-4 text-right">
-                        Total Profit:
-                      </td>
-                      <td className="py-3 px-4 text-right text-navy">
-                        ₱{(mockProfitData.reduce((sum, p) => sum + p.totalProfit, 0)).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-6 flex gap-2">
-                <Button
-                  onClick={() =>
-                    handleExport("excel", "Profit Report")
-                  }
-                  disabled={isExporting}
-                  className="bg-accent hover:bg-accent-dark text-white"
-                >
-                  📥 Export to Excel
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Document Generation Section */}
-        <Card className="p-6 mt-8">
-          <h2 className="text-2xl font-bold text-navy mb-4">Document Generation</h2>
-          <p className="text-gray-600 mb-6">
-            Generate printable documents and receipts
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button
-              onClick={() => handleGenerateDocument("Sales Receipt")}
-              disabled={isExporting}
-              variant="outline"
-              className="h-auto py-4"
-            >
-              <div className="text-left w-full">
-                <div className="font-semibold text-navy">📜 Sales Receipt</div>
-                <div className="text-xs text-gray-600">Generate printable sales receipts</div>
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleGenerateDocument("Invoice")}
-              disabled={isExporting}
-              variant="outline"
-              className="h-auto py-4"
-            >
-              <div className="text-left w-full">
-                <div className="font-semibold text-navy">📋 Invoice</div>
-                <div className="text-xs text-gray-600">Generate customer invoices</div>
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleGenerateDocument("Inventory Summary")}
-              disabled={isExporting}
-              variant="outline"
-              className="h-auto py-4"
-            >
-              <div className="text-left w-full">
-                <div className="font-semibold text-navy">📦 Inventory Summary</div>
-                <div className="text-xs text-gray-600">Generate inventory snapshot documents</div>
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleGenerateDocument("Performance Report")}
-              disabled={isExporting}
-              variant="outline"
-              className="h-auto py-4"
-            >
-              <div className="text-left w-full">
-                <div className="font-semibold text-navy">📊 Performance Report</div>
-                <div className="text-xs text-gray-600">Generate performance summary documents</div>
-              </div>
-            </Button>
-            <Button
-              onClick={() => handleGenerateDocument("Monthly Report")}
-              disabled={isExporting}
-              variant="outline"
-              className="h-auto py-4"
-            >
-              <div className="text-left w-full">
-                <div className="font-semibold text-navy">📅 Monthly Report</div>
-                <div className="text-xs text-gray-600">Generate monthly sales and inventory summary</div>
-              </div>
-            </Button>
-          </div>
-        </Card>
+        <span className="rounded-xl bg-accent-2/10 p-2.5 text-accent-2"><Icon size={19} aria-hidden="true" /></span>
       </div>
     </div>
+  );
+}
+
+function ReportDataTable({ rows }: { rows: ReportRow[] }) {
+  const columns = Object.keys(rows[0] ?? {});
+  if (columns.length === 0) {
+    return <p className="px-4 py-8 text-center text-sm text-gray-500">No rows match your search.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border">
+      <table className="w-full min-w-[640px] text-sm">
+        <caption className="sr-only">Raw report data</caption>
+        <thead>
+          <tr className="border-b border-border bg-off-white">
+            {columns.map((key) => (
+              <th key={key} scope="col" className={`px-4 py-3 font-semibold text-navy ${typeof getValue(rows[0], key) === "number" ? "text-right" : "text-left"}`}>
+                {formatHeader(key)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-b border-border last:border-0 hover:bg-off-white/70">
+              {columns.map((key) => (
+                <td key={key} className={`px-4 py-3 text-gray-700 ${typeof getValue(row, key) === "number" ? "text-right tabular-nums" : "text-left"}`}>
+                  {formatValue(key, getValue(row, key))}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function Reports() {
+  const [activeTab, setActiveTab] = useState<ReportTab>("overview");
+  const [search, setSearch] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { toast } = useToast();
+
+  const rows = tableRows[activeTab];
+  const filteredRows = rows.filter((row) =>
+    Object.values(row).some((value) => String(value).toLowerCase().includes(search.trim().toLowerCase())),
+  );
+  const attentionCount = inventoryReports.filter((item) => item.status !== "in-stock").length;
+  const stockValue = inventoryReports.reduce((total, item) => total + item.value, 0);
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex = index;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    setActiveTab(tabs[nextIndex].id);
+    tabRefs.current[nextIndex]?.focus();
+  };
+
+  const handleExport = async () => {
+    if (filteredRows.length === 0) return;
+    setIsExporting(true);
+    try {
+      const columns: ExcelColumn[] = Object.keys(filteredRows[0]).map((key) => ({ key, header: formatHeader(key), width: 22 }));
+      await exportExcelFile(
+        `${tabs.find((tab) => tab.id === activeTab)?.label.replace(/ /g, "_")}_sample.xlsx`,
+        tabs.find((tab) => tab.id === activeTab)?.label.slice(0, 31) ?? "Report",
+        columns,
+        filteredRows as unknown as Record<string, unknown>[],
+      );
+      toast({ title: "Export complete", description: "The visible report rows were exported to Excel." });
+    } catch {
+      toast({ title: "Export failed", description: "The report could not be exported.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const chartData = activeTab === "overview" || activeTab === "sales"
+    ? salesReports
+    : activeTab === "inventory"
+      ? inventoryReports
+      : activeTab === "customers"
+        ? customerReports
+        : activeTab === "products"
+          ? performanceMetrics
+          : profitData;
+
+  return (
+    <main className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-7">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent-2">Analytics</p>
+            <h1 className="mt-1 text-3xl font-bold text-navy">Reports</h1>
+            <p className="mt-1 text-sm text-gray-600">A clear snapshot of sales, customers, and inventory.</p>
+          </div>
+          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+            Sample data · not live
+          </span>
+        </header>
+
+        <section aria-label="Key report metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard label="Monthly revenue" value={peso(salesReports[2].totalRevenue)} detail={`${salesReports[2].totalTransactions} sample transactions`} icon={ChartNoAxesCombined} />
+          <MetricCard label="Average transaction" value={peso(salesReports[2].averageTransaction)} detail="Across the sample month" icon={FileBarChart} />
+          <MetricCard label="Sample stock value" value={peso(stockValue)} detail={`${inventoryReports.length} sample products`} icon={Boxes} />
+          <MetricCard label="Needs attention" value={String(attentionCount)} detail="Low-stock or expiry flags" icon={TriangleAlert} />
+        </section>
+
+        <section aria-label="Report sections" className="space-y-4">
+          <div role="tablist" aria-label="Report sections" className="flex gap-2 overflow-x-auto border-b border-border pb-2 scrollbar-visible">
+            {tabs.map((tab, index) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(element) => { tabRefs.current[index] = element; }}
+                  id={`report-tab-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls="report-panel"
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  onKeyDown={(event) => handleTabKeyDown(event, index)}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-t-lg border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 ${activeTab === tab.id ? "border-accent-2 text-navy" : "border-transparent text-gray-500 hover:text-navy"}`}
+                >
+                  <Icon size={16} aria-hidden="true" />{tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div id="report-panel" role="tabpanel" aria-labelledby={`report-tab-${activeTab}`} tabIndex={0} className="space-y-4 outline-none">
+            <section className="rounded-2xl border border-border bg-white p-4 shadow-sm md:p-5">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-navy">{tabs.find((tab) => tab.id === activeTab)?.label}</h2>
+                  <p className="mt-1 text-sm text-gray-600">{descriptions[activeTab]}</p>
+                </div>
+                <Button onClick={handleExport} disabled={isExporting || filteredRows.length === 0} className="gap-2 bg-accent text-white hover:bg-accent-dark">
+                  <Download size={16} aria-hidden="true" />{isExporting ? "Exporting…" : "Export Excel"}
+                </Button>
+              </div>
+
+              <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(250px,0.8fr)]">
+                <div className="min-w-0 rounded-xl bg-off-white/70 p-3 md:p-4">
+                  <h3 className="mb-2 text-sm font-semibold text-navy">{activeTab === "inventory" ? "Stock vs. reorder level" : activeTab === "customers" ? "Spend by customer" : activeTab === "products" ? "Units sold by product" : activeTab === "profit" ? "Profit by product" : "Revenue by period"}</h3>
+                  <div role="img" aria-label={`${tabs.find((tab) => tab.id === activeTab)?.label} chart; use the data table below for exact values`} className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} margin={{ top: 22, right: 12, left: 4, bottom: 8 }}>
+                        <CartesianGrid stroke="#dce3ec" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey={activeTab === "overview" || activeTab === "sales" ? "period" : activeTab === "inventory" ? "productName" : activeTab === "customers" ? "customerName" : "productName"} tick={{ fontSize: 11, fill: "#536174" }} interval={0} angle={-12} textAnchor="end" height={54} />
+                        <YAxis width={70} tick={{ fontSize: 11, fill: "#536174" }} tickFormatter={(value) => activeTab === "overview" || activeTab === "sales" || activeTab === "customers" || activeTab === "profit" ? `₱${Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(0)}k` : value}` : String(value)} />
+                        <Tooltip formatter={(value) => activeTab === "inventory" || activeTab === "products" ? Number(value).toLocaleString() : peso(Number(value))} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {(activeTab === "overview" || activeTab === "sales") && <Bar dataKey="totalRevenue" name="Revenue (₱)" fill="#142955" radius={[5, 5, 0, 0]}><LabelList dataKey="totalRevenue" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                        {activeTab === "inventory" && <>
+                          <Bar dataKey="currentStock" name="Available stock" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="currentStock" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>
+                          <Bar dataKey="reorderLevel" name="Reorder level" fill="#e3a72f" radius={[5, 5, 0, 0]} />
+                        </>}
+                        {activeTab === "customers" && <Bar dataKey="totalSpent" name="Total spent (₱)" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="totalSpent" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                        {activeTab === "products" && <Bar dataKey="unitsSold" name="Units sold" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="unitsSold" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                        {activeTab === "profit" && <Bar dataKey="totalProfit" name="Total profit (₱)" fill="#23845c" radius={[5, 5, 0, 0]}><LabelList dataKey="totalProfit" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <aside className="rounded-xl border border-border p-4">
+                  <h3 className="text-sm font-semibold text-navy">Highlights</h3>
+                  {activeTab === "overview" || activeTab === "inventory" ? (
+                    <div className="mt-3 space-y-3">
+                      {inventoryReports.filter((item) => item.status !== "in-stock").map((item) => (
+                        <div key={item.sku} className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
+                          <div><p className="text-sm font-medium text-navy">{item.productName}</p><p className="mt-0.5 text-xs text-gray-500">{item.currentStock} units · reorder at {item.reorderLevel}</p></div>
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.status === "low-stock" ? "bg-amber-100 text-amber-800" : "bg-orange-100 text-orange-800"}`}>{item.status === "low-stock" ? "Low stock" : "Expiry flag"}</span>
+                        </div>
+                      ))}
+                      {inventoryReports.filter((item) => item.status !== "in-stock").length === 0 && <p className="text-sm text-gray-500">No sample items need attention.</p>}
+                    </div>
+                  ) : activeTab === "sales" ? (
+                    <div className="mt-3 space-y-3"><p className="text-xs uppercase tracking-wide text-gray-500">Top item by period</p>{salesReports.map((report) => <div key={report.period} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-600">{report.period}</span><span className="text-right text-sm font-semibold text-navy">{report.topProduct}<br />{peso(report.topProductSales)}</span></div>)}</div>
+                  ) : activeTab === "customers" ? (
+                    <div className="mt-3 space-y-3">{[...customerReports].sort((a, b) => b.totalSpent - a.totalSpent).map((customer, index) => <div key={customer.customerId} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">{index + 1}. {customer.customerName}</span><span className="text-sm font-semibold text-navy">{peso(customer.totalSpent)}</span></div>)}</div>
+                  ) : activeTab === "products" ? (
+                    <div className="mt-3 space-y-3">{performanceMetrics.map((product) => <div key={product.productName} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">#{product.ranking} {product.productName}</span><span className="text-sm font-semibold text-navy">{product.growth}% growth</span></div>)}</div>
+                  ) : (
+                    <div className="mt-3 space-y-3">{profitData.map((product) => <div key={product.productName} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">{product.productName}</span><span className="text-right text-sm font-semibold text-navy">{product.profitMargin}% margin<br />{peso(product.totalProfit)}</span></div>)}</div>
+                  )}
+                </aside>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-border bg-white p-4 shadow-sm md:p-5">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-navy">{tableTitles[activeTab]}</h3>
+                  <p className="mt-1 text-xs text-gray-500">Underlying figures for the chart · {filteredRows.length} of {rows.length} rows</p>
+                </div>
+                <label className="relative block w-full sm:w-72">
+                  <span className="sr-only">Search report rows</span>
+                  <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter these report rows…" className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-navy outline-none focus:border-accent-2 focus:ring-2 focus:ring-accent-2/20" />
+                </label>
+              </div>
+              <div className="mt-4"><ReportDataTable rows={filteredRows} /></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

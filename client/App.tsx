@@ -13,6 +13,7 @@ import { InformationManagement } from "./pages/InformationManagement";
 import { ManageAccounts } from "./pages/ManageAccounts";
 import { BookingDispatch } from "./pages/BookingDispatch";
 import { AuditLogPage } from "./pages/AuditLog";
+import { Reports } from "./pages/Reports";
 import { SearchResults } from "./pages/SearchResults";
 import { DriverSchedule } from "./pages/DriverSchedule";
 import { Topbar } from "./components/Topbar";
@@ -97,6 +98,7 @@ const AppContent = () => {
       <Route path="/manage-accounts/*" element={isAuthenticated ? <AppLayout><ManageAccounts /></AppLayout> : <Login />} />
       <Route path="/booking-dispatch/*" element={isAuthenticated ? <AppLayout><BookingDispatch /></AppLayout> : <Login />} />
       <Route path="/audit" element={isAuthenticated ? <AppLayout><AuditLogPage /></AppLayout> : <Login />} />
+      <Route path="/reports" element={isAuthenticated ? <AppLayout><Reports /></AppLayout> : <Login />} />
       <Route path="/search" element={isAuthenticated ? <AppLayout><SearchResults /></AppLayout> : <Login />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
