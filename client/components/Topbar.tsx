@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronLeft, Search, ShieldCheck, Truck } from "lucide-react";
+import { ChevronLeft, Menu, Search, ShieldCheck, Truck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationPanel } from "./NotificationPanel";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -55,8 +55,8 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
   };
 
   return (
-    <header className="bg-navy px-6 md:px-8 py-4 flex items-center flex-shrink-0 sticky top-0 z-10 shadow-sm gap-4 md:gap-6 animate-slide-down">
-      <div className="flex items-center gap-4 flex-1 min-w-0">
+    <header className="bg-navy px-4 md:px-8 py-3 sm:py-4 flex flex-wrap items-center flex-shrink-0 sticky top-0 z-10 shadow-sm gap-2 sm:gap-4 md:gap-6 animate-slide-down">
+      <div className={`flex items-center gap-4 min-w-0 ${role === "agent" ? "flex-1" : "flex-1 sm:flex-none"}`}>
         {/* Left Section - Logo & Back Button */}
         <div className="flex items-center gap-3 flex-shrink-0">
           {!agentMode && (
@@ -90,9 +90,10 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
             </div>
           )}
         </div>
+      </div>
 
         {role !== "agent" && (
-          <form onSubmit={handleSearch} className="relative w-full max-w-md">
+          <form onSubmit={handleSearch} className="relative order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-md">
             <input
               ref={searchInputRef}
               type="text"
@@ -101,7 +102,7 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
               placeholder="Search products, customers, orders…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-4 pr-24 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+              className="w-full pl-4 pr-11 xl:pr-28 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
             />
             <kbd className="absolute right-10 top-1/2 hidden -translate-y-1/2 rounded border border-white/20 px-1.5 py-0.5 text-[10px] font-medium text-white/65 xl:block">Ctrl / ⌘ K</kbd>
             <button
@@ -113,10 +114,25 @@ export function Topbar({ userName, onLogout, agentMode = false }: TopbarProps) {
             </button>
           </form>
         )}
-      </div>
 
       {/* Right Section */}
       <div className="flex items-center gap-2 relative">
+        {role === "admin" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button aria-label="Main navigation" className="rounded-lg border border-white/20 bg-white/10 p-2 text-white hover:bg-white/20 md:hidden">
+                <Menu size={19} aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-navy text-white border-white/20">
+              <DropdownMenuItem onClick={() => navigate("/")} className="focus:bg-white/10 focus:text-white cursor-pointer">Dashboard</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/information-management/inventory")} className="focus:bg-white/10 focus:text-white cursor-pointer">Inventory & Storage</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/booking-dispatch/order-summary")} className="focus:bg-white/10 focus:text-white cursor-pointer">Bookings & Orders</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/booking-dispatch/delivery")} className="focus:bg-white/10 focus:text-white cursor-pointer">Logistics & Fleet</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/reports")} className="focus:bg-white/10 focus:text-white cursor-pointer">Reports</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {/* Notification button */}
         <button
           onClick={() => setShowNotifications(!showNotifications)}
