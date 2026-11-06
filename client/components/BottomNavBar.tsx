@@ -4,13 +4,10 @@ import { useAuth } from "../hooks/useAuth";
 import {
   LayoutDashboard,
   Package,
-  TrendingUp,
   Users,
   Truck,
   Wallet,
-  BarChart3,
   FileText,
-  Users2,
   ClipboardList,
   History,
 } from "lucide-react";
@@ -87,11 +84,6 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
     return 0;
   };
 
-  // Hide navbar for Dashboard and Audit Log (single-view modules)
-  if (currentPath === "/" || currentPath === "/audit") {
-    return null;
-  }
-
   // Determine which hub the user is in and get the appropriate modules
   let currentHub: string | null = null;
   let modulesToShow: Array<{ path: string; label: string; icon: React.ElementType }> = [];
@@ -107,7 +99,7 @@ export function BottomNavBar({ onLogout }: BottomNavBarProps) {
   if (currentHub && modulesToShow.length > 0) {
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-navy border-t border-white/10 z-30 md:hidden">
-        <div className="flex overflow-x-auto overflow-y-hidden gap-1 px-2 py-1 justify-center scrollbar-visible" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="flex overflow-x-auto overflow-y-hidden gap-1 px-2 py-1 justify-start sm:justify-center scrollbar-visible" style={{ WebkitOverflowScrolling: "touch" }}>
           {modulesToShow.map(({ path, label, icon: Icon }) => {
             const fullPath = currentHub + path;
             const isActive = currentPath === fullPath || currentPath.startsWith(fullPath + "/");

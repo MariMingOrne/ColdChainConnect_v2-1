@@ -4,12 +4,15 @@ import { useAuth } from "../hooks/useAuth";
 import { AuditLog, Booking, Delivery, Product } from "@shared/api";
 import { describeLog, getActionBadgeClass, getActionLabel } from "./modules/audit/auditDescribe";
 import { SalesForecastWidget } from "@/components/SalesForecastWidget";
+import { useToast } from "@/hooks/use-toast";
 import {
   Activity,
   ArrowRight,
   Boxes,
   ChartNoAxesCombined,
+  Check,
   ClipboardList,
+  Copy,
   LoaderCircle,
   Truck,
   TriangleAlert,
@@ -52,6 +55,21 @@ function AuditActionBadge({ action }: { action: string }) {
 }
 
 function DashboardActivity({ logs, isLoading, error }: { logs: AuditLog[]; isLoading: boolean; error: string | null }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const copyReference = async (log: AuditLog) => {
+    if (!log.resource_id) return;
+    try {
+      await navigator.clipboard.writeText(log.resource_id);
+      setCopiedId(log.id);
+      window.setTimeout(() => setCopiedId((current) => current === log.id ? null : current), 1500);
+      toast({ title: "Copied", description: "Full reference ID copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", description: "Clipboard access is unavailable.", variant: "destructive" });
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-border bg-white p-5 shadow-sm md:p-6">
       <div className="flex items-center justify-between gap-4">
@@ -78,7 +96,14 @@ function DashboardActivity({ logs, isLoading, error }: { logs: AuditLog[]; isLoa
                 <AuditActionBadge action={log.action} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-navy">{log.user_name || "A user"} {describeLog(log).charAt(0).toLowerCase() + describeLog(log).slice(1)}</p>
-                  <p className="mt-0.5 truncate font-mono text-xs text-gray-500">{log.resource_id ? `#${log.resource_id.slice(0, 6).toUpperCase()}` : "System activity"}</p>
+                  {log.resource_id ? (
+                    <div className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-gray-500">
+                      <span>#{log.resource_id.slice(0, 6).toUpperCase()}</span>
+                      <button type="button" onClick={() => void copyReference(log)} aria-label={`Copy full reference ${log.resource_id}`} className="rounded p-1 hover:bg-off-white hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-2">
+                        {copiedId === log.id ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
+                      </button>
+                    </div>
+                  ) : <p className="mt-0.5 text-xs text-gray-500">System activity</p>}
                 </div>
               </div>
               <time dateTime={log.created_at} className="shrink-0 text-xs text-gray-500">
@@ -124,11 +149,9 @@ export function Dashboard() {
         const [bookings, inventory, products, deliveries, activity] = await Promise.all(responses.map((response) => response.json())) as [Booking[], Record<string, number>, Product[], Delivery[], AuditLog[]];
         if (!active) return;
 
-        const productById = new Map(products.map((product) => [product.id, product]));
-        const lowStockProducts = Object.entries(inventory).filter(([productId, units]) => {
-          const reorderPoint = productById.get(productId)?.reorder_point;
-          return reorderPoint !== undefined && units <= reorderPoint;
-        }).length;
+        const lowStockProducts = products.filter((product) =>
+          !product.is_discontinued && typeof product.reorder_point === "number" && (inventory[product.id] ?? 0) <= product.reorder_point,
+        ).length;
 
         setData({
           pendingBookings: bookings.filter((booking) => booking.status === "pending").length,
@@ -173,7 +196,7 @@ export function Dashboard() {
         <section aria-label="Operations at a glance" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard to="/booking-dispatch/order-summary?status=pending" label="Pending orders" value={isLoading || !data ? "—" : String(data.pendingBookings)} detail="Awaiting review · open filtered list" icon={ClipboardList} accent="bg-blue-50 text-blue-700" />
           <MetricCard to="/information-management/inventory" label="Available inventory" value={isLoading || !data ? "—" : data.availableUnits.toLocaleString()} detail="Units available · open inventory" icon={Boxes} accent="bg-sky-50 text-sky-700" />
-          <MetricCard to="/information-management/inventory" label="Low-stock products" value={isLoading || !data ? "—" : String(data.lowStockProducts)} detail={data?.lowStockProducts === 0 ? "All products above reorder point" : "At or below reorder point"} icon={TriangleAlert} accent={data?.lowStockProducts === 0 ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-700"} healthy={!isLoading && data?.lowStockProducts === 0} />
+          <MetricCard to="/information-management/inventory" label="Low-stock products" value={isLoading || !data ? "—" : String(data.lowStockProducts)} detail={data?.lowStockProducts === 0 ? "No low-stock alerts" : "At or below reorder point"} icon={TriangleAlert} accent={data?.lowStockProducts === 0 ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-700"} healthy={!isLoading && data?.lowStockProducts === 0} />
           <MetricCard to="/booking-dispatch/delivery" label="Active deliveries" value={isLoading || !data ? "—" : String(data.activeDeliveries)} detail="Pending or in transit · view dispatch" icon={Truck} accent="bg-green-50 text-green-700" />
         </section>
 
@@ -187,10 +210,10 @@ export function Dashboard() {
                 Receive stock <ArrowRight size={15} aria-hidden="true" />
               </Link>
               <Link to="/booking-dispatch/order-summary?status=pending" className="flex items-center justify-between rounded-xl border border-border p-3 text-sm font-semibold text-navy hover:border-accent-2 hover:bg-off-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-2">
-                Pending orders <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{isLoading ? "—" : data?.pendingBookings ?? 0}</span>
+                Pending orders <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{isLoading || !data ? "—" : data.pendingBookings}</span>
               </Link>
               <Link to="/booking-dispatch/delivery" className="flex items-center justify-between rounded-xl border border-border p-3 text-sm font-semibold text-navy hover:border-accent-2 hover:bg-off-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-2">
-                Active deliveries <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">{isLoading ? "—" : data?.activeDeliveries ?? 0}</span>
+                Active deliveries <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">{isLoading || !data ? "—" : data.activeDeliveries}</span>
               </Link>
               <Link to="/audit" className="flex items-center justify-between rounded-xl border border-border p-3 text-sm font-semibold text-navy hover:border-accent-2 hover:bg-off-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-2">
                 Administration · Audit Log <ArrowRight size={15} aria-hidden="true" />

@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Boxes, ChartNoAxesCombined, ClipboardList, LayoutDashboard, Truck } from "lucide-react";
 
 const links = [
@@ -10,6 +10,14 @@ const links = [
 ];
 
 export function AdminNavigation() {
+  const { pathname } = useLocation();
+  const isSectionActive = (path: string) => {
+    if (path === "/") return pathname === "/";
+    if (path === "/information-management/inventory") return pathname.startsWith("/information-management");
+    if (path === "/booking-dispatch/order-summary") return pathname.startsWith("/booking-dispatch") && !pathname.startsWith("/booking-dispatch/delivery");
+    if (path === "/booking-dispatch/delivery") return pathname.startsWith("/booking-dispatch/delivery");
+    return pathname === path;
+  };
   return (
     <nav aria-label="Main navigation" className="sticky top-[72px] z-20 hidden border-b border-border bg-white md:block">
       <div className="mx-auto flex max-w-[1600px] items-center gap-1 overflow-x-auto px-4 py-2 lg:px-8">
@@ -18,7 +26,8 @@ export function AdminNavigation() {
             key={path}
             to={path}
             end={end}
-            className={({ isActive }) => `inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 ${isActive ? "bg-accent-2/10 text-accent-2" : "text-gray-600 hover:bg-off-white hover:text-navy"}`}
+            aria-current={isSectionActive(path) ? "page" : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 ${isSectionActive(path) ? "bg-accent-2/10 text-accent-2" : "text-gray-600 hover:bg-off-white hover:text-navy"}`}
           >
             <Icon size={16} aria-hidden="true" />
             {label}
@@ -27,7 +36,8 @@ export function AdminNavigation() {
         <div className="ml-auto shrink-0 border-l border-border pl-2">
           <NavLink
             to="/audit"
-            className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 ${isActive ? "bg-navy text-white" : "text-gray-500 hover:bg-off-white hover:text-navy"}`}
+            aria-current={pathname === "/audit" || pathname.startsWith("/manage-accounts") ? "page" : undefined}
+            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2 ${pathname === "/audit" || pathname.startsWith("/manage-accounts") ? "bg-navy text-white" : "text-gray-500 hover:bg-off-white hover:text-navy"}`}
           >
             Administration
           </NavLink>
