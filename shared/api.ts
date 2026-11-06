@@ -463,7 +463,6 @@ export interface Delivery {
   driver?: Driver | null;
   agent?: Agent | null;
   status: "pending" | "in_transit" | "completed";
-  scheduled_date?: string | null;
   created_at: string;
   updated_at: string;
 }
