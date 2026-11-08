@@ -183,17 +183,25 @@ export interface Batch {
   product_id: string;
   pallet_id: string;
   qty_units: number;
-  expiration_date_note?: string;
+  expiration_date?: string;
   placement_location?: string;
   created_at: string;
   updated_at: string;
+}
+
+export function isValidIsoDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 export const CreateBatchSchema = z.object({
   product_id: z.string().min(1, "Product ID is required"),
   pallet_id: z.string().min(1, "Pallet ID is required"),
   qty_units: z.number().int().positive("Quantity must be positive"),
-  expiration_date_note: z.string().optional(),
+  expiration_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expiry must be a YYYY-MM-DD date").optional(),
   placement_location: z.string().optional(),
 });
 

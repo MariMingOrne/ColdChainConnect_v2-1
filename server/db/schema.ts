@@ -10,6 +10,7 @@ import {
   pgEnum,
   foreignKey,
   primaryKey,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -132,7 +133,7 @@ export const pallet_items = pgTable("pallet_items", {
     .notNull()
     .references(() => products.id),
   qty_units: integer("qty_units").notNull(),
-  expiration_date_note: text("expiration_date_note"),
+  expiration_date: date("expiration_date", { mode: "string" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

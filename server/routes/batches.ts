@@ -5,6 +5,7 @@ import { db } from "../db";
 import { inventory_batches, batch_pallets, pallet_items, order_pallet_items, order_pallets } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+import { isValidIsoDate } from "../../shared/api";
 
 async function hasActiveReservations(executor: any, sourceItemIds: string[]) {
   if (sourceItemIds.length === 0) return false;
@@ -72,9 +73,12 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
       });
 
       for (const item of items) {
-        const { product_id, qty_units, expiration_date_note } = item;
+        const { product_id, qty_units, expiration_date } = item;
         if (!product_id || !qty_units) {
           throw new Error("Each item must have product_id and qty_units");
+        }
+        if (expiration_date && !isValidIsoDate(expiration_date)) {
+          throw new Error("Expiry must be a valid YYYY-MM-DD date");
         }
 
         const itemId = randomUUID();
@@ -83,7 +87,7 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
           pallet_id: palletDbId,
           product_id,
           qty_units,
-          expiration_date_note: expiration_date_note || null,
+          expiration_date: expiration_date || null,
         });
       }
     }

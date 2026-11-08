@@ -4,7 +4,7 @@ export interface PalletItem {
   id: string;
   productId: string;
   quantity: number;
-  expirationNote?: string;
+  expirationDate?: string;
 }
 
 export interface Pallet {
@@ -79,7 +79,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
             id: item.id,
             productId: item.product_id,
             quantity: item.qty_units,
-            expirationNote: item.expiration_date_note,
+            expirationDate: item.expiration_date,
           })),
         })),
       }));

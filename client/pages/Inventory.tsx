@@ -27,12 +27,17 @@ const inventoryExcelColumns: ExcelColumn[] = [
   { header: "Pallet ID", key: "pallet_id", required: true, width: 18 },
   { header: "SKU", key: "sku", required: true, width: 18 },
   { header: "Quantity", key: "quantity", required: true, width: 14 },
-  { header: "Expiration Date Note", key: "expiration_date_note", width: 20 },
+  { header: "Expiration Date", key: "expiration_date", width: 20 },
   { header: "Supplier Name", key: "supplier_name", width: 24 },
   { header: "Received Date", key: "received_date", width: 16 },
   { header: "Storage Zone", key: "storage_zone", width: 18 },
   { header: "Placement Location", key: "placement_location", width: 22 },
 ];
+
+const parseIsoDate = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
 
 interface PalletDisplay {
   id: string;
@@ -100,7 +105,7 @@ export function Inventory() {
         supplierId: p.supplier_id || "",
         weight: 0,
         quantity: qtyMap[p.id] ?? 0,
-        expiryDate: new Date().toISOString().split("T")[0],
+        expiryDate: "",
         imageFilename: p.image_filename,
         reorderPoint: p.reorder_point ?? 300,
         lastUpdated: p.updated_at || new Date().toISOString(),
@@ -143,8 +148,8 @@ export function Inventory() {
           itemsByProduct[item.productId] = { quantity: 0, expiryDates: [], itemId: item.id };
         }
         itemsByProduct[item.productId].quantity += item.quantity;
-        if (item.expirationNote) {
-          itemsByProduct[item.productId].expiryDates.push(item.expirationNote);
+        if (item.expirationDate) {
+          itemsByProduct[item.productId].expiryDates.push(item.expirationDate);
         }
       }
     }
@@ -152,11 +157,11 @@ export function Inventory() {
       .map(([productId, { quantity, expiryDates, itemId }]) => {
         const product = products.find((p) => p.id === productId);
         if (!product) return null;
-        const uniqueDates = [...new Set(expiryDates)];
+        const earliestExpiry = [...expiryDates].sort()[0] ?? "";
         return {
           ...product,
           batchQuantity: quantity,
-          batchExpiryDate: uniqueDates.length > 0 ? uniqueDates.join(", ") : product.expiryDate,
+          batchExpiryDate: earliestExpiry,
           itemId,
         };
       })
@@ -214,7 +219,7 @@ export function Inventory() {
         pallet_id: pallet.palletId,
         sku: product?.sku || product?.description || "",
         quantity: item.quantity,
-        expiration_date_note: item.expirationNote ?? "",
+        expiration_date: item.expirationDate ?? "",
         supplier_name: pallet.supplierName ?? "",
         received_date: pallet.receivedDate ?? "",
         storage_zone: pallet.storageZone ?? "",
@@ -236,8 +241,7 @@ export function Inventory() {
   const getExpiryStatus = (expiryDate: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
-    expiry.setHours(0, 0, 0, 0);
+    const expiry = parseIsoDate(expiryDate);
     const daysUntilExpiry = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysUntilExpiry < 0) return { status: "expired", icon: "❌", color: { bg: "bg-red-50", hover: "hover:bg-red-100/60" } };
@@ -429,7 +433,7 @@ export function Inventory() {
                 paginatedBatchProducts.map((product) => {
                   const uniqueKey = product.itemId ? `${product.id}-${product.itemId}` : product.id;
                   const highlightColor = getRowHighlightColor(product.batchQuantity, product.reorderPoint, product.batchExpiryDate);
-                  const expiryStatus = selectedBatchId !== "batch-all" ? getExpiryStatus(product.batchExpiryDate) : null;
+                  const expiryStatus = selectedBatchId !== "batch-all" && product.batchExpiryDate ? getExpiryStatus(product.batchExpiryDate) : null;
                   return (
                     <tr key={uniqueKey} className={`border-b border-border transition-colors ${highlightColor.bg} ${highlightColor.hover}`}>
                       {/* Name */}
@@ -458,7 +462,7 @@ export function Inventory() {
                       {/* Expiry Date — display in batch view */}
                       {selectedBatchId !== "batch-all" && (
                         <td className="px-3 py-3 text-navy whitespace-nowrap text-sm">
-                          {product.batchExpiryDate ? new Date(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
+                          {product.batchExpiryDate ? parseIsoDate(product.batchExpiryDate).toLocaleDateString("en-PH") : "N/A"}
                         </td>
                       )}
                       {/* Actions */}
@@ -804,7 +808,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
   const addItem = (productId: string) => {
     if (!productId) return;
     const p = products.find((x) => x.id === productId);
-    setItems([...items, { productId, quantity: p?.quantity ?? 1, expirationNote: "" }]);
+    setItems([...items, { productId, quantity: p?.quantity ?? 1, expirationDate: "" }]);
   };
 
   const removeItem = (itemIdx: number) => {
@@ -827,7 +831,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
       const formattedItems = items.map((item) => ({
         product_id: item.productId,
         qty_units: item.quantity,
-        expiration_date_note: item.expirationNote || "",
+        expiration_date: item.expirationDate || null,
       }));
       const pallet = { pallet_id: "UNPALLETTED", items: formattedItems };
       const res = await fetch("/api/batches", {
@@ -899,7 +903,7 @@ function CreateBatchForm({ newBatchName, setNewBatchName, pallets, setPallets, o
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-navy mb-1">Expiry Date</label>
-                  <input type="date" value={item.expirationNote || ""} onChange={(e) => updateItem(itemIdx, "expirationNote", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
+                  <input type="date" value={item.expirationDate || ""} onChange={(e) => updateItem(itemIdx, "expirationDate", e.target.value)} className="w-full px-2 py-1 border border-border rounded text-sm focus:outline-none focus:border-accent-2" />
                 </div>
               </div>
             ))}

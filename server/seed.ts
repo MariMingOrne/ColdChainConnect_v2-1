@@ -341,10 +341,10 @@ async function seed() {
     ]).onConflictDoNothing();
 
     await db.insert(pallet_items).values([
-      { id: randomUUID(), pallet_id: pallet1Id, product_id: product1, qty_units: 100, expiration_date_note: "2024-02-15" },
-      { id: randomUUID(), pallet_id: pallet1Id, product_id: product2, qty_units: 80, expiration_date_note: "2024-02-20" },
-      { id: randomUUID(), pallet_id: pallet2Id, product_id: product3, qty_units: 120, expiration_date_note: "2024-02-10" },
-      { id: randomUUID(), pallet_id: pallet2Id, product_id: product4, qty_units: 60, expiration_date_note: "2024-02-25" },
+      { id: randomUUID(), pallet_id: pallet1Id, product_id: product1, qty_units: 100, expiration_date: "2024-02-15" },
+      { id: randomUUID(), pallet_id: pallet1Id, product_id: product2, qty_units: 80, expiration_date: "2024-02-20" },
+      { id: randomUUID(), pallet_id: pallet2Id, product_id: product3, qty_units: 120, expiration_date: "2024-02-10" },
+      { id: randomUUID(), pallet_id: pallet2Id, product_id: product4, qty_units: 60, expiration_date: "2024-02-25" },
     ]).onConflictDoNothing();
 
     console.log("✅ Seed completed successfully!");
