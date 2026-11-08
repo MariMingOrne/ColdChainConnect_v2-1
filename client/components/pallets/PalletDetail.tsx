@@ -11,6 +11,7 @@ interface PalletDetailProps {
   customer: Customer | null;
   getProductName: (productId: string) => string;
   onStatusChange: (status: Pallet["status"]) => void;
+  onPrintSheet: () => void;
   isUpdatingStatus: boolean;
   onBack: () => void;
 }
@@ -21,6 +22,7 @@ export function PalletDetail({
   customer,
   getProductName,
   onStatusChange,
+  onPrintSheet,
   isUpdatingStatus,
   onBack,
 }: PalletDetailProps) {
@@ -59,6 +61,14 @@ export function PalletDetail({
           </div>
           <div className="flex items-center gap-3">
             <PalletStatusBadge status={pallet.status} />
+            <button
+              type="button"
+              onClick={onPrintSheet}
+              disabled={!order}
+              className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-off-white disabled:opacity-50"
+            >
+              Print delivery sheet
+            </button>
             <div className="flex items-center gap-2">
               <button
                 type="button"
