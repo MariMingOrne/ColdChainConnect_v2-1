@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ChevronDown, ChevronUp, Package, RefreshCw, Search } from "lucide-react";
-import { Booking, Pallet, Product } from "@shared/api";
+import { Booking, InventoryBatch, Pallet, Product } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
+import { DeliverySheet } from "@/components/pallets/DeliverySheet";
 
 interface TrackingPallet extends Pallet {
   order?: Booking;
@@ -30,6 +31,8 @@ export function AgentPalletTracking() {
   const [searchParams] = useSearchParams();
   const [pallets, setPallets] = useState<TrackingPallet[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [batches, setBatches] = useState<InventoryBatch[]>([]);
+  const [sheetOrder, setSheetOrder] = useState<Booking | null>(null);
   const [search, setSearch] = useState(searchParams.get("order") ?? "");
   const [filter, setFilter] = useState<PalletFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -45,10 +48,11 @@ export function AgentPalletTracking() {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [bookingRes, palletRes, productRes] = await Promise.all([
+      const [bookingRes, palletRes, productRes, batchRes] = await Promise.all([
         fetch("/api/bookings", { headers }),
         fetch("/api/pallets", { headers }),
         fetch("/api/products", { headers }),
+        fetch("/api/inventory-batches", { headers }),
       ]);
 
       if (!bookingRes.ok || !palletRes.ok || !productRes.ok) {
@@ -63,6 +67,7 @@ export function AgentPalletTracking() {
       const bookingsById = new Map(bookings.map((booking) => [booking.id, booking]));
 
       setProducts(productList);
+      if (batchRes.ok) setBatches(await batchRes.json());
       setPallets(allPallets
         .filter((pallet) => bookingsById.has(pallet.order_id))
         .map((pallet) => ({ ...pallet, order: bookingsById.get(pallet.order_id) })));
@@ -261,6 +266,17 @@ export function AgentPalletTracking() {
                   </div>
                 )}
 
+                <div className="border-t border-border p-3">
+                  <button
+                    type="button"
+                    onClick={() => pallet.order && setSheetOrder(pallet.order)}
+                    disabled={!pallet.order}
+                    className="mb-2 min-h-11 w-full rounded-xl border border-border bg-white px-4 text-sm font-semibold text-navy transition hover:bg-off-white disabled:opacity-50"
+                  >
+                    Print delivery sheet
+                  </button>
+                </div>
+
                 {pallet.status !== "shipped" && (
                   <div className="border-t border-border p-3">
                     <button
@@ -283,6 +299,15 @@ export function AgentPalletTracking() {
             );
           })}
         </div>
+      )}
+
+      {sheetOrder && (
+        <DeliverySheet
+          order={sheetOrder}
+          pallets={pallets.filter((pallet) => pallet.order_id === sheetOrder.id)}
+          batches={batches}
+          onClose={() => setSheetOrder(null)}
+        />
       )}
     </div>
   );
