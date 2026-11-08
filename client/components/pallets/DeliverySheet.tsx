@@ -19,6 +19,7 @@ interface PickLine {
 
 export function DeliverySheet({ order, pallets, batches, onClose }: DeliverySheetProps) {
   const [barcodes, setBarcodes] = useState<Record<string, string>>({});
+  const [cardMode, setCardMode] = useState(true);
 
   const pickLines = useMemo<PickLine[]>(() => {
     const batchNameByItemId = new Map(
@@ -56,6 +57,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
   const deliveryDate = order.prepared_delivery_date
     ? new Date(order.prepared_delivery_date).toLocaleDateString()
     : "Not scheduled";
+  const storeName = order.customer?.store_name ?? "Customer";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -63,6 +65,13 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
         <div className="no-print flex items-center justify-between bg-navy-mid px-6 py-4">
           <h2 className="font-rajdhani text-lg font-bold text-white">Delivery Sheet</h2>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCardMode((mode) => !mode)}
+              className="rounded-lg border border-white/40 px-3 py-2 text-sm font-semibold text-white hover:opacity-80"
+            >
+              {cardMode ? "Switch to letter" : "Switch to 5×3 card"}
+            </button>
             <button
               type="button"
               onClick={() => window.print()}
@@ -76,26 +85,40 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
           </div>
         </div>
 
-        <div id="delivery-sheet" className="overflow-y-auto p-5 font-sans text-black">
+        <div id="delivery-sheet" className={`overflow-y-auto p-5 font-sans text-black ${cardMode ? "card-mode" : ""}`}>
           <style>{`
             @media print {
-              @page { size: letter; margin: 0.35in; }
+              @page {
+                size: ${cardMode ? "5in 3in" : "letter"};
+                margin: ${cardMode ? "0.15in" : "0.35in"};
+              }
               body * { visibility: hidden; }
               #delivery-sheet, #delivery-sheet * { visibility: visible; }
               #delivery-sheet { position: absolute; top: 0; left: 0; width: 100%; padding: 0; }
               .no-print { display: none !important; }
-              .label-grid { break-inside: auto; }
               .label-card { break-inside: avoid; }
+              .card-mode .sheet-header, .card-mode .pick-list { display: none !important; }
+              .card-mode .label-section { margin-top: 0 !important; }
+              .card-mode .label-section h2 { display: none; }
+              .card-mode .label-grid { display: block !important; }
+              .card-mode .label-card {
+                border: none !important;
+                padding: 0 !important;
+                height: 2.7in;
+                break-after: page;
+                justify-content: center;
+              }
+              .card-mode .label-card:last-child { break-after: auto; }
             }
           `}</style>
 
-          <header className="border-b border-black pb-2">
+          <header className="sheet-header border-b border-black pb-2">
             <h1 className="text-lg font-bold">Delivery Sheet</h1>
-            <p className="text-xs">Order {order.id.slice(0, 8)} · {order.customer?.store_name ?? "Customer"}{order.customer?.location ? ` · ${order.customer.location}` : ""}</p>
+            <p className="text-xs">Order {order.id.slice(0, 8)} · {storeName}{order.customer?.location ? ` · ${order.customer.location}` : ""}</p>
             <p className="text-xs">Delivery date: {deliveryDate} · Pallets: {pallets.length}</p>
           </header>
 
-          <section className="mt-3">
+          <section className="pick-list mt-3">
             <h2 className="mb-1 text-sm font-bold">Pick List</h2>
             <table className="w-full border-collapse text-xs">
               <thead>
@@ -117,18 +140,18 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
             </table>
           </section>
 
-          <section className="mt-4">
+          <section className="label-section mt-4">
             <h2 className="mb-1 text-sm font-bold">Pallet Labels</h2>
             <div className="label-grid grid grid-cols-3 gap-2">
               {pallets.map((pallet, index) => {
                 const units = (pallet.items ?? []).reduce((sum, item) => sum + item.qty_units, 0);
                 return (
-                  <div key={pallet.id} className="label-card flex flex-col gap-1 border border-black p-2">
+                  <div key={pallet.id} className="label-card flex flex-col items-center gap-1 border border-black p-2 text-center">
+                    <p className="text-xs font-bold">Pallet {index + 1} of {pallets.length} · {units} units</p>
+                    <p className="text-xs">{storeName}</p>
+                    <p className="text-[10px]">Delivery: {deliveryDate}</p>
                     {barcodes[pallet.id] && <img src={barcodes[pallet.id]} alt={`Barcode for pallet ${index + 1}`} className="h-10 w-full" />}
-                    <div className="text-xs">
-                      <p className="font-bold">Pallet {index + 1} of {pallets.length} · {units} units</p>
-                      <p className="font-mono text-[10px]">{pallet.id}</p>
-                    </div>
+                    <p className="font-mono text-[10px]">{pallet.id}</p>
                   </div>
                 );
               })}
