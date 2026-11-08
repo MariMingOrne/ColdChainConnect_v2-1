@@ -10,6 +10,7 @@ import {
   pgEnum,
   foreignKey,
   primaryKey,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -116,7 +117,6 @@ export const batch_pallets = pgTable("batch_pallets", {
   pallet_id: text("pallet_id").notNull(),
   supplier_name: text("supplier_name"),
   received_date: text("received_date"),
-  temperature_log: text("temperature_log"),
   storage_zone: text("storage_zone"),
   placement_location: text("placement_location"),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -133,7 +133,7 @@ export const pallet_items = pgTable("pallet_items", {
     .notNull()
     .references(() => products.id),
   qty_units: integer("qty_units").notNull(),
-  expiration_date_note: text("expiration_date_note"),
+  expiration_date: date("expiration_date", { mode: "string" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

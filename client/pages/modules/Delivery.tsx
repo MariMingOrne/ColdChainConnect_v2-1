@@ -39,6 +39,12 @@ function statusLabel(status: string) {
          status === "completed"  ? "Completed"  : "Pending";
 }
 
+function formatRunDate(delivery: Delivery) {
+  if (!delivery.scheduled_date) return new Date(delivery.created_at).toLocaleDateString("en-PH");
+  const [year, month, day] = delivery.scheduled_date.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-PH");
+}
+
 function truckStatusLabel(status: string) {
   return status === "in_transit" ? "In Transit" :
          status === "maintenance" ? "Maintenance" : "Available";
@@ -217,6 +223,37 @@ export function DeliveryDispatch() {
     }
   };
 
+  const handleStartRun = async (deliveryId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ status: "in_transit" }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start this run.");
+    }
+  };
+
+  const handleRemoveStop = async (delivery: DeliveryExt, item: DeliveryItemExt) => {
+    if (!token) return;
+    const name = item.customer?.store_name ?? "this stop";
+    if (!window.confirm(`Remove ${name} from this run? The order will go back to the unassigned list.`)) return;
+    try {
+      const res = await fetch(`/api/deliveries/${delivery.id}/items/${item.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchAll();
+    } catch (err) {
+      alert("Failed to remove stop: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const assignedInvoiceIds = new Set(
     deliveries
       .filter((d) => d.status !== "completed")
@@ -348,7 +385,7 @@ export function DeliveryDispatch() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                 <span className="text-xs text-muted hidden sm:block">
-                  {new Date(delivery.created_at).toLocaleDateString("en-PH")}
+                  {formatRunDate(delivery)}
                 </span>
                 {selectedDelivery?.id === delivery.id
                   ? <ChevronUp size={14} className="text-muted" />
@@ -376,6 +413,15 @@ export function DeliveryDispatch() {
                   ))}
                 </select>
               </label>
+              {delivery.status === "pending" && (
+                <button
+                  type="button"
+                  onClick={() => void handleStartRun(delivery.id)}
+                  className="ml-auto px-3 py-1 bg-navy text-white rounded text-xs font-semibold hover:opacity-90"
+                >
+                  Start run
+                </button>
+              )}
             </div>
 
             {/* Delivery stops — card layout on mobile, table on md+ */}
@@ -421,13 +467,24 @@ export function DeliveryDispatch() {
                           {item.status === "completed" ? (
                             <span className="text-xs text-green font-semibold">✅ Done</span>
                           ) : (
-                            <button
-                              disabled={confirmingItem === item.id}
-                              onClick={() => handleConfirm(delivery, item)}
-                              className="w-full mt-1 px-3 py-2 bg-green text-white rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-                            >
-                              {confirmingItem === item.id ? "Confirming…" : "✓ Confirm Delivery"}
-                            </button>
+                            <>
+                              <button
+                                disabled={confirmingItem === item.id}
+                                onClick={() => handleConfirm(delivery, item)}
+                                className="w-full mt-1 px-3 py-2 bg-green text-white rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                              >
+                                {confirmingItem === item.id ? "Confirming…" : "✓ Confirm Delivery"}
+                              </button>
+                              {item.status === "pending" && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRemoveStop(delivery, item)}
+                                  className="w-full px-3 py-2 border border-red/40 text-red rounded-lg text-xs font-semibold hover:bg-red/10"
+                                >
+                                  Remove from run
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       ))}
@@ -482,13 +539,24 @@ export function DeliveryDispatch() {
                                 {item.status === "completed" ? (
                                   <span className="text-xs text-green font-semibold">✅ Done</span>
                                 ) : (
-                                  <button
-                                    disabled={confirmingItem === item.id}
-                                    onClick={() => handleConfirm(delivery, item)}
-                                    className="px-3 py-1 bg-green text-white rounded text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-                                  >
-                                    {confirmingItem === item.id ? "Confirming…" : "✓ Confirm Delivery"}
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      disabled={confirmingItem === item.id}
+                                      onClick={() => handleConfirm(delivery, item)}
+                                      className="px-3 py-1 bg-green text-white rounded text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                                    >
+                                      {confirmingItem === item.id ? "Confirming…" : "✓ Confirm Delivery"}
+                                    </button>
+                                    {item.status === "pending" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleRemoveStop(delivery, item)}
+                                        className="px-2 py-1 text-red text-xs font-semibold hover:opacity-70"
+                                      >
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                             </tr>

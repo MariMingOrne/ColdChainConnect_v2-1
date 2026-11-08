@@ -4,7 +4,7 @@ export interface PalletItem {
   id: string;
   productId: string;
   quantity: number;
-  expirationNote?: string;
+  expirationDate?: string;
 }
 
 export interface Pallet {
@@ -12,7 +12,6 @@ export interface Pallet {
   palletId: string;
   supplierName?: string;
   receivedDate?: string;
-  temperatureLog?: string;
   storageZone?: string;
   placementLocation?: string;
   items: PalletItem[];
@@ -74,14 +73,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           palletId: pallet.pallet_id,
           supplierName: pallet.supplier_name,
           receivedDate: pallet.received_date,
-          temperatureLog: pallet.temperature_log,
           storageZone: pallet.storage_zone,
           placementLocation: pallet.placement_location,
           items: (pallet.items || []).map((item: any) => ({
             id: item.id,
             productId: item.product_id,
             quantity: item.qty_units,
-            expirationNote: item.expiration_date_note,
+            expirationDate: item.expiration_date,
           })),
         })),
       }));

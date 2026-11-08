@@ -5,6 +5,7 @@ import { db } from "../db";
 import { inventory_batches, batch_pallets, pallet_items, order_pallet_items, order_pallets } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 import { logAction } from "../middleware/audit-logger";
+import { isValidIsoDate } from "../../shared/api";
 
 async function hasActiveReservations(executor: any, sourceItemIds: string[]) {
   if (sourceItemIds.length === 0) return false;
@@ -54,7 +55,7 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
     });
 
     for (const pallet of pallets) {
-      const { pallet_id, supplier_name, received_date, temperature_log, storage_zone, placement_location, items } = pallet;
+      const { pallet_id, supplier_name, received_date, storage_zone, placement_location, items } = pallet;
 
       if (!pallet_id || !items || !Array.isArray(items) || items.length === 0) {
         throw new Error("Each pallet must have an ID and items");
@@ -67,15 +68,17 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
         pallet_id,
         supplier_name: supplier_name || null,
         received_date: received_date || null,
-        temperature_log: temperature_log || null,
         storage_zone: storage_zone || null,
         placement_location: placement_location || null,
       });
 
       for (const item of items) {
-        const { product_id, qty_units, expiration_date_note } = item;
+        const { product_id, qty_units, expiration_date } = item;
         if (!product_id || !qty_units) {
           throw new Error("Each item must have product_id and qty_units");
+        }
+        if (expiration_date && !isValidIsoDate(expiration_date)) {
+          throw new Error("Expiry must be a valid YYYY-MM-DD date");
         }
 
         const itemId = randomUUID();
@@ -84,7 +87,7 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
           pallet_id: palletDbId,
           product_id,
           qty_units,
-          expiration_date_note: expiration_date_note || null,
+          expiration_date: expiration_date || null,
         });
       }
     }

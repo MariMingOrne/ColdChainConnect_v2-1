@@ -74,6 +74,7 @@ import {
   updateDeliveryStatus,
   updateDeliveryItemStatus,
   assignDelivery,
+  removeDeliveryItem,
 } from "./routes/deliveries";
 import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
@@ -110,6 +111,7 @@ import {
   suggestBatches,
 } from "./routes/pallets";
 import { getSalesForecast } from "./routes/forecast";
+import { getCustomerReport, getSalesReport, getStockReport } from "./routes/reports";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
 export function createServer() {
@@ -207,12 +209,18 @@ export function createServer() {
   // Sales forecast routes
   app.get("/api/sales/forecast", authMiddleware, getSalesForecast);
 
+  // Reports routes
+  app.get("/api/reports/sales", authMiddleware, requireRole("admin"), getSalesReport);
+  app.get("/api/reports/stock", authMiddleware, requireRole("admin"), getStockReport);
+  app.get("/api/reports/customers", authMiddleware, requireRole("admin"), getCustomerReport);
+
   // Deliveries routes
   app.get("/api/deliveries", authMiddleware, listDeliveries);
   app.post("/api/deliveries", authMiddleware, createDelivery);
-  app.patch("/api/deliveries/:id/status", authMiddleware, updateDeliveryStatus);
+  app.patch("/api/deliveries/:id/status", authMiddleware, requireRole("admin"), updateDeliveryStatus);
   app.patch("/api/deliveries/:id/assign", authMiddleware, assignDelivery);
-  app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, updateDeliveryItemStatus);
+  app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, requireRole("admin"), updateDeliveryItemStatus);
+  app.delete("/api/deliveries/:deliveryId/items/:itemId", authMiddleware, requireRole("admin"), removeDeliveryItem);
 
   // Receipts routes
   app.get("/api/receipts", authMiddleware, listReceipts);

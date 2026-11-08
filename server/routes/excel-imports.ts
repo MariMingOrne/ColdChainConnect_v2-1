@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { CreateCustomerSchema, CreateProductSchema } from "../../shared/api";
+import { CreateCustomerSchema, CreateProductSchema, isValidIsoDate } from "../../shared/api";
 import { db } from "../db";
 import { batch_pallets, customer_discounts, customers, inventory_batches, pallet_items, products } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
@@ -155,7 +155,7 @@ interface StockImportRow {
   pallet_id: string;
   sku: string;
   quantity: number;
-  expiration_date_note?: string;
+  expiration_date?: string;
   supplier_name?: string;
   received_date?: string;
   storage_zone?: string;
@@ -174,7 +174,7 @@ export const importInventory: RequestHandler = async (req: AuthRequest, res) => 
       productBySku.set((product.sku || product.name).trim().toLowerCase(), product.id);
     }
 
-    const groups = new Map<string, { batchName: string; palletId: string; supplierName?: string; receivedDate?: string; storageZone?: string; placementLocation?: string; items: { product_id: string; qty_units: number; expiration_date_note?: string }[] }>();
+    const groups = new Map<string, { batchName: string; palletId: string; supplierName?: string; receivedDate?: string; storageZone?: string; placementLocation?: string; items: { product_id: string; qty_units: number; expiration_date?: string }[] }>();
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 2;
     const batchName = String(row.batch_name ?? "").trim();
@@ -186,6 +186,10 @@ export const importInventory: RequestHandler = async (req: AuthRequest, res) => 
       return res.status(400).json({ error: `Row ${rowNumber}: batch name, pallet ID, SKU, and a positive whole-number quantity are required.` });
     }
     if (!productId) return res.status(400).json({ error: `Row ${rowNumber}: SKU “${row.sku}” was not found.` });
+    const expirationDate = row.expiration_date ? String(row.expiration_date).trim() : undefined;
+    if (expirationDate && !isValidIsoDate(expirationDate)) {
+      return res.status(400).json({ error: `Row ${rowNumber}: expiry “${expirationDate}” must be a valid YYYY-MM-DD date.` });
+    }
 
     const key = `${batchName.toLowerCase()}|${palletId.toLowerCase()}`;
     const metadata = {
@@ -199,7 +203,7 @@ export const importInventory: RequestHandler = async (req: AuthRequest, res) => 
       return res.status(400).json({ error: `Row ${rowNumber}: pallet details must match for every row with the same batch and pallet ID.` });
     }
     const pallet = group ?? { batchName, palletId, ...metadata, items: [] };
-    pallet.items.push({ product_id: productId, qty_units: quantity, expiration_date_note: row.expiration_date_note ? String(row.expiration_date_note).trim() : undefined });
+    pallet.items.push({ product_id: productId, qty_units: quantity, expiration_date: expirationDate });
     groups.set(key, pallet);
   }
 
@@ -233,7 +237,7 @@ export const importInventory: RequestHandler = async (req: AuthRequest, res) => 
             pallet_id: palletDbId,
             product_id: item.product_id,
             qty_units: item.qty_units,
-            expiration_date_note: item.expiration_date_note ?? null,
+            expiration_date: item.expiration_date ?? null,
           })));
         }
       }

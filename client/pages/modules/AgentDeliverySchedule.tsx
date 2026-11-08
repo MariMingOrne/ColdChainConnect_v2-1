@@ -6,6 +6,7 @@ import type { AgentScheduleDelivery, AgentScheduleResponse, AgentScheduleStop, D
 import { formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { optimizeRouteOrder } from "@/lib/routeOrder";
 
 function formatScheduleDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -21,6 +22,38 @@ function statusClasses(status: DeliveryItem["status"]) {
   if (status === "completed") return "border-green/20 bg-green/10 text-green";
   if (status === "in_transit") return "border-gold/30 bg-gold/10 text-navy";
   return "border-blue-200 bg-blue-50 text-navy";
+}
+
+function orderRunStops(stops: AgentScheduleStop[]) {
+  const points = stops.map((stop) => ({
+    id: stop.id,
+    latitude: stop.destination_customer?.latitude,
+    longitude: stop.destination_customer?.longitude,
+    stop,
+  }));
+  const completed = points.filter((point) => point.stop.status === "completed");
+  const pending = points.filter((point) => point.stop.status !== "completed");
+  return [...completed, ...optimizeRouteOrder(pending)].map((point) => point.stop);
+}
+
+function runMapsUrl(stops: AgentScheduleStop[]) {
+  const locations = stops
+    .map((stop) => {
+      const customer = stop.destination_customer;
+      return customer?.latitude != null && customer.longitude != null
+        ? `${customer.latitude},${customer.longitude}`
+        : [customer?.store_name, customer ? formatCustomerAddress(customer) : null].filter(Boolean).join(", ");
+    })
+    .filter(Boolean);
+  if (locations.length === 0) return null;
+
+  const params = new URLSearchParams({
+    api: "1",
+    destination: locations[locations.length - 1],
+    travelmode: "driving",
+  });
+  if (locations.length > 1) params.set("waypoints", locations.slice(0, -1).join("|"));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 export function AgentDeliverySchedule() {
@@ -179,8 +212,16 @@ export function AgentDeliverySchedule() {
                     </span>
                   </div>
 
+                  {runMapsUrl(delivery.delivery_items ?? []) && (
+                    <div className="border-b border-border px-4 py-3">
+                      <a href={runMapsUrl(orderRunStops(delivery.delivery_items ?? []))!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-accent-2 hover:underline">
+                        <MapPin size={16} /> Open optimized run in Maps
+                      </a>
+                    </div>
+                  )}
+
                   <ol className="divide-y divide-border">
-                    {(delivery.delivery_items ?? []).map((stop, index) => {
+                    {orderRunStops(delivery.delivery_items ?? []).map((stop, index) => {
                       const customer = stop.destination_customer;
                       const address = customer ? formatCustomerAddress(customer) : "Address unavailable";
                       const destination = customer?.latitude != null && customer.longitude != null
