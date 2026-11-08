@@ -15,7 +15,7 @@
     "db:migrate": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx server/seed.ts",
-    "db:seed:forecast": "tsx server/seed-sales-forecast.ts",
+    "db:seed:mock-orders": "tsx server/seed-mock-orders.ts",
     "db:reset": "tsx server/reset.ts"
   },
   "dependencies": {
