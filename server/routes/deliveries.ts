@@ -271,6 +271,54 @@ export const updateDeliveryItemStatus: RequestHandler = async (
   }
 };
 
+// ─── DELETE /api/deliveries/:deliveryId/items/:itemId ─────────────────────────
+// Only pending stops can be removed; the order returns to the unassigned pool.
+
+export const removeDeliveryItem: RequestHandler = async (
+  req: AuthRequest,
+  res
+) => {
+  const { deliveryId, itemId } = req.params;
+
+  try {
+    const item = await db.query.delivery_items.findFirst({
+      where: and(eq(delivery_items.id, itemId), eq(delivery_items.delivery_id, deliveryId)),
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: "Stop not found on this delivery" });
+    }
+    if (item.status !== "pending") {
+      return res.status(409).json({ error: "Only pending stops can be removed" });
+    }
+
+    await db.delete(delivery_items).where(eq(delivery_items.id, itemId));
+
+    const remaining = await db.query.delivery_items.findMany({
+      where: eq(delivery_items.delivery_id, deliveryId),
+      columns: { status: true },
+    });
+
+    if (remaining.length === 0) {
+      await db.delete(deliveries).where(eq(deliveries.id, deliveryId));
+    } else if (remaining.every((stop) => stop.status === "completed")) {
+      await db
+        .update(deliveries)
+        .set({ status: "completed", updated_at: new Date() })
+        .where(eq(deliveries.id, deliveryId));
+    }
+
+    if (req.user) {
+      await logAction(req.user.userId, "delete", "delivery_item", itemId, item, undefined);
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    console.error("Error removing delivery item:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // ─── PATCH /api/deliveries/:id/assign ────────────────────────────────────────
 // Update the driver on an existing delivery. Agent assignment is derived from the sale owner.
 

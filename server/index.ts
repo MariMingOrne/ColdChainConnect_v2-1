@@ -74,6 +74,7 @@ import {
   updateDeliveryStatus,
   updateDeliveryItemStatus,
   assignDelivery,
+  removeDeliveryItem,
 } from "./routes/deliveries";
 import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
@@ -219,6 +220,7 @@ export function createServer() {
   app.patch("/api/deliveries/:id/status", authMiddleware, requireRole("admin"), updateDeliveryStatus);
   app.patch("/api/deliveries/:id/assign", authMiddleware, assignDelivery);
   app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, requireRole("admin"), updateDeliveryItemStatus);
+  app.delete("/api/deliveries/:deliveryId/items/:itemId", authMiddleware, requireRole("admin"), removeDeliveryItem);
 
   // Receipts routes
   app.get("/api/receipts", authMiddleware, listReceipts);
