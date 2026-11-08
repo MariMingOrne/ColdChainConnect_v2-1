@@ -1,10 +1,11 @@
 import {
   Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import type { ReportCustomerRow, ReportSalesResponse, ReportStockRow } from "@shared/api";
+import { Card } from "@/components/ui/card";
 import { ReportView } from "./ReportView";
-import {
-  CHART_COLORS, customerReports, inventoryReports, performanceMetrics, profitData, salesReports,
-} from "./reportData";
+import { CHART_COLORS } from "./reportData";
+import { useReportData } from "./useReportData";
 
 const peso = (value: number) => `₱${value.toLocaleString()}`;
 
@@ -27,17 +28,33 @@ function ChartFrame({ children }: { children: React.ReactElement }) {
   );
 }
 
+function ReportStatus({ title, subtitle, message }: { title: string; subtitle: string; message: string }) {
+  return (
+    <Card className="space-y-2 p-6">
+      <h2 className="text-xl font-bold text-navy">{title}</h2>
+      <p className="text-sm text-gray-500">{subtitle}</p>
+      <p role="status" className="text-sm text-gray-600">{message}</p>
+    </Card>
+  );
+}
+
 export function SalesReport() {
+  const { data, error } = useReportData<ReportSalesResponse>("/api/reports/sales");
+  const title = "Sales Reports";
+  const subtitle = "Revenue and transactions by period";
+
+  if (!data) return <ReportStatus title={title} subtitle={subtitle} message={error ?? "Loading report…"} />;
+
   return (
     <ReportView
-      title="Sales Reports"
-      subtitle="Revenue and transactions by period"
-      rows={salesReports}
+      title={title}
+      subtitle={subtitle}
+      rows={data.periods}
       chart={
         <ChartFrame>
-          <BarChart data={salesReports}>
+          <BarChart data={data.periods}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" />
+            <XAxis dataKey="period" />
             <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
             <Tooltip formatter={(value) => peso(Number(value))} />
             <Legend />
@@ -58,14 +75,20 @@ export function SalesReport() {
 }
 
 export function InventoryReport() {
+  const { data, error } = useReportData<ReportStockRow[]>("/api/reports/stock");
+  const title = "Inventory Reports";
+  const subtitle = "Current stock against reorder levels";
+
+  if (!data) return <ReportStatus title={title} subtitle={subtitle} message={error ?? "Loading report…"} />;
+
   return (
     <ReportView
-      title="Inventory Reports"
-      subtitle="Current stock against reorder levels"
-      rows={inventoryReports}
+      title={title}
+      subtitle={subtitle}
+      rows={data}
       chart={
         <ChartFrame>
-          <BarChart data={inventoryReports}>
+          <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="productName" interval={0} tick={{ fontSize: 11 }} />
             <YAxis />
@@ -98,14 +121,20 @@ export function InventoryReport() {
 }
 
 export function CustomerReport() {
+  const { data, error } = useReportData<ReportCustomerRow[]>("/api/reports/customers");
+  const title = "Customer Purchase History";
+  const subtitle = "Total spend and purchase count per customer";
+
+  if (!data) return <ReportStatus title={title} subtitle={subtitle} message={error ?? "Loading report…"} />;
+
   return (
     <ReportView
-      title="Customer Purchase History"
-      subtitle="Total spend and purchase count per customer"
-      rows={customerReports}
+      title={title}
+      subtitle={subtitle}
+      rows={data}
       chart={
         <ChartFrame>
-          <BarChart data={customerReports}>
+          <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="customerName" />
             <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
@@ -120,21 +149,27 @@ export function CustomerReport() {
         { header: "Purchases", value: (r) => r.totalPurchases, align: "right" },
         { header: "Total Spent", value: (r) => r.totalSpent, cell: (r) => peso(r.totalSpent), align: "right" },
         { header: "Last Purchase", value: (r) => r.lastPurchaseDate },
-        { header: "Frequency", value: (r) => r.frequency },
+        { header: "Purchases / Week", value: (r) => r.purchasesPerWeek, align: "right" },
       ]}
     />
   );
 }
 
 export function PerformanceReport() {
+  const { data, error } = useReportData<ReportSalesResponse>("/api/reports/sales");
+  const title = "Sales Performance Metrics";
+  const subtitle = "Revenue and units sold by product, ranked";
+
+  if (!data) return <ReportStatus title={title} subtitle={subtitle} message={error ?? "Loading report…"} />;
+
   return (
     <ReportView
-      title="Sales Performance Metrics"
-      subtitle="Revenue and units sold by product, ranked"
-      rows={performanceMetrics}
+      title={title}
+      subtitle={subtitle}
+      rows={data.products}
       chart={
         <ChartFrame>
-          <BarChart data={performanceMetrics}>
+          <BarChart data={data.products}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="productName" interval={0} tick={{ fontSize: 11 }} />
             <YAxis yAxisId="revenue" tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
@@ -151,39 +186,18 @@ export function PerformanceReport() {
         { header: "Product", value: (r) => r.productName },
         { header: "Units Sold", value: (r) => r.unitsSold, align: "right" },
         { header: "Revenue", value: (r) => r.revenue, cell: (r) => peso(r.revenue), align: "right" },
-        { header: "Growth %", value: (r) => r.growth, cell: (r) => `↑ ${r.growth}%`, align: "right" },
+        { header: "Growth %", value: (r) => r.growth, cell: (r) => `${r.growth >= 0 ? "↑" : "↓"} ${r.growth}%`, align: "right" },
       ]}
     />
   );
 }
 
 export function ProfitReport() {
-  const totalProfit = profitData.reduce((sum, row) => sum + row.totalProfit, 0);
-
   return (
-    <ReportView
+    <ReportStatus
       title="Profit Tracking & Margins"
-      subtitle={`Total profit across products: ₱${totalProfit.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-      rows={profitData}
-      chart={
-        <ChartFrame>
-          <BarChart data={profitData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="productName" interval={0} tick={{ fontSize: 11 }} />
-            <YAxis tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={(value) => peso(Number(value))} />
-            <Bar dataKey="totalProfit" name="Total profit" fill={CHART_COLORS.green} radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ChartFrame>
-      }
-      columns={[
-        { header: "Product", value: (r) => r.productName },
-        { header: "Unit Price", value: (r) => r.unitPrice.toFixed(2), cell: (r) => `₱${r.unitPrice.toFixed(2)}`, align: "right" },
-        { header: "Cost Price", value: (r) => r.costPrice.toFixed(2), cell: (r) => `₱${r.costPrice.toFixed(2)}`, align: "right" },
-        { header: "Margin", value: (r) => `${r.profitMargin.toFixed(1)}%`, align: "right" },
-        { header: "Qty Sold", value: (r) => r.quantitySold, align: "right" },
-        { header: "Total Profit", value: (r) => r.totalProfit.toFixed(2), cell: (r) => peso(r.totalProfit), align: "right" },
-      ]}
+      subtitle="Profit per product"
+      message="Profit cannot be calculated yet because products do not have recorded cost prices."
     />
   );
 }
