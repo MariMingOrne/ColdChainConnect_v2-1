@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import QRCode from "qrcode";
+import JsBarcode from "jsbarcode";
 import { Printer, X } from "lucide-react";
 import type { Booking, InventoryBatch, Pallet } from "@shared/api";
 
@@ -18,7 +18,7 @@ interface PickLine {
 }
 
 export function DeliverySheet({ order, pallets, batches, onClose }: DeliverySheetProps) {
-  const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
+  const [barcodes, setBarcodes] = useState<Record<string, string>>({});
 
   const pickLines = useMemo<PickLine[]>(() => {
     const batchNameByItemId = new Map(
@@ -44,18 +44,13 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
   }, [batches, order, pallets]);
 
   useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      pallets.map(async (pallet) => [
-        pallet.id,
-        await QRCode.toDataURL(pallet.id, { width: 160, margin: 1 }),
-      ] as const),
-    ).then((entries) => {
-      if (!cancelled) setQrCodes(Object.fromEntries(entries));
+    const entries = pallets.map((pallet) => {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      JsBarcode(svg, pallet.id, { format: "CODE128", displayValue: false, margin: 0, height: 60, width: 2 });
+      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+      return [pallet.id, dataUrl] as const;
     });
-    return () => {
-      cancelled = true;
-    };
+    setBarcodes(Object.fromEntries(entries));
   }, [pallets]);
 
   const deliveryDate = order.prepared_delivery_date
@@ -130,7 +125,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
                 const units = (pallet.items ?? []).reduce((sum, item) => sum + item.qty_units, 0);
                 return (
                   <div key={pallet.id} className="label-card flex items-center gap-3 border-2 border-black p-3">
-                    {qrCodes[pallet.id] && <img src={qrCodes[pallet.id]} alt={`QR code for pallet ${index + 1}`} className="h-28 w-28" />}
+                    {barcodes[pallet.id] && <img src={barcodes[pallet.id]} alt={`Barcode for pallet ${index + 1}`} className="h-16 w-48" />}
                     <div className="text-sm">
                       <p className="text-base font-bold">Pallet {index + 1} of {pallets.length}</p>
                       <p className="font-mono text-xs">{pallet.id}</p>
