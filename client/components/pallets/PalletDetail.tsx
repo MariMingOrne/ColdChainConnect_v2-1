@@ -1,4 +1,5 @@
-import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, MoreVertical } from "lucide-react";
 import { Booking, Customer, Pallet, formatCustomerAddress, totalDiscountRate } from "@shared/api";
 import { Card } from "@/components/ui/card";
 import { formatMoney, palletItemTotal, palletTotal, palletStatusOptions } from "./palletUtils";
@@ -27,6 +28,18 @@ export function PalletDetail({
   const units = items.reduce((sum, item) => sum + item.qty_units, 0);
   const discountRate = totalDiscountRate(order?.customer?.discounts);
   const totalValue = palletTotal(pallet);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const statusIndex = palletStatusOptions.findIndex((option) => option.value === pallet.status);
+  const nextStatus = palletStatusOptions[statusIndex + 1];
+  const previousStatus = statusIndex > 0 ? palletStatusOptions[statusIndex - 1] : undefined;
+
+  const handleRevert = () => {
+    setMenuOpen(false);
+    if (!previousStatus) return;
+    if (window.confirm(`Revert this pallet from ${palletStatusOptions[statusIndex].label} to ${previousStatus.label}?`)) {
+      onStatusChange(previousStatus.value);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -46,19 +59,38 @@ export function PalletDetail({
           </div>
           <div className="flex items-center gap-3">
             <PalletStatusBadge status={pallet.status} />
-            <select
-              aria-label="Pallet status"
-              value={pallet.status}
-              disabled={isUpdatingStatus}
-              onChange={(e) => onStatusChange(e.target.value as Pallet["status"])}
-              className="rounded-full border border-border bg-white px-3 py-1.5 text-sm font-semibold text-navy focus:border-accent-2 focus:outline-none disabled:opacity-50"
-            >
-              {palletStatusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isUpdatingStatus || !nextStatus}
+                onClick={() => nextStatus && onStatusChange(nextStatus.value)}
+                className="rounded-lg bg-accent-2 px-4 py-2 text-sm font-semibold text-white hover:opacity-80 disabled:opacity-50"
+              >
+                {nextStatus ? `Mark as ${nextStatus.label}` : "Completed"}
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="More status actions"
+                  disabled={isUpdatingStatus || !previousStatus}
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className="rounded-lg border border-border bg-white p-2 text-navy hover:bg-off-white disabled:opacity-50"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {menuOpen && previousStatus && (
+                  <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-border bg-white py-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={handleRevert}
+                      className="block w-full px-4 py-2 text-left text-sm text-navy hover:bg-off-white"
+                    >
+                      Revert to {previousStatus.label}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
