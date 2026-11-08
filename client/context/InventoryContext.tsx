@@ -12,7 +12,6 @@ export interface Pallet {
   palletId: string;
   supplierName?: string;
   receivedDate?: string;
-  temperatureLog?: string;
   storageZone?: string;
   placementLocation?: string;
   items: PalletItem[];
@@ -74,7 +73,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           palletId: pallet.pallet_id,
           supplierName: pallet.supplier_name,
           receivedDate: pallet.received_date,
-          temperatureLog: pallet.temperature_log,
           storageZone: pallet.storage_zone,
           placementLocation: pallet.placement_location,
           items: (pallet.items || []).map((item: any) => ({

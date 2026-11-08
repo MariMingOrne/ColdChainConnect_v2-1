@@ -54,7 +54,7 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
     });
 
     for (const pallet of pallets) {
-      const { pallet_id, supplier_name, received_date, temperature_log, storage_zone, placement_location, items } = pallet;
+      const { pallet_id, supplier_name, received_date, storage_zone, placement_location, items } = pallet;
 
       if (!pallet_id || !items || !Array.isArray(items) || items.length === 0) {
         throw new Error("Each pallet must have an ID and items");
@@ -67,7 +67,6 @@ export const createBatch: RequestHandler = async (req: AuthRequest, res) => {
         pallet_id,
         supplier_name: supplier_name || null,
         received_date: received_date || null,
-        temperature_log: temperature_log || null,
         storage_zone: storage_zone || null,
         placement_location: placement_location || null,
       });

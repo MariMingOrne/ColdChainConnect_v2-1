@@ -210,9 +210,9 @@ export function createServer() {
   // Deliveries routes
   app.get("/api/deliveries", authMiddleware, listDeliveries);
   app.post("/api/deliveries", authMiddleware, createDelivery);
-  app.patch("/api/deliveries/:id/status", authMiddleware, updateDeliveryStatus);
+  app.patch("/api/deliveries/:id/status", authMiddleware, requireRole("admin"), updateDeliveryStatus);
   app.patch("/api/deliveries/:id/assign", authMiddleware, assignDelivery);
-  app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, updateDeliveryItemStatus);
+  app.patch("/api/deliveries/:deliveryId/items/:itemId/status", authMiddleware, requireRole("admin"), updateDeliveryItemStatus);
 
   // Receipts routes
   app.get("/api/receipts", authMiddleware, listReceipts);
