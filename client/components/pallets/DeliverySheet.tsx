@@ -17,8 +17,15 @@ interface PickLine {
   qty: number;
 }
 
+function barcodeDataUrl(value: string) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  JsBarcode(svg, value, { format: "CODE128", displayValue: false, margin: 0, height: 40, width: 1.5 });
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+}
+
 export function DeliverySheet({ order, pallets, batches, onClose }: DeliverySheetProps) {
   const [barcodes, setBarcodes] = useState<Record<string, string>>({});
+  const orderBarcode = useMemo(() => barcodeDataUrl(order.id), [order.id]);
   const [cardMode, setCardMode] = useState(true);
 
   const pickLines = useMemo<PickLine[]>(() => {
@@ -45,13 +52,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
   }, [batches, order, pallets]);
 
   useEffect(() => {
-    const entries = pallets.map((pallet) => {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      JsBarcode(svg, pallet.id, { format: "CODE128", displayValue: false, margin: 0, height: 40, width: 1.5 });
-      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
-      return [pallet.id, dataUrl] as const;
-    });
-    setBarcodes(Object.fromEntries(entries));
+    setBarcodes(Object.fromEntries(pallets.map((pallet) => [pallet.id, barcodeDataUrl(pallet.id)])));
   }, [pallets]);
 
   const deliveryDate = order.prepared_delivery_date
@@ -116,6 +117,8 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
             <h1 className="text-lg font-bold">Delivery Sheet</h1>
             <p className="text-xs">Order {order.id.slice(0, 8)} · {storeName}{order.customer?.location ? ` · ${order.customer.location}` : ""}</p>
             <p className="text-xs">Delivery date: {deliveryDate} · Pallets: {pallets.length}</p>
+            <img src={orderBarcode} alt={`Barcode for order ${order.id.slice(0, 8)}`} className="mt-2 h-10 w-full max-w-md" />
+            <p className="font-mono text-[10px]">{order.id}</p>
           </header>
 
           <section className="pick-list mt-3">
