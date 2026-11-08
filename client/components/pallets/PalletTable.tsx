@@ -53,7 +53,7 @@ export function PalletTable({ entries, onSelect }: PalletTableProps) {
               >
                 <td className="px-4 py-3">
                   <p className="font-semibold text-navy">Pallet {pallet.id.substring(0, 8)}</p>
-                  <p className="text-xs text-muted">Order {pallet.order_id.substring(0, 8)}</p>
+                  <p className="text-xs text-muted">Order {(pallet.order_id ?? "").substring(0, 8)}</p>
                 </td>
                 <td className="px-4 py-3">
                   {customer ? (
