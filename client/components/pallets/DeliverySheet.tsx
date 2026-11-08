@@ -46,7 +46,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
   useEffect(() => {
     const entries = pallets.map((pallet) => {
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      JsBarcode(svg, pallet.id, { format: "CODE128", displayValue: false, margin: 0, height: 60, width: 2 });
+      JsBarcode(svg, pallet.id, { format: "CODE128", displayValue: false, margin: 0, height: 40, width: 1.5 });
       const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
       return [pallet.id, dataUrl] as const;
     });
@@ -76,10 +76,10 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
           </div>
         </div>
 
-        <div id="delivery-sheet" className="overflow-y-auto p-8 font-sans text-black">
+        <div id="delivery-sheet" className="overflow-y-auto p-5 font-sans text-black">
           <style>{`
             @media print {
-              @page { size: letter; margin: 0.5in; }
+              @page { size: letter; margin: 0.35in; }
               body * { visibility: hidden; }
               #delivery-sheet, #delivery-sheet * { visibility: visible; }
               #delivery-sheet { position: absolute; top: 0; left: 0; width: 100%; padding: 0; }
@@ -89,47 +89,45 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
             }
           `}</style>
 
-          <header className="border-b-2 border-black pb-3">
-            <h1 className="text-2xl font-bold">Delivery Sheet</h1>
-            <p className="text-sm">Order {order.id.slice(0, 8)} · {order.customer?.store_name ?? "Customer"}</p>
-            {order.customer?.location && <p className="text-sm">{order.customer.location}</p>}
-            <p className="text-sm">Delivery date: {deliveryDate} · Pallets: {pallets.length}</p>
+          <header className="border-b border-black pb-2">
+            <h1 className="text-lg font-bold">Delivery Sheet</h1>
+            <p className="text-xs">Order {order.id.slice(0, 8)} · {order.customer?.store_name ?? "Customer"}{order.customer?.location ? ` · ${order.customer.location}` : ""}</p>
+            <p className="text-xs">Delivery date: {deliveryDate} · Pallets: {pallets.length}</p>
           </header>
 
-          <section className="mt-5">
-            <h2 className="mb-2 text-base font-bold">Pick List</h2>
-            <table className="w-full border-collapse text-sm">
+          <section className="mt-3">
+            <h2 className="mb-1 text-sm font-bold">Pick List</h2>
+            <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-b border-black text-left">
-                  <th className="py-1">Product</th>
-                  <th className="py-1">Take from batch</th>
-                  <th className="py-1 text-right">Qty</th>
+                  <th className="py-0.5">Product</th>
+                  <th className="py-0.5">Take from batch</th>
+                  <th className="py-0.5 text-right">Qty</th>
                 </tr>
               </thead>
               <tbody>
                 {pickLines.map((line) => (
                   <tr key={line.key} className="border-b border-gray-300">
-                    <td className="py-1">{line.productName}</td>
-                    <td className="py-1">{line.batchName}</td>
-                    <td className="py-1 text-right">{line.qty}</td>
+                    <td className="py-0.5">{line.productName}</td>
+                    <td className="py-0.5">{line.batchName}</td>
+                    <td className="py-0.5 text-right">{line.qty}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </section>
 
-          <section className="mt-6">
-            <h2 className="mb-2 text-base font-bold">Pallet Labels</h2>
-            <div className="label-grid grid grid-cols-2 gap-4">
+          <section className="mt-4">
+            <h2 className="mb-1 text-sm font-bold">Pallet Labels</h2>
+            <div className="label-grid grid grid-cols-3 gap-2">
               {pallets.map((pallet, index) => {
                 const units = (pallet.items ?? []).reduce((sum, item) => sum + item.qty_units, 0);
                 return (
-                  <div key={pallet.id} className="label-card flex items-center gap-3 border-2 border-black p-3">
-                    {barcodes[pallet.id] && <img src={barcodes[pallet.id]} alt={`Barcode for pallet ${index + 1}`} className="h-16 w-48" />}
-                    <div className="text-sm">
-                      <p className="text-base font-bold">Pallet {index + 1} of {pallets.length}</p>
-                      <p className="font-mono text-xs">{pallet.id}</p>
-                      <p>{units} units</p>
+                  <div key={pallet.id} className="label-card flex flex-col gap-1 border border-black p-2">
+                    {barcodes[pallet.id] && <img src={barcodes[pallet.id]} alt={`Barcode for pallet ${index + 1}`} className="h-10 w-full" />}
+                    <div className="text-xs">
+                      <p className="font-bold">Pallet {index + 1} of {pallets.length} · {units} units</p>
+                      <p className="font-mono text-[10px]">{pallet.id}</p>
                     </div>
                   </div>
                 );
