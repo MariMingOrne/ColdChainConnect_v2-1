@@ -131,7 +131,7 @@ export function BookingInventory() {
 
   const palletGroups: { truck: Truck | null; entries: PalletEntry[] }[] = [
     ...[...trucks]
-      .sort((a, b) => a.license_plate.localeCompare(b.license_plate))
+      .sort((a, b) => (a.license_plate ?? "").localeCompare(b.license_plate ?? ""))
       .map((truck) => ({
         truck,
         entries: filteredEntries.filter(({ pallet }) => truckIdFor(pallet) === truck.id),
@@ -142,7 +142,7 @@ export function BookingInventory() {
   const truckOptions = [
     { value: "all", label: "All trucks" },
     ...[...trucks]
-      .sort((a, b) => a.license_plate.localeCompare(b.license_plate))
+      .sort((a, b) => (a.license_plate ?? "").localeCompare(b.license_plate ?? ""))
       .map((truck) => ({ value: truck.id, label: `${truck.license_plate} · ${truck.district}` })),
     { value: "unassigned", label: "Unassigned" },
   ];
