@@ -8,6 +8,8 @@ import { Download, Upload, RefreshCw } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { ExcelImportDialog } from "@/components/ExcelImportDialog";
 import { ExcelColumn, exportExcelFile } from "@/lib/excel";
+import { RecordDetailsDialog, type RecordDetails } from "@/components/RecordDetailsDialog";
+import { RecordTitleButton } from "@/components/RecordTitleButton";
 
 interface PricingProps {
   onBack?: () => void;
@@ -274,6 +276,7 @@ export function Pricing({ onBack }: PricingProps) {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showDeleteButtons, setShowDeleteButtons] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [productDetails, setProductDetails] = useState<RecordDetails | null>(null);
   const [previewImageFilename, setPreviewImageFilename] = useState<string | null>(null);
   const [showExcelImport, setShowExcelImport] = useState(false);
   const [formData, setFormData] = useState<ProductForm>({
@@ -562,7 +565,24 @@ export function Pricing({ onBack }: PricingProps) {
                       )}
                     </td>
                     <td className="px-3 py-3 text-navy font-semibold">
-                      {product.name}
+                      <RecordTitleButton
+                        onClick={() =>
+                          setProductDetails({
+                            title: product.name,
+                            subtitle: "Product details",
+                            fields: [
+                              { label: "SKU", value: product.sku || "—" },
+                              { label: "Unit Price", value: `₱${parseFloat(product.price ?? "0").toLocaleString("en-PH", { minimumFractionDigits: 2 })}` },
+                              { label: "Reorder Level", value: product.reorder_point?.toLocaleString() || "—" },
+                              { label: "Status", value: product.is_discontinued ? "Discontinued" : "Active" },
+                              { label: "Manufacturer", value: product.manufacturer || "—" },
+                              { label: "Batch Tracking", value: product.batch_tracking_enabled ? "Enabled" : "Disabled" },
+                            ],
+                          })
+                        }
+                      >
+                        {product.name}
+                      </RecordTitleButton>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       <span className="stock-val stock-ok">
@@ -620,6 +640,8 @@ export function Pricing({ onBack }: PricingProps) {
           </div>
         </div>
       </div>
+
+      <RecordDetailsDialog details={productDetails} onClose={() => setProductDetails(null)} />
 
       {/* View Modal */}
       {viewingProduct && (
