@@ -632,3 +632,44 @@ export interface SalesForecastResponse {
   product_insights: SalesProductInsight[];
   ai_summary: string | null;
 }
+
+export interface ReportSalesPeriod {
+  period: string;
+  totalRevenue: number;
+  totalTransactions: number;
+  averageTransaction: number;
+  topProduct: string;
+  topProductSales: number;
+}
+
+export interface ReportProductPerformance {
+  productName: string;
+  unitsSold: number;
+  revenue: number;
+  growth: number;
+  ranking: number;
+}
+
+export interface ReportSalesResponse {
+  periods: ReportSalesPeriod[];
+  products: ReportProductPerformance[];
+}
+
+export interface ReportStockRow {
+  sku: string;
+  productName: string;
+  currentStock: number;
+  reorderLevel: number;
+  expiryDate: string;
+  status: "in-stock" | "low-stock" | "expiring";
+  value: number;
+}
+
+export interface ReportCustomerRow {
+  customerId: string;
+  customerName: string;
+  totalPurchases: number;
+  totalSpent: number;
+  lastPurchaseDate: string;
+  purchasesPerWeek: number;
+}

@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   Bar,
   BarChart,
@@ -22,88 +22,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelColumn, exportExcelFile } from "@/lib/excel";
+import type {
+  ReportCustomerRow,
+  ReportProductPerformance,
+  ReportSalesPeriod,
+  ReportSalesResponse,
+  ReportStockRow,
+} from "@shared/api";
 
 type ReportTab = "overview" | "sales" | "inventory" | "customers" | "products" | "profit";
-type ReportRow = SalesReport | InventoryReport | CustomerReport | PerformanceMetric | ProfitData;
+type ReportRow = ReportSalesPeriod | ReportStockRow | ReportCustomerRow | ReportProductPerformance;
+type ReportData = {
+  sales: ReportSalesResponse;
+  stock: ReportStockRow[];
+  customers: ReportCustomerRow[];
+};
+
 const getValue = (row: ReportRow, key: string) => (row as unknown as Record<string, string | number>)[key];
-
-interface SalesReport {
-  period: string;
-  totalRevenue: number;
-  totalTransactions: number;
-  averageTransaction: number;
-  topProduct: string;
-  topProductSales: number;
-}
-
-interface InventoryReport {
-  sku: string;
-  productName: string;
-  currentStock: number;
-  reorderLevel: number;
-  expiryDate: string;
-  status: "in-stock" | "low-stock" | "expiring";
-  value: number;
-}
-
-interface CustomerReport {
-  customerId: string;
-  customerName: string;
-  totalPurchases: number;
-  totalSpent: number;
-  lastPurchaseDate: string;
-  frequency: string;
-}
-
-interface PerformanceMetric {
-  productName: string;
-  unitsSold: number;
-  revenue: number;
-  growth: number;
-  ranking: number;
-}
-
-interface ProfitData {
-  productName: string;
-  unitPrice: number;
-  costPrice: number;
-  profitMargin: number;
-  quantitySold: number;
-  totalProfit: number;
-}
-
-const salesReports: SalesReport[] = [
-  { period: "Today", totalRevenue: 4250, totalTransactions: 12, averageTransaction: 354.17, topProduct: "Premium Chicken Breast", topProductSales: 1200 },
-  { period: "This week", totalRevenue: 28450, totalTransactions: 82, averageTransaction: 346.95, topProduct: "Frozen Fish", topProductSales: 8200 },
-  { period: "This month", totalRevenue: 125680, totalTransactions: 356, averageTransaction: 353.06, topProduct: "Ice Cream Varieties", topProductSales: 35400 },
-];
-
-const inventoryReports: InventoryReport[] = [
-  { sku: "SKU-2301", productName: "Premium Chicken Breast", currentStock: 45, reorderLevel: 50, expiryDate: "2024-01-25", status: "low-stock", value: 2700 },
-  { sku: "SKU-3405", productName: "Frozen Fish", currentStock: 120, reorderLevel: 80, expiryDate: "2024-01-22", status: "expiring", value: 7200 },
-  { sku: "SKU-5102", productName: "Ice Cream Varieties", currentStock: 300, reorderLevel: 100, expiryDate: "2024-03-15", status: "in-stock", value: 9000 },
-  { sku: "SKU-1450", productName: "Beef Cuts", currentStock: 75, reorderLevel: 60, expiryDate: "2024-01-28", status: "in-stock", value: 4500 },
-];
-
-const customerReports: CustomerReport[] = [
-  { customerId: "CUST-001", customerName: "Restaurant ABC", totalPurchases: 45, totalSpent: 15750, lastPurchaseDate: "2024-01-15", frequency: "Daily" },
-  { customerId: "CUST-002", customerName: "Cafe XYZ", totalPurchases: 32, totalSpent: 11200, lastPurchaseDate: "2024-01-14", frequency: "3x/week" },
-  { customerId: "CUST-003", customerName: "Supermarket DEF", totalPurchases: 28, totalSpent: 18900, lastPurchaseDate: "2024-01-13", frequency: "2x/week" },
-];
-
-const performanceMetrics: PerformanceMetric[] = [
-  { productName: "Ice Cream Varieties", unitsSold: 1250, revenue: 35400, growth: 12.5, ranking: 1 },
-  { productName: "Frozen Fish", unitsSold: 890, revenue: 28900, growth: 8.3, ranking: 2 },
-  { productName: "Premium Chicken Breast", unitsSold: 750, revenue: 25200, growth: 5.8, ranking: 3 },
-  { productName: "Beef Cuts", unitsSold: 620, revenue: 18600, growth: 3.2, ranking: 4 },
-];
-
-const profitData: ProfitData[] = [
-  { productName: "Ice Cream Varieties", unitPrice: 28.32, costPrice: 18.5, profitMargin: 34.5, quantitySold: 1250, totalProfit: 12277.5 },
-  { productName: "Frozen Fish", unitPrice: 32.47, costPrice: 19.2, profitMargin: 40.8, quantitySold: 890, totalProfit: 11807.04 },
-  { productName: "Premium Chicken Breast", unitPrice: 33.6, costPrice: 19.5, profitMargin: 42.1, quantitySold: 750, totalProfit: 10626 },
-  { productName: "Beef Cuts", unitPrice: 30, costPrice: 17.8, profitMargin: 40.7, quantitySold: 620, totalProfit: 7597.6 },
-];
 
 const tabs: { id: ReportTab; label: string; icon: typeof FileBarChart }[] = [
   { id: "overview", label: "Executive summary", icon: ChartNoAxesCombined },
@@ -113,15 +48,6 @@ const tabs: { id: ReportTab; label: string; icon: typeof FileBarChart }[] = [
   { id: "products", label: "Product performance", icon: ChartNoAxesCombined },
   { id: "profit", label: "Profit & margins", icon: FileBarChart },
 ];
-
-const tableRows: Record<ReportTab, ReportRow[]> = {
-  overview: salesReports,
-  sales: salesReports,
-  inventory: inventoryReports,
-  customers: customerReports,
-  products: performanceMetrics,
-  profit: profitData,
-};
 
 const tableTitles: Record<ReportTab, string> = {
   overview: "Sales snapshot data",
@@ -135,10 +61,10 @@ const tableTitles: Record<ReportTab, string> = {
 const descriptions: Record<ReportTab, string> = {
   overview: "A quick read of sales, stock value, and items needing attention.",
   sales: "Revenue, order volume, and average transaction by period.",
-  inventory: "On-hand sample quantities compared with reorder levels.",
+  inventory: "Available stock compared with reorder levels and earliest expiry.",
   customers: "Customer purchase frequency and spend patterns.",
-  products: "Units sold, revenue, and growth by product.",
-  profit: "Sample gross profit and margin estimates by product.",
+  products: "Units sold, revenue, and growth versus last month by product.",
+  profit: "Gross profit and margin by product.",
 };
 
 const peso = (value: number) => `₱${value.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
@@ -207,8 +133,62 @@ export function Reports() {
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
   const [search, setSearch] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [data, setData] = useState<ReportData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const token = localStorage.getItem("auth_token") || "";
+    const load = async <T,>(path: string): Promise<T> => {
+      const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+      if (!response.ok) throw new Error(`Could not load ${path}`);
+      return response.json() as Promise<T>;
+    };
+
+    Promise.all([
+      load<ReportSalesResponse>("/api/reports/sales"),
+      load<ReportStockRow[]>("/api/reports/stock"),
+      load<ReportCustomerRow[]>("/api/reports/customers"),
+    ])
+      .then(([sales, stock, customers]) => setData({ sales, stock, customers }))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Reports could not be loaded.");
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  if (!data) {
+    return (
+      <main className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-7">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-3xl font-bold text-navy">Reports</h1>
+          <p className="mt-4 text-sm text-gray-600" role="status">
+            {loadError ?? "Loading reports…"}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const salesReports = data.sales.periods;
+  const performanceMetrics = data.sales.products;
+  const inventoryReports = data.stock;
+  const customerReports = data.customers;
+  const monthToDate = salesReports[2];
+  const profitRows: ReportRow[] = [];
+
+  const tableRows: Record<ReportTab, ReportRow[]> = {
+    overview: salesReports,
+    sales: salesReports,
+    inventory: inventoryReports,
+    customers: customerReports,
+    products: performanceMetrics,
+    profit: profitRows,
+  };
 
   const rows = tableRows[activeTab];
   const filteredRows = rows.filter((row) =>
@@ -235,7 +215,7 @@ export function Reports() {
     try {
       const columns: ExcelColumn[] = Object.keys(filteredRows[0]).map((key) => ({ key, header: formatHeader(key), width: 22 }));
       await exportExcelFile(
-        `${tabs.find((tab) => tab.id === activeTab)?.label.replace(/ /g, "_")}_sample.xlsx`,
+        `${tabs.find((tab) => tab.id === activeTab)?.label.replace(/ /g, "_")}.xlsx`,
         tabs.find((tab) => tab.id === activeTab)?.label.slice(0, 31) ?? "Report",
         columns,
         filteredRows as unknown as Record<string, unknown>[],
@@ -254,9 +234,7 @@ export function Reports() {
       ? inventoryReports
       : activeTab === "customers"
         ? customerReports
-        : activeTab === "products"
-          ? performanceMetrics
-          : profitData;
+        : performanceMetrics;
 
   return (
     <main className="flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-7">
@@ -267,15 +245,15 @@ export function Reports() {
             <h1 className="mt-1 text-3xl font-bold text-navy">Reports</h1>
             <p className="mt-1 text-sm text-gray-600">A clear snapshot of sales, customers, and inventory.</p>
           </div>
-          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
-            Sample data · not live
+          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+            Live data
           </span>
         </header>
 
         <section aria-label="Key report metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Monthly revenue" value={peso(salesReports[2].totalRevenue)} detail={`${salesReports[2].totalTransactions} sample transactions`} icon={ChartNoAxesCombined} />
-          <MetricCard label="Average transaction" value={peso(salesReports[2].averageTransaction)} detail="Across the sample month" icon={FileBarChart} />
-          <MetricCard label="Sample stock value" value={peso(stockValue)} detail={`${inventoryReports.length} sample products`} icon={Boxes} />
+          <MetricCard label="Month-to-date revenue" value={peso(monthToDate.totalRevenue)} detail={`${monthToDate.totalTransactions} transactions`} icon={ChartNoAxesCombined} />
+          <MetricCard label="Average transaction" value={peso(monthToDate.averageTransaction)} detail="Month to date" icon={FileBarChart} />
+          <MetricCard label="Stock value" value={peso(stockValue)} detail={`${inventoryReports.length} products in stock`} icon={Boxes} />
           <MetricCard label="Needs attention" value={String(attentionCount)} detail="Low-stock or expiry flags" icon={TriangleAlert} />
         </section>
 
@@ -317,26 +295,33 @@ export function Reports() {
 
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(250px,0.8fr)]">
                 <div className="min-w-0 rounded-xl bg-off-white/70 p-3 md:p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-navy">{activeTab === "inventory" ? "Stock vs. reorder level" : activeTab === "customers" ? "Spend by customer" : activeTab === "products" ? "Units sold by product" : activeTab === "profit" ? "Profit by product" : "Revenue by period"}</h3>
-                  <div role="img" aria-label={`${tabs.find((tab) => tab.id === activeTab)?.label} chart; use the data table below for exact values`} className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData} margin={{ top: 22, right: 12, left: 4, bottom: 8 }}>
-                        <CartesianGrid stroke="#dce3ec" strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey={activeTab === "overview" || activeTab === "sales" ? "period" : activeTab === "inventory" ? "productName" : activeTab === "customers" ? "customerName" : "productName"} tick={{ fontSize: 11, fill: "#536174" }} interval={0} angle={-12} textAnchor="end" height={54} />
-                        <YAxis width={70} tick={{ fontSize: 11, fill: "#536174" }} tickFormatter={(value) => activeTab === "overview" || activeTab === "sales" || activeTab === "customers" || activeTab === "profit" ? `₱${Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(0)}k` : value}` : String(value)} />
-                        <Tooltip formatter={(value) => activeTab === "inventory" || activeTab === "products" ? Number(value).toLocaleString() : peso(Number(value))} />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        {(activeTab === "overview" || activeTab === "sales") && <Bar dataKey="totalRevenue" name="Revenue (₱)" fill="#142955" radius={[5, 5, 0, 0]}><LabelList dataKey="totalRevenue" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
-                        {activeTab === "inventory" && <>
-                          <Bar dataKey="currentStock" name="Available stock" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="currentStock" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>
-                          <Bar dataKey="reorderLevel" name="Reorder level" fill="#e3a72f" radius={[5, 5, 0, 0]} />
-                        </>}
-                        {activeTab === "customers" && <Bar dataKey="totalSpent" name="Total spent (₱)" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="totalSpent" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
-                        {activeTab === "products" && <Bar dataKey="unitsSold" name="Units sold" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="unitsSold" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
-                        {activeTab === "profit" && <Bar dataKey="totalProfit" name="Total profit (₱)" fill="#23845c" radius={[5, 5, 0, 0]}><LabelList dataKey="totalProfit" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {activeTab === "profit" ? (
+                    <p className="p-4 text-sm text-gray-600">
+                      Profit cannot be calculated yet because products do not have recorded cost prices.
+                    </p>
+                  ) : (
+                    <>
+                      <h3 className="mb-2 text-sm font-semibold text-navy">{activeTab === "inventory" ? "Stock vs. reorder level" : activeTab === "customers" ? "Spend by customer" : activeTab === "products" ? "Units sold by product" : "Revenue by period"}</h3>
+                      <div role="img" aria-label={`${tabs.find((tab) => tab.id === activeTab)?.label} chart; use the data table below for exact values`} className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartData} margin={{ top: 22, right: 12, left: 4, bottom: 8 }}>
+                            <CartesianGrid stroke="#dce3ec" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey={activeTab === "overview" || activeTab === "sales" ? "period" : activeTab === "inventory" ? "productName" : activeTab === "customers" ? "customerName" : "productName"} tick={{ fontSize: 11, fill: "#536174" }} interval={0} angle={-12} textAnchor="end" height={54} />
+                            <YAxis width={70} tick={{ fontSize: 11, fill: "#536174" }} tickFormatter={(value) => activeTab === "overview" || activeTab === "sales" || activeTab === "customers" ? `₱${Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(0)}k` : value}` : String(value)} />
+                            <Tooltip formatter={(value) => activeTab === "inventory" || activeTab === "products" ? Number(value).toLocaleString() : peso(Number(value))} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
+                            {(activeTab === "overview" || activeTab === "sales") && <Bar dataKey="totalRevenue" name="Revenue (₱)" fill="#142955" radius={[5, 5, 0, 0]}><LabelList dataKey="totalRevenue" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                            {activeTab === "inventory" && <>
+                              <Bar dataKey="currentStock" name="Available stock" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="currentStock" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>
+                              <Bar dataKey="reorderLevel" name="Reorder level" fill="#e3a72f" radius={[5, 5, 0, 0]} />
+                            </>}
+                            {activeTab === "customers" && <Bar dataKey="totalSpent" name="Total spent (₱)" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="totalSpent" position="top" formatter={(value) => `₱${(Number(value) / 1000).toFixed(0)}k`} style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                            {activeTab === "products" && <Bar dataKey="unitsSold" name="Units sold" fill="#1c6b8f" radius={[5, 5, 0, 0]}><LabelList dataKey="unitsSold" position="top" style={{ fill: "#142955", fontSize: 10 }} /></Bar>}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <aside className="rounded-xl border border-border p-4">
@@ -349,16 +334,16 @@ export function Reports() {
                           <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${item.status === "low-stock" ? "bg-amber-100 text-amber-800" : "bg-orange-100 text-orange-800"}`}>{item.status === "low-stock" ? "Low stock" : "Expiry flag"}</span>
                         </div>
                       ))}
-                      {inventoryReports.filter((item) => item.status !== "in-stock").length === 0 && <p className="text-sm text-gray-500">No sample items need attention.</p>}
+                      {attentionCount === 0 && <p className="text-sm text-gray-500">No items need attention.</p>}
                     </div>
                   ) : activeTab === "sales" ? (
                     <div className="mt-3 space-y-3"><p className="text-xs uppercase tracking-wide text-gray-500">Top item by period</p>{salesReports.map((report) => <div key={report.period} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-600">{report.period}</span><span className="text-right text-sm font-semibold text-navy">{report.topProduct}<br />{peso(report.topProductSales)}</span></div>)}</div>
                   ) : activeTab === "customers" ? (
-                    <div className="mt-3 space-y-3">{[...customerReports].sort((a, b) => b.totalSpent - a.totalSpent).map((customer, index) => <div key={customer.customerId} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">{index + 1}. {customer.customerName}</span><span className="text-sm font-semibold text-navy">{peso(customer.totalSpent)}</span></div>)}</div>
+                    <div className="mt-3 space-y-3">{customerReports.map((customer, index) => <div key={customer.customerId} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">{index + 1}. {customer.customerName}</span><span className="text-sm font-semibold text-navy">{peso(customer.totalSpent)}</span></div>)}</div>
                   ) : activeTab === "products" ? (
                     <div className="mt-3 space-y-3">{performanceMetrics.map((product) => <div key={product.productName} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">#{product.ranking} {product.productName}</span><span className="text-sm font-semibold text-navy">{product.growth}% growth</span></div>)}</div>
                   ) : (
-                    <div className="mt-3 space-y-3">{profitData.map((product) => <div key={product.productName} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0"><span className="text-sm text-gray-700">{product.productName}</span><span className="text-right text-sm font-semibold text-navy">{product.profitMargin}% margin<br />{peso(product.totalProfit)}</span></div>)}</div>
+                    <p className="mt-3 text-sm text-gray-500">Cost prices are not recorded yet, so margins are unavailable.</p>
                   )}
                 </aside>
               </div>
