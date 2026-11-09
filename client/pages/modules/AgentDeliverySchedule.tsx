@@ -7,6 +7,7 @@ import { formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { optimizeRouteOrder } from "@/lib/routeOrder";
+import { DeliveryRouteMap, type MapFocus } from "@/components/DeliveryRouteMap";
 
 function formatScheduleDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -36,26 +37,6 @@ function orderRunStops(stops: AgentScheduleStop[]) {
   return [...completed, ...optimizeRouteOrder(pending)].map((point) => point.stop);
 }
 
-function runMapsUrl(stops: AgentScheduleStop[]) {
-  const locations = stops
-    .map((stop) => {
-      const customer = stop.destination_customer;
-      return customer?.latitude != null && customer.longitude != null
-        ? `${customer.latitude},${customer.longitude}`
-        : [customer?.store_name, customer ? formatCustomerAddress(customer) : null].filter(Boolean).join(", ");
-    })
-    .filter(Boolean);
-  if (locations.length === 0) return null;
-
-  const params = new URLSearchParams({
-    api: "1",
-    destination: locations[locations.length - 1],
-    travelmode: "driving",
-  });
-  if (locations.length > 1) params.set("waypoints", locations.slice(0, -1).join("|"));
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
-}
-
 export function AgentDeliverySchedule() {
   const { token } = useAuth();
   const [deliveries, setDeliveries] = useState<AgentScheduleDelivery[]>([]);
@@ -64,6 +45,7 @@ export function AgentDeliverySchedule() {
   const [view, setView] = useState<"current" | "history">("current");
   const [paymentStop, setPaymentStop] = useState<{ delivery: AgentScheduleDelivery; stop: AgentScheduleStop } | null>(null);
   const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null);
+  const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
 
   const fetchSchedule = async () => {
     if (!token) return;
@@ -130,6 +112,11 @@ export function AgentDeliverySchedule() {
   };
 
   if (isLoading) return <LoadingSpinner />;
+
+  const showStopOnMap = (deliveryId: string, stopId: string) => {
+    setMapFocus({ stopId, requestedAt: Date.now() });
+    document.getElementById(`run-map-${deliveryId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-5 p-4 pb-24 md:p-6 md:pb-6">
@@ -212,22 +199,17 @@ export function AgentDeliverySchedule() {
                     </span>
                   </div>
 
-                  {runMapsUrl(delivery.delivery_items ?? []) && (
-                    <div className="border-b border-border px-4 py-3">
-                      <a href={runMapsUrl(orderRunStops(delivery.delivery_items ?? []))!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-accent-2 hover:underline">
-                        <MapPin size={16} /> Open optimized run in Maps
-                      </a>
-                    </div>
-                  )}
+                  <DeliveryRouteMap
+                    deliveryId={delivery.id}
+                    stops={orderRunStops(delivery.delivery_items ?? [])}
+                    focus={mapFocus}
+                  />
 
                   <ol className="divide-y divide-border">
                     {orderRunStops(delivery.delivery_items ?? []).map((stop, index) => {
                       const customer = stop.destination_customer;
                       const address = customer ? formatCustomerAddress(customer) : "Address unavailable";
-                      const destination = customer?.latitude != null && customer.longitude != null
-                        ? `${customer.latitude},${customer.longitude}`
-                        : [customer?.store_name, address].filter(Boolean).join(", ");
-                      const mapQuery = encodeURIComponent(destination);
+                      const hasMapLocation = customer?.latitude != null && customer.longitude != null;
                       const invoiceLabel = stop.invoice?.receipt_number ?? stop.invoice_id.slice(0, 8);
 
                       return (
@@ -250,9 +232,14 @@ export function AgentDeliverySchedule() {
                               <span className="inline-flex items-center gap-1"><PackageCheck size={14} /> Invoice {invoiceLabel}</span>
                               {stop.sale_agent && <span>Sale by {stop.sale_agent.username}</span>}
                               {customer?.contact_info && <a href={`tel:${customer.contact_info}`} className="inline-flex items-center gap-1 text-navy hover:underline"><Phone size={14} />{customer.contact_info}</a>}
-                              <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`} target="_blank" rel="noreferrer" className="mt-4 flex min-h-16 w-full items-center justify-center gap-2 rounded-xl bg-accent-2 px-5 py-4 text-base font-bold text-white shadow-md transition hover:bg-accent active:scale-[0.99]">
-                                <MapPin size={20} /> Open in Maps
-                              </a>
+                              <button
+                                type="button"
+                                onClick={() => showStopOnMap(delivery.id, stop.id)}
+                                disabled={!hasMapLocation}
+                                className="mt-4 flex min-h-16 w-full items-center justify-center gap-2 rounded-xl bg-accent-2 px-5 py-4 text-base font-bold text-white shadow-md transition hover:bg-accent active:scale-[0.99] disabled:opacity-50"
+                              >
+                                <MapPin size={20} /> {hasMapLocation ? "Show on map" : "No map location"}
+                              </button>
                               {delivery.scheduled_date && <span className="inline-flex items-center gap-1"><Clock3 size={14} /> Scheduled run</span>}
                             </div>
                             <div className="mt-3 rounded-lg bg-off-white p-3">
