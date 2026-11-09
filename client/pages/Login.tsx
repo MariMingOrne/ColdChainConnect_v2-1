@@ -56,8 +56,13 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await verifyMfa({ challenge_token: challenge.challenge_token, code });
-      navigate("/");
+      const user = await verifyMfa({ challenge_token: challenge.challenge_token, code });
+      const destination = user.role === "agent"
+        ? "/booking-dispatch/order-summary"
+        : user.role === "driver"
+          ? "/driver-schedule"
+          : "/";
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {

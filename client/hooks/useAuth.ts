@@ -23,7 +23,7 @@ interface AuthStore {
   error: string | null;
   login: (credentials: LoginRequest) => Promise<MfaChallengeResponse | null>;
   setupMfa: (challengeToken: string) => Promise<MfaSetupResponse>;
-  verifyMfa: (request: MfaVerifyRequest) => Promise<void>;
+  verifyMfa: (request: MfaVerifyRequest) => Promise<AuthUser>;
   logout: () => Promise<void>;
   setToken: (token: string | null) => void;
   setUser: (user: AuthUser | null) => void;
@@ -78,7 +78,7 @@ function completeSignIn(
   set: (partial: Partial<AuthStore>) => void,
   get: () => AuthStore,
   data: LoginResponse
-) {
+): AuthUser {
   const normalizedUser: AuthUser = {
     id: data.user.id,
     username: data.user.username,
@@ -101,6 +101,8 @@ function completeSignIn(
       set({ isPostLoginLoading: false, postLoginStartedAt: null });
     }
   }, 5000);
+
+  return normalizedUser;
 }
 
 export const useAuth = create<AuthStore>((set, get) => {
@@ -170,7 +172,7 @@ export const useAuth = create<AuthStore>((set, get) => {
           throw new Error(await readErrorMessage(response, "Verification failed"));
         }
 
-        completeSignIn(set, get, (await response.json()) as LoginResponse);
+        return completeSignIn(set, get, (await response.json()) as LoginResponse);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Verification failed";
         set({ error: message, isLoading: false });
