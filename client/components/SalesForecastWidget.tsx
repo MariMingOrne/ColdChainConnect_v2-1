@@ -5,6 +5,7 @@ import { Minus, TrendingDown, TrendingUp, X } from "lucide-react";
 import { SalesForecastResponse } from "@shared/api";
 import { useAuth } from "@/hooks/useAuth";
 import { SalesForecastChart } from "./SalesForecastChart";
+import { SalesForecastChat } from "./SalesForecastChat";
 import { SalesForecastProducts } from "./SalesForecastProducts";
 
 const fetchSalesForecast = async (token: string): Promise<SalesForecastResponse> => {
@@ -148,6 +149,7 @@ export function SalesForecastWidget() {
         </button>
       </div>
       <ForecastBody isLoading={isLoading} isError={isError} data={data} />
+      {data && <SalesForecastChat token={token} forecast={data} />}
     </div>
   );
 }

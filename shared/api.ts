@@ -645,6 +645,38 @@ export interface SalesForecastResponse {
   ai_summary: string | null;
 }
 
+export const SalesForecastChatRequestSchema = z.object({
+  question: z.string().trim().min(1).max(1000),
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().min(1).max(2000),
+  })).max(8),
+  forecast: z.object({
+    history: z.array(z.object({ date: z.string().max(10), total: z.number().finite() })).max(30),
+    forecast: z.array(z.object({ date: z.string().max(10), total: z.number().finite() })).max(14),
+    projected_7_day_total: z.number().finite(),
+    trend: z.enum(["up", "down", "flat"]),
+    trend_percent: z.number().finite(),
+    has_enough_data: z.boolean(),
+    history_days_with_sales: z.number().int().min(0).max(30),
+    note: z.string().max(400),
+    product_insights: z.array(z.object({
+      product_name: z.string().max(120),
+      days_sold: z.number().int().min(0).max(30),
+      consistency_percent: z.number().finite().min(0).max(100),
+      avg_daily_qty: z.number().finite().min(0),
+      suggested_restock_qty: z.number().int().min(0),
+    })).max(5),
+    ai_summary: z.string().max(1000).nullable(),
+  }),
+});
+
+export type SalesForecastChatRequest = z.infer<typeof SalesForecastChatRequestSchema>;
+
+export interface SalesForecastChatResponse {
+  answer: string;
+}
+
 export interface ReportSalesPeriod {
   period: string;
   totalRevenue: number;
