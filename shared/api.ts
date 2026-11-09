@@ -507,11 +507,19 @@ export interface DeliveryItem {
   updated_at: string;
 }
 
+export interface AgentSchedulePallet extends Pick<Pallet, "id" | "order_id" | "status"> {
+  items: {
+    id: string;
+    qty_units: number;
+    product: Pick<Product, "id" | "name" | "sku"> | null;
+  }[];
+}
+
 export interface AgentScheduleStop extends DeliveryItem {
   destination_customer: Customer;
   invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number" | "total_amount"> | null;
   sale_agent: Pick<User, "id" | "username"> | null;
-  pallets: Pick<Pallet, "id" | "order_id" | "status">[];
+  pallets: AgentSchedulePallet[];
 }
 
 export type AgentScheduleDelivery = Omit<Delivery, "agent" | "driver"> & {

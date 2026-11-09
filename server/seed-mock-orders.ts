@@ -30,9 +30,9 @@ const RETURN_EVERY_DAYS = 5;
 const MOCK_PREFIX = "mock-forecast-";
 
 const DISTRICTS = [
-  { key: "a", district: "District A", store: "Mock Store A", location: "Makati City", agentUsername: "agent1" },
-  { key: "b", district: "District B", store: "Mock Store B", location: "Taguig City", agentUsername: "agent2" },
-  { key: "c", district: "District C", store: "Mock Store C", location: "Tagaytay City", agentUsername: "agent3" },
+  { key: "a", district: "District A", store: "Mock Store A", location: "Makati City", agentUsername: "agent1", latitude: 14.5547, longitude: 121.0244, contact: "Liza Ramos", phone: "+63 917 555 0101" },
+  { key: "b", district: "District B", store: "Mock Store B", location: "Taguig City", agentUsername: "agent2", latitude: 14.5176, longitude: 121.0509, contact: "Marco Reyes", phone: "+63 917 555 0102" },
+  { key: "c", district: "District C", store: "Mock Store C", location: "Tagaytay City", agentUsername: "agent3", latitude: 14.1153, longitude: 120.9621, contact: "Ana Santos", phone: "+63 917 555 0103" },
 ];
 
 const RETURN_REASONS = [
@@ -101,7 +101,11 @@ async function seedMockOrders() {
   await db.delete(receipts).where(like(receipts.id, `${MOCK_PREFIX}%`));
   await db.delete(delivery_items).where(like(delivery_items.id, `${MOCK_PREFIX}%`));
   await db.delete(deliveries).where(like(deliveries.id, `${MOCK_PREFIX}%`));
+  await db.delete(order_pallet_items).where(like(order_pallet_items.id, `${MOCK_PREFIX}%`));
+  await db.delete(order_pallets).where(like(order_pallets.id, `${MOCK_PREFIX}%`));
+  await db.delete(invoice_items).where(like(invoice_items.id, `${MOCK_PREFIX}%`));
   await db.delete(invoices).where(like(invoices.id, `${MOCK_PREFIX}%`));
+  await db.delete(booking_items).where(like(booking_items.id, `${MOCK_PREFIX}%`));
   await db.delete(bookings).where(like(bookings.id, `${MOCK_PREFIX}%`));
 
   for (const d of districtSetup) {
@@ -112,12 +116,16 @@ async function seedMockOrders() {
         store_name: d.store,
         location: d.location,
         district: d.district,
+        latitude: d.latitude,
+        longitude: d.longitude,
+        contact_person: d.contact,
+        contact_info: d.phone,
         agent_id: d.agentUserId,
         payment_type: "cash",
       })
       .onConflictDoUpdate({
         target: customers.id,
-        set: { store_name: d.store, location: d.location, district: d.district, agent_id: d.agentUserId },
+        set: { store_name: d.store, location: d.location, district: d.district, latitude: d.latitude, longitude: d.longitude, contact_person: d.contact, contact_info: d.phone, agent_id: d.agentUserId },
       });
   }
 

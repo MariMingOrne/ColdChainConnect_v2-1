@@ -32,11 +32,12 @@ export function BookingInventory() {
   const [truckFilter, setTruckFilter] = useState("all");
   const [datePreset, setDatePreset] = useState<DatePresetFilter>("all");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { token } = useAuth();
 
   const fetchAll = async () => {
     try {
-      const [pRes, bRes, cRes, prRes, tRes, dRes, iRes, batchRes] = await Promise.all([
+      const [batchRes, pRes, bRes, cRes, prRes, tRes, dRes, iRes] = await Promise.all([
         fetch("/api/inventory-batches", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/pallets", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
@@ -46,6 +47,13 @@ export function BookingInventory() {
         fetch("/api/deliveries", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/invoices", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
+
+      const failedCount = [batchRes, pRes, bRes, cRes, prRes, tRes, dRes, iRes].filter((res) => !res.ok).length;
+      setLoadError(
+        failedCount > 0
+          ? `${failedCount} of 8 data sources failed to load, so some pallet details may be missing.`
+          : null
+      );
 
       if (batchRes.ok) setBatches(await batchRes.json());
       if (pRes.ok) setPallets(await pRes.json());
@@ -57,6 +65,7 @@ export function BookingInventory() {
       if (iRes.ok) setInvoices(await iRes.json());
     } catch (err) {
       console.error("Error loading data:", err);
+      setLoadError("Could not load pallet tracking data. Try refreshing.");
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +107,7 @@ export function BookingInventory() {
 
   const entries: PalletEntry[] = pallets.map((pallet) => {
     const order = bookings.find((b) => b.id === pallet.order_id);
-    const customer = order ? customers.find((c) => c.id === order.customer_id) ?? null : null;
+    const customer = order ? order.customer ?? customers.find((c) => c.id === order.customer_id) ?? null : null;
     return { pallet, customer };
   });
 
@@ -169,6 +178,10 @@ export function BookingInventory() {
           Refresh
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{loadError}</div>
+      )}
 
       <PalletStats pallets={visiblePallets} />
 

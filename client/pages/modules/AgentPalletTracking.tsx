@@ -121,6 +121,9 @@ export function AgentPalletTracking() {
     });
   }, [filter, pallets, search]);
 
+  const productNameFor = (productId: string) =>
+    products.find((product) => product.id === productId)?.name ?? productId;
+
   const totalUnits = (pallet: Pallet) =>
     (pallet.items ?? []).reduce((sum, item) => sum + item.qty_units, 0);
 
@@ -266,7 +269,12 @@ export function AgentPalletTracking() {
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-muted">Pallet {pallet.id.slice(0, 8)}</p>
                       <h2 className="mt-0.5 truncate font-semibold text-navy">{customer?.store_name ?? "Customer order"}</h2>
-                      <p className="mt-0.5 text-xs text-muted">Order {pallet.order_id.slice(0, 8)}</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Order {pallet.order_id.slice(0, 8)} · {new Date(pallet.created_at).toLocaleDateString()}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-navy">
+                        {items.map((item) => productNameFor(item.product_id)).join(", ") || "No items"}
+                      </p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(pallet.status)}`}>
                       {statusLabels[pallet.status]}
@@ -289,7 +297,7 @@ export function AgentPalletTracking() {
                       <ul className="divide-y divide-border">
                         {items.map((item) => (
                           <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                            <span className="text-navy">{products.find((product) => product.id === item.product_id)?.name ?? item.product_id}</span>
+                            <span className="text-navy">{productNameFor(item.product_id)}</span>
                             <span className="shrink-0 font-semibold text-navy">× {item.qty_units}</span>
                           </li>
                         ))}

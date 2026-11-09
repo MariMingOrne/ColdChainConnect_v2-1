@@ -76,7 +76,7 @@ import {
   assignDelivery,
   removeDeliveryItem,
 } from "./routes/deliveries";
-import { listReceipts, confirmDeliveryItem } from "./routes/receipts";
+import { listReceipts, confirmDeliveryItem, recordDeliveryItemPayment } from "./routes/receipts";
 import { listAuditLogs } from "./routes/audit";
 import { downloadBackup } from "./routes/backup";
 import {
@@ -225,6 +225,7 @@ export function createServer() {
   // Receipts routes
   app.get("/api/receipts", authMiddleware, listReceipts);
   app.post("/api/deliveries/:id/items/:itemId/confirm", authMiddleware, confirmDeliveryItem);
+  app.post("/api/deliveries/:id/items/:itemId/payment", authMiddleware, recordDeliveryItemPayment);
 
   // Audit logs routes
   app.get("/api/audit-logs", authMiddleware, requireRole("admin"), listAuditLogs);
