@@ -66,6 +66,9 @@ export function AgentDeliverySchedule() {
   }, [token]);
 
   const currentDeliveries = deliveries.filter((delivery) => delivery.status !== "completed");
+  const mapDeliveries = currentDeliveries.filter((delivery) =>
+    delivery.delivery_items.some((stop) => stop.destination_customer?.latitude != null && stop.destination_customer.longitude != null)
+  );
   const historyDeliveries = deliveries.filter((delivery) => delivery.status === "completed");
   const visibleDeliveries = view === "current" ? currentDeliveries : historyDeliveries;
   const scheduledDays = useMemo(() => {
@@ -128,18 +131,40 @@ export function AgentDeliverySchedule() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[
-          ["Assigned runs", currentDeliveries.length],
-          ["Stops", stopCount],
-          ["Completed", completedCount],
-          ["Remaining", stopCount - completedCount],
-        ].map(([label, count], index) => (
-          <div key={label} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2.5">
-            <span className="text-xs font-medium text-muted">{label}</span>
-            <span className={`font-rajdhani text-xl font-bold ${index === 2 ? "text-green" : index === 3 ? "text-accent-2" : "text-navy"}`}>{count}</span>
-          </div>
-        ))}
+      {view === "current" && mapDeliveries.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-rajdhani text-xl font-bold text-navy">Delivery routes</h2>
+          {mapDeliveries.map((delivery) => (
+            <article key={delivery.id} className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-off-white px-4 py-2.5 text-sm">
+                <span className="font-semibold text-navy">{delivery.truck?.license_plate ?? "Truck not assigned"}</span>
+                {delivery.truck?.district && <span className="text-muted">{delivery.truck.district}</span>}
+                <span className="text-muted">{delivery.delivery_items.length} stop{delivery.delivery_items.length === 1 ? "" : "s"}</span>
+              </div>
+              <DeliveryRouteMap
+                deliveryId={delivery.id}
+                stops={orderRunStops(delivery.delivery_items ?? [])}
+                focus={mapFocus}
+              />
+            </article>
+          ))}
+        </section>
+      )}
+
+      <div className="rounded-lg border border-border bg-white px-4 py-3 shadow-sm">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-1 sm:grid-cols-4">
+          {[
+            ["Assigned runs", currentDeliveries.length, "text-navy"],
+            ["Stops", stopCount, "text-navy"],
+            ["Completed", completedCount, "text-green"],
+            ["Remaining", stopCount - completedCount, "text-accent-2"],
+          ].map(([label, count, color]) => (
+            <div key={label} className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted">{label}</span>
+              <span className={`font-rajdhani text-lg font-bold ${color}`}>{count}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2 border-b border-border">
@@ -197,14 +222,6 @@ export function AgentDeliverySchedule() {
                         {delivery.status.replace("_", " ")}
                       </span>
                     </div>
-
-                    {view === "current" && (
-                      <DeliveryRouteMap
-                        deliveryId={delivery.id}
-                        stops={stops}
-                        focus={mapFocus}
-                      />
-                    )}
 
                     <ol className="divide-y divide-border">
                       {stops.map((stop, index) => (
