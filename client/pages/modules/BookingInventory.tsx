@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RefreshCw, Package } from "lucide-react";
+import { RefreshCw, Package, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pallet, Booking, Customer, Product, Truck, Invoice, Delivery, DeliveryItem, InventoryBatch, formatCustomerAddress } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -10,7 +10,9 @@ import { PalletToolbar, PalletStatusFilter } from "@/components/pallets/PalletTo
 import { PalletTable, PalletEntry } from "@/components/pallets/PalletTable";
 import { PalletDetail } from "@/components/pallets/PalletDetail";
 import { DeliverySheet } from "@/components/pallets/DeliverySheet";
+import { PalletPrintAllDialog } from "@/components/pallets/PalletPrintAllDialog";
 import { DatePresetFilter, isInDatePreset } from "@/components/pallets/palletUtils";
+import { localScheduleDate } from "@/lib/agentSchedule";
 
 type DeliveryWithItems = Delivery & { delivery_items?: DeliveryItem[] };
 
@@ -25,6 +27,8 @@ export function BookingInventory() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [batches, setBatches] = useState<InventoryBatch[]>([]);
   const [sheetOrder, setSheetOrder] = useState<Booking | null>(null);
+  const [showPrintAll, setShowPrintAll] = useState(false);
+  const [printDate, setPrintDate] = useState(() => localScheduleDate(new Date()));
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("order") ?? "");
   const [selectedPalletId, setSelectedPalletId] = useState<string | null>(null);
@@ -33,7 +37,8 @@ export function BookingInventory() {
   const [datePreset, setDatePreset] = useState<DatePresetFilter>("all");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const fetchAll = async () => {
     try {
@@ -110,6 +115,7 @@ export function BookingInventory() {
     const customer = order ? order.customer ?? customers.find((c) => c.id === order.customer_id) ?? null : null;
     return { pallet, customer };
   });
+  const printEntries = entries.filter(({ pallet }) => localScheduleDate(new Date(pallet.created_at)) === printDate);
 
   const filteredEntries = entries.filter(({ pallet, customer }) => {
     if (statusFilter !== "all" && pallet.status !== statusFilter) return false;
@@ -173,10 +179,24 @@ export function BookingInventory() {
           <h1 className="page-title">Pallet Tracking</h1>
           <p className="page-subtitle">Track the status, contents, and value of every pallet</p>
         </div>
-        <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
-          <RefreshCw size={16} />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <>
+              <label className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted">
+                <span>Date</span>
+                <input type="date" value={printDate} onChange={(event) => setPrintDate(event.target.value)} className="bg-transparent text-navy outline-none" />
+              </label>
+              <Button onClick={() => setShowPrintAll(true)} variant="outline" className="flex items-center gap-2">
+                <Printer size={16} />
+                Print all ({printEntries.length})
+              </Button>
+            </>
+          )}
+          <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
+            <RefreshCw size={16} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {loadError && (
@@ -251,6 +271,13 @@ export function BookingInventory() {
           pallets={pallets.filter((pallet) => pallet.order_id === sheetOrder.id)}
           batches={batches}
           onClose={() => setSheetOrder(null)}
+        />
+      )}
+      {isAdmin && showPrintAll && (
+        <PalletPrintAllDialog
+          entries={printEntries}
+          date={printDate}
+          onClose={() => setShowPrintAll(false)}
         />
       )}
     </div>

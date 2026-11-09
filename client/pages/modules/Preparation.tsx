@@ -15,7 +15,6 @@ import { Check, RefreshCw, Calendar } from "lucide-react";
 import { SearchFilterBar } from "@/components/SearchFilterBar";
 import { Booking, Customer, InventoryBatch, Pallet } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
-import { DeliverySheet } from "@/components/pallets/DeliverySheet";
 
 export function Preparation() {
   const [orders, setOrders] = useState<Booking[]>([]);
@@ -34,7 +33,6 @@ export function Preparation() {
   const [customDateEnd, setCustomDateEnd] = useState<string>("");
   const [selectedOrder, setSelectedOrder] = useState<Booking | null>(null);
   const [showPaletModal, setShowPaletModal] = useState(false);
-  const [sheetOrder, setSheetOrder] = useState<Booking | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -376,14 +374,6 @@ export function Preparation() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end items-center whitespace-nowrap">
-                        {orderPallets.length > 0 && (
-                          <button
-                            onClick={() => setSheetOrder(order)}
-                            className="px-3 py-2 text-sm font-semibold border border-border rounded-lg hover:bg-off-white transition"
-                          >
-                            Print sheet
-                          </button>
-                        )}
                         {/* Prepare: only show when no pallets created yet and not prepared */}
                         {draftPalletCount === 0 && !isPrepared && (
                           <button
@@ -437,15 +427,6 @@ export function Preparation() {
           </TableBody>
         </Table>
       </Card>
-
-      {sheetOrder && (
-        <DeliverySheet
-          order={sheetOrder}
-          pallets={pallets.filter((p) => p.order_id === sheetOrder.id)}
-          batches={batches}
-          onClose={() => setSheetOrder(null)}
-        />
-      )}
 
       {/* Create Pallet Modal */}
       {showPaletModal && selectedOrder && (

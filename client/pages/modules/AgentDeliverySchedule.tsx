@@ -66,9 +66,6 @@ export function AgentDeliverySchedule() {
   }, [token]);
 
   const currentDeliveries = deliveries.filter((delivery) => delivery.status !== "completed");
-  const mapDeliveries = currentDeliveries.filter((delivery) =>
-    delivery.delivery_items.some((stop) => stop.destination_customer?.latitude != null && stop.destination_customer.longitude != null)
-  );
   const historyDeliveries = deliveries.filter((delivery) => delivery.status === "completed");
   const visibleDeliveries = view === "current" ? currentDeliveries : historyDeliveries;
   const scheduledDays = useMemo(() => {
@@ -130,26 +127,6 @@ export function AgentDeliverySchedule() {
           Refresh
         </Button>
       </div>
-
-      {view === "current" && mapDeliveries.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-rajdhani text-xl font-bold text-navy">Delivery routes</h2>
-          {mapDeliveries.map((delivery) => (
-            <article key={delivery.id} className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-off-white px-4 py-2.5 text-sm">
-                <span className="font-semibold text-navy">{delivery.truck?.license_plate ?? "Truck not assigned"}</span>
-                {delivery.truck?.district && <span className="text-muted">{delivery.truck.district}</span>}
-                <span className="text-muted">{delivery.delivery_items.length} stop{delivery.delivery_items.length === 1 ? "" : "s"}</span>
-              </div>
-              <DeliveryRouteMap
-                deliveryId={delivery.id}
-                stops={orderRunStops(delivery.delivery_items ?? [])}
-                focus={mapFocus}
-              />
-            </article>
-          ))}
-        </section>
-      )}
 
       <div className="rounded-lg border border-border bg-white px-4 py-3 shadow-sm">
         <div className="grid grid-cols-2 gap-x-5 gap-y-1 sm:grid-cols-4">
@@ -222,6 +199,15 @@ export function AgentDeliverySchedule() {
                         {delivery.status.replace("_", " ")}
                       </span>
                     </div>
+
+                    {view === "current" && (
+                      <DeliveryRouteMap
+                        key={delivery.id}
+                        deliveryId={delivery.id}
+                        stops={stops}
+                        focus={mapFocus}
+                      />
+                    )}
 
                     <ol className="divide-y divide-border">
                       {stops.map((stop, index) => (
