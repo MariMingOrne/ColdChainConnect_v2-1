@@ -502,6 +502,11 @@ export const deliveryItemsRelations = relations(delivery_items, ({ one, many }) 
   invoice: one(invoices, { fields: [delivery_items.invoice_id], references: [invoices.id] }),
   destination_customer: one(customers, { fields: [delivery_items.destination_customer_id], references: [customers.id] }),
   receipt: many(receipts),
+  accounts_receivable: many(accounts_receivable),
+}));
+
+export const accountsReceivableRelations = relations(accounts_receivable, ({ one }) => ({
+  delivery_item: one(delivery_items, { fields: [accounts_receivable.delivery_item_id], references: [delivery_items.id] }),
 }));
 
 export const receiptsRelations = relations(receipts, ({ one }) => ({

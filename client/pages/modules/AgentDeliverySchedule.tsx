@@ -83,7 +83,7 @@ export function AgentDeliverySchedule() {
     0,
   );
 
-  const confirmDelivery = async (isPaid: boolean, paymentMethod?: string, paymentReference?: string) => {
+  const confirmDelivery = async (isPaid: boolean, paymentAmount?: number, paymentMethod?: string, paymentReference?: string) => {
     if (!token || !paymentStop) return;
     const { delivery, stop, mode } = paymentStop;
     setConfirmingStopId(stop.id);
@@ -92,8 +92,8 @@ export function AgentDeliverySchedule() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(mode === "payment"
-          ? { payment_method: paymentMethod, payment_reference: paymentReference }
-          : { is_paid: isPaid, payment_method: paymentMethod, payment_reference: paymentReference }),
+          ? { payment_amount: paymentAmount, payment_method: paymentMethod, payment_reference: paymentReference }
+          : { is_paid: isPaid, payment_amount: paymentAmount, payment_method: paymentMethod, payment_reference: paymentReference }),
       });
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
@@ -245,10 +245,13 @@ function DeliveryPaymentPrompt({ stop, mode, isConfirming, onClose, onConfirm }:
   mode: "confirm" | "payment";
   isConfirming: boolean;
   onClose: () => void;
-  onConfirm: (isPaid: boolean, paymentMethod?: string, paymentReference?: string) => Promise<void>;
+  onConfirm: (isPaid: boolean, paymentAmount?: number, paymentMethod?: string, paymentReference?: string) => Promise<void>;
 }) {
   const isRecordingPayment = mode === "payment";
-  const [isPaid, setIsPaid] = useState(isRecordingPayment);
+  const invoiceAmount = Number(stop.invoice?.total_amount ?? 0);
+  const amountDue = isRecordingPayment ? Number(stop.outstanding_amount ?? invoiceAmount) : invoiceAmount;
+  const [paymentStatus, setPaymentStatus] = useState<"paid" | "partial" | "unpaid">(isRecordingPayment ? "paid" : "unpaid");
+  const [paymentAmount, setPaymentAmount] = useState(amountDue.toFixed(2));
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const paymentMethods = [
@@ -264,22 +267,30 @@ function DeliveryPaymentPrompt({ stop, mode, isConfirming, onClose, onConfirm }:
         <h2 id="delivery-payment-title" className="font-rajdhani text-xl font-bold text-navy">{isRecordingPayment ? "Record payment" : "Confirm delivery"}</h2>
         <p className="mt-2 text-sm text-muted">
           {isRecordingPayment
-            ? `Has ${stop.destination_customer.store_name} paid this invoice?`
-            : `Was payment received from ${stop.destination_customer.store_name}?`}
+            ? `Record payment collected from ${stop.destination_customer.store_name}.`
+            : `How much payment was received from ${stop.destination_customer.store_name}?`}
         </p>
         {stop.invoice && (
           <p className="mt-2 text-sm font-semibold text-navy">
-            Invoice {stop.invoice.receipt_number || stop.invoice.id.slice(0, 8)} · Amount due ₱{Number(stop.invoice.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            Invoice {stop.invoice.receipt_number || stop.invoice.id.slice(0, 8)} · {isRecordingPayment ? "Outstanding balance" : "Amount due"} ₱{amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         )}
         {!isRecordingPayment && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => setIsPaid(true)} className={`min-h-12 rounded-lg border-2 font-semibold ${isPaid ? "border-green bg-green/10 text-green" : "border-border text-navy"}`}>Paid</button>
-            <button type="button" onClick={() => setIsPaid(false)} className={`min-h-12 rounded-lg border-2 font-semibold ${!isPaid ? "border-accent-2 bg-blue-50 text-accent-2" : "border-border text-navy"}`}>Not paid</button>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {([ ["paid", "Paid"], ["partial", "Partial"], ["unpaid", "Not paid"] ] as const).map(([value, label]) => (
+              <button key={value} type="button" onClick={() => { setPaymentStatus(value); setPaymentAmount(value === "paid" ? amountDue.toFixed(2) : value === "partial" ? "" : "0.00"); }} className={`min-h-12 rounded-lg border-2 px-2 text-sm font-semibold ${paymentStatus === value ? value === "unpaid" ? "border-accent-2 bg-blue-50 text-accent-2" : "border-green bg-green/10 text-green" : "border-border text-navy"}`}>{label}</button>
+            ))}
           </div>
         )}
-        {isPaid ? (
+        {(isRecordingPayment || paymentStatus !== "unpaid") ? (
           <div className="mt-4 space-y-3 rounded-lg bg-green-50 p-4">
+            {(isRecordingPayment || paymentStatus === "partial") && (
+              <p className="text-xs text-muted">Remaining after payment: ₱{Math.max(0, amountDue - (Number(paymentAmount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            )}
+            <label className="block text-xs font-semibold text-navy">
+              Amount collected (₱)
+              <input type="number" min="0.01" max={amountDue} step="0.01" value={paymentAmount} onChange={(event) => { const value = event.target.value; setPaymentAmount(value); if (!isRecordingPayment) setPaymentStatus(Number(value) >= amountDue ? "paid" : "partial"); }} className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-normal" />
+            </label>
             <label className="block text-xs font-semibold text-navy">
               Payment method
               <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-normal">
@@ -292,11 +303,11 @@ function DeliveryPaymentPrompt({ stop, mode, isConfirming, onClose, onConfirm }:
             </label>
           </div>
         ) : (
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">This unpaid amount will be recorded in Accounts Receivable.</p>
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">The outstanding balance will be recorded in Accounts Receivable.</p>
         )}
         <div className="mt-5 flex gap-2 border-t border-border pt-4">
           <button type="button" onClick={onClose} disabled={isConfirming} className="min-h-11 flex-1 rounded-lg border border-border px-4 text-sm font-semibold text-navy disabled:opacity-50">Cancel</button>
-          <button type="button" onClick={() => void onConfirm(isPaid, isPaid ? paymentMethod : undefined, isPaid ? paymentReference : undefined)} disabled={isConfirming} className="min-h-11 flex-1 rounded-lg bg-green px-4 text-sm font-bold text-white disabled:opacity-50">{isConfirming ? "Saving…" : isRecordingPayment ? "Save payment" : "Confirm delivery"}</button>
+          <button type="button" onClick={() => void onConfirm(paymentStatus === "paid", paymentStatus === "unpaid" ? 0 : Number(paymentAmount), paymentStatus === "unpaid" ? undefined : paymentMethod, paymentStatus === "unpaid" ? undefined : paymentReference)} disabled={isConfirming || (paymentStatus !== "unpaid" && (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) <= 0 || Number(paymentAmount) > amountDue || (!isRecordingPayment && paymentStatus === "partial" && Number(paymentAmount) >= amountDue)))} className="min-h-11 flex-1 rounded-lg bg-green px-4 text-sm font-bold text-white disabled:opacity-50">{isConfirming ? "Saving…" : isRecordingPayment ? "Save payment" : "Confirm delivery"}</button>
         </div>
       </section>
     </div>

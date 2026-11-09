@@ -46,7 +46,7 @@ export const confirmDeliveryItem: RequestHandler = async (
   res
 ) => {
   const { id: deliveryId, itemId } = req.params;
-  const { notes, confirmed_by, is_paid, payment_method, payment_reference } = req.body ?? {};
+  const { notes, confirmed_by, is_paid, payment_amount, payment_method, payment_reference } = req.body ?? {};
 
   if (!process.env.DATABASE_URL) {
     return res.status(503).json({ error: "Database not configured" });
@@ -83,6 +83,23 @@ export const confirmDeliveryItem: RequestHandler = async (
     if (!invoice) {
       return res.status(404).json({ error: "Invoice not found" });
     }
+
+    const invoiceTotal = Number(invoice.total_amount ?? invoice.gross_amount ?? 0);
+    const invoiceTotalCents = Math.round(invoiceTotal * 100);
+    const collectedAmount = payment_amount === undefined
+      ? (is_paid ? invoiceTotal : 0)
+      : Number(payment_amount);
+
+    if (!Number.isFinite(collectedAmount) || collectedAmount < 0 || Math.round(collectedAmount * 100) > invoiceTotalCents) {
+      return res.status(400).json({ error: "Payment amount must be between zero and the invoice total" });
+    }
+    if (collectedAmount > 0 && !payment_method) {
+      return res.status(400).json({ error: "Payment method is required when recording a payment" });
+    }
+
+    const collectedCents = Math.round(collectedAmount * 100);
+    const remainingCents = invoiceTotalCents - collectedCents;
+    const isFullyPaid = remainingCents === 0;
 
     // 3. Load the parent delivery to get the truck_id
     const delivery = await db.query.deliveries.findFirst({
@@ -140,10 +157,10 @@ export const confirmDeliveryItem: RequestHandler = async (
         status: "completed",
         completed_at: now,
         receipt_number: receiptNumber,
-        is_paid: is_paid ?? false,
-        payment_method: is_paid ? payment_method : null,
-        payment_reference: is_paid ? (payment_reference ?? null) : null,
-        paid_at: is_paid ? now : null,
+        is_paid: isFullyPaid,
+        payment_method: collectedCents > 0 ? payment_method : null,
+        payment_reference: collectedCents > 0 ? (payment_reference ?? null) : null,
+        paid_at: isFullyPaid ? now : null,
         updated_at: now,
       })
       .where(eq(delivery_items.id, itemId));
@@ -158,37 +175,28 @@ export const confirmDeliveryItem: RequestHandler = async (
       invoice_id: item.invoice_id,
       confirmed_by: confirmed_by ?? req.user?.userId ?? null,
       notes: notes ?? null,
-      payment_reference: is_paid ? (payment_reference ?? null) : null,
+      payment_reference: collectedCents > 0 ? (payment_reference ?? null) : null,
       confirmed_at: now,
     });
 
-    // 7. If NOT paid, create Accounts Receivable entry using the invoice total
-    if (!is_paid) {
-      const arAmount = invoice.total_amount
-        ? parseFloat(invoice.total_amount).toFixed(2)
-        : invoice.gross_amount
-        ? parseFloat(invoice.gross_amount).toFixed(2)
-        : "0.00";
-
+    if (remainingCents > 0) {
       const arId = randomUUID();
       await db.insert(accounts_receivable).values({
         id: arId,
         customer_id: item.destination_customer_id,
         delivery_item_id: itemId,
         invoice_id: item.invoice_id,
-        amount_due: arAmount,
+        amount_due: (remainingCents / 100).toFixed(2),
         status: "outstanding",
-        notes: `Delivery confirmed on ${now.toISOString()}. Payment pending.`,
+        notes: `Delivery confirmed on ${now.toISOString()}. ${collectedCents > 0 ? `Partial payment of ${(collectedCents / 100).toFixed(2)} received.` : "Payment pending."}`,
       });
     }
 
-    // 8. Only mark invoice as paid if payment was made
-    if (is_paid) {
+    if (isFullyPaid || collectedCents > 0) {
       await db
         .update(invoices)
         .set({
-          status: "paid",
-          payment_status: "paid",
+          ...(isFullyPaid ? { status: "paid" as const, payment_status: "paid" } : { payment_status: "partial" }),
           updated_at: now,
         })
         .where(eq(invoices.id, item.invoice_id));
@@ -223,8 +231,9 @@ export const confirmDeliveryItem: RequestHandler = async (
         {
           status: "completed",
           receipt_number: receiptNumber,
-          is_paid: is_paid ?? false,
-          payment_method: is_paid ? payment_method : null,
+          is_paid: isFullyPaid,
+          payment_amount: (collectedCents / 100).toFixed(2),
+          payment_method: collectedCents > 0 ? payment_method : null,
         }
       );
     }
@@ -252,13 +261,16 @@ export const recordDeliveryItemPayment: RequestHandler = async (
   res
 ) => {
   const { id: deliveryId, itemId } = req.params;
-  const { payment_method, payment_reference } = req.body ?? {};
+  const { payment_amount, payment_method, payment_reference } = req.body ?? {};
 
   if (!process.env.DATABASE_URL) {
     return res.status(503).json({ error: "Database not configured" });
   }
   if (!payment_method) {
     return res.status(400).json({ error: "Payment method is required" });
+  }
+  if (payment_amount === undefined || !Number.isFinite(Number(payment_amount)) || Number(payment_amount) <= 0) {
+    return res.status(400).json({ error: "A payment amount greater than zero is required" });
   }
 
   try {
@@ -278,6 +290,23 @@ export const recordDeliveryItemPayment: RequestHandler = async (
     if (item.is_paid) {
       return res.status(409).json({ error: "Payment is already recorded for this delivery item" });
     }
+
+    const outstanding = await db.query.accounts_receivable.findFirst({
+      where: and(
+        eq(accounts_receivable.delivery_item_id, itemId),
+        eq(accounts_receivable.status, "outstanding")
+      ),
+    });
+    if (!outstanding) {
+      return res.status(409).json({ error: "No outstanding balance was found for this delivery item" });
+    }
+    const paymentCents = Math.round(Number(payment_amount) * 100);
+    const outstandingCents = Math.round(Number(outstanding.amount_due) * 100);
+    if (paymentCents <= 0 || paymentCents > outstandingCents) {
+      return res.status(400).json({ error: "Payment amount must be greater than zero and no more than the outstanding balance" });
+    }
+    const remainingCents = outstandingCents - paymentCents;
+    const isFullyPaid = remainingCents === 0;
 
     const delivery = await db.query.deliveries.findFirst({
       where: eq(deliveries.id, deliveryId),
@@ -313,10 +342,10 @@ export const recordDeliveryItemPayment: RequestHandler = async (
     await db
       .update(delivery_items)
       .set({
-        is_paid: true,
+        is_paid: isFullyPaid,
         payment_method,
         payment_reference: payment_reference ?? null,
-        paid_at: now,
+        paid_at: isFullyPaid ? now : null,
         updated_at: now,
       })
       .where(eq(delivery_items.id, itemId));
@@ -328,15 +357,19 @@ export const recordDeliveryItemPayment: RequestHandler = async (
 
     await db
       .update(accounts_receivable)
-      .set({ status: "paid", updated_at: now })
-      .where(and(
-        eq(accounts_receivable.delivery_item_id, itemId),
-        eq(accounts_receivable.status, "outstanding")
-      ));
+      .set({
+        amount_due: (remainingCents / 100).toFixed(2),
+        status: isFullyPaid ? "paid" : "outstanding",
+        updated_at: now,
+      })
+      .where(eq(accounts_receivable.id, outstanding.id));
 
     await db
       .update(invoices)
-      .set({ status: "paid", payment_status: "paid", updated_at: now })
+      .set({
+        ...(isFullyPaid ? { status: "paid" as const, payment_status: "paid" } : { payment_status: "partial" }),
+        updated_at: now,
+      })
       .where(eq(invoices.id, item.invoice_id));
 
     if (req.user) {
@@ -346,7 +379,7 @@ export const recordDeliveryItemPayment: RequestHandler = async (
         "delivery_item",
         itemId,
         { is_paid: false },
-        { is_paid: true, payment_method }
+        { is_paid: isFullyPaid, payment_amount: (paymentCents / 100).toFixed(2), remaining_amount: (remainingCents / 100).toFixed(2), payment_method }
       );
     }
 

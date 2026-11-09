@@ -102,12 +102,17 @@ export function AgentStopDetailDialog({ stop, open, onOpenChange, onShowOnMap }:
 
         <DetailSection title="Invoice & payment">
           <DetailRow label="Invoice">{invoiceLabel}</DetailRow>
-          <DetailRow label="Amount due">₱{Number(stop.invoice?.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</DetailRow>
+          <DetailRow label="Invoice total">₱{Number(stop.invoice?.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</DetailRow>
+          {stop.status === "completed" && stop.outstanding_amount != null && stop.outstanding_amount > 0 && stop.outstanding_amount < Number(stop.invoice?.total_amount ?? 0) && (
+            <DetailRow label="Remaining balance">₱{stop.outstanding_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</DetailRow>
+          )}
           <DetailRow label="Payment">
             {stop.status === "completed"
               ? stop.is_paid
                 ? `Paid${stop.payment_method ? ` · ${stop.payment_method.replace("_", " ")}` : ""}`
-                : "Not paid · recorded in Accounts Receivable"
+                : stop.outstanding_amount != null && stop.invoice && stop.outstanding_amount < Number(stop.invoice.total_amount ?? 0)
+                  ? `Partially paid${stop.payment_method ? ` · ${stop.payment_method.replace("_", " ")}` : ""}`
+                  : "Not paid · recorded in Accounts Receivable"
               : "Collect on delivery"}
           </DetailRow>
         </DetailSection>

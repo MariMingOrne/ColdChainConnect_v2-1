@@ -447,7 +447,7 @@ export interface Invoice {
   booking_id: string;
   agent_id: string;
   status: "draft" | "issued" | "paid";
-  payment_status: "unpaid" | "paid";
+  payment_status: "unpaid" | "partial" | "paid";
   // Snapshot fields
   receipt_number?: string | null;
   customer_name?: string | null;
@@ -474,7 +474,7 @@ export const UpdateInvoiceStatusSchema = z.object({
 });
 
 export const UpdateInvoicePaymentStatusSchema = z.object({
-  payment_status: z.enum(["unpaid", "paid"]),
+  payment_status: z.enum(["unpaid", "partial", "paid"]),
 });
 
 // Delivery types
@@ -520,6 +520,7 @@ export interface AgentScheduleStop extends DeliveryItem {
   invoice: Pick<Invoice, "id" | "booking_id" | "receipt_number" | "total_amount"> | null;
   sale_agent: Pick<User, "id" | "username"> | null;
   pallets: AgentSchedulePallet[];
+  outstanding_amount?: number;
 }
 
 export type AgentScheduleDelivery = Omit<Delivery, "agent" | "driver"> & {

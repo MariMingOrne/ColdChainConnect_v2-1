@@ -70,7 +70,11 @@ export function AgentStopRow({ index, stop, showMapAction, isConfirming, onShowO
           <p className="text-xs font-semibold text-green">Paid</p>
         ) : stop.status === "completed" ? (
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold text-amber-700">Not paid · recorded in Accounts Receivable</p>
+            <p className="text-xs font-semibold text-amber-700">
+              {stop.outstanding_amount != null && stop.invoice && stop.outstanding_amount < Number(stop.invoice.total_amount ?? 0)
+                ? `Partially paid · ₱${stop.outstanding_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} remaining`
+                : "Not paid · recorded in Accounts Receivable"}
+            </p>
             <button
               type="button"
               onClick={onRecordPayment}
