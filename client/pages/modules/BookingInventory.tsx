@@ -37,7 +37,7 @@ export function BookingInventory() {
 
   const fetchAll = async () => {
     try {
-      const [pRes, bRes, cRes, prRes, tRes, dRes, iRes, batchRes] = await Promise.all([
+      const [batchRes, pRes, bRes, cRes, prRes, tRes, dRes, iRes] = await Promise.all([
         fetch("/api/inventory-batches", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/pallets", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/bookings", { headers: { Authorization: `Bearer ${token}` } }),
@@ -48,7 +48,7 @@ export function BookingInventory() {
         fetch("/api/invoices", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      const failedCount = [pRes, bRes, cRes, prRes, tRes, dRes, iRes, batchRes].filter((res) => !res.ok).length;
+      const failedCount = [batchRes, pRes, bRes, cRes, prRes, tRes, dRes, iRes].filter((res) => !res.ok).length;
       setLoadError(
         failedCount > 0
           ? `${failedCount} of 8 data sources failed to load, so some pallet details may be missing.`
