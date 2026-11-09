@@ -61,8 +61,8 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
   const storeName = order.customer?.store_name ?? "Customer";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white">
+    <div className="delivery-sheet-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="delivery-sheet-dialog flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white">
         <div className="no-print flex items-center justify-between bg-navy-mid px-6 py-4">
           <h2 className="font-rajdhani text-lg font-bold text-white">Delivery Sheet</h2>
           <div className="flex items-center gap-3">
@@ -93,9 +93,33 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
                 size: ${cardMode ? "5in 3in" : "letter"};
                 margin: ${cardMode ? "0.15in" : "0.35in"};
               }
+              html, body, #root { height: auto !important; overflow: visible !important; }
               body * { visibility: hidden; }
               #delivery-sheet, #delivery-sheet * { visibility: visible; }
-              #delivery-sheet { position: absolute; top: 0; left: 0; width: 100%; padding: 0; }
+              .delivery-sheet-overlay {
+                position: absolute !important;
+                inset: 0 auto auto 0 !important;
+                display: block !important;
+                width: 100% !important;
+                padding: 0 !important;
+                background: transparent !important;
+              }
+              .delivery-sheet-dialog {
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                max-height: none !important;
+                overflow: visible !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+              }
+              #delivery-sheet {
+                position: static !important;
+                width: 100%;
+                max-height: none !important;
+                overflow: visible !important;
+                padding: 0;
+              }
               .no-print { display: none !important; }
               .label-card { break-inside: avoid; }
               .card-mode .sheet-header, .card-mode .pick-list { display: none !important; }
