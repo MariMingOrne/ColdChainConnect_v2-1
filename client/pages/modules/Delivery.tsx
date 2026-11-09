@@ -983,7 +983,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [orderSearch, setOrderSearch] = useState("");
-  const [orderDate, setOrderDate] = useState("");
+  const [orderDate, setOrderDate] = useState(() => localScheduleDate(new Date()));
   const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
   const [scheduledDate, setScheduledDate] = useState(() => {
     const today = new Date();
@@ -1056,14 +1056,13 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
     (!orderDate || orderDateOf(inv) === orderDate) &&
     (!normalizedOrderSearch || normalizedOrderSearch.split(/\s+/).every((term) => orderSearchText(inv).includes(term)))
   );
-  const todayDate = localScheduleDate(new Date());
-  const todaysOrders = districtInvoices.filter((inv) => orderDateOf(inv) === todayDate && !pickedIds.has(inv.id));
-  const todayAgentId = saleOwnerId ?? todaysOrders[0]?.agent_id;
-  const todaysOrdersForRun = todaysOrders.filter((inv) => inv.agent_id === todayAgentId);
-  const otherAgentTodayCount = todaysOrders.length - todaysOrdersForRun.length;
-  const addTodaysOrders = () => setStops((current) => [
+  const matchingStops = orderDate ? pickerInvoices.filter((inv) => !pickedIds.has(inv.id)) : [];
+  const matchingAgentId = saleOwnerId ?? matchingStops[0]?.agent_id;
+  const matchingStopsForRun = matchingStops.filter((inv) => inv.agent_id === matchingAgentId);
+  const otherMatchingAgentCount = matchingStops.length - matchingStopsForRun.length;
+  const addMatchingStops = () => setStops((current) => [
     ...current.filter((stop) => stop.invoice_id),
-    ...todaysOrdersForRun.map((inv) => ({ invoice_id: inv.id })),
+    ...matchingStopsForRun.map((inv) => ({ invoice_id: inv.id })),
   ]);
 
   const handleSave = async () => {
@@ -1127,18 +1126,20 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
           <div className="flex items-center justify-between text-xs text-muted">
             <span>Showing {pickerInvoices.length} of {districtInvoices.length} orders</span>
             {(orderSearch || orderDate) && (
-              <button onClick={() => { setOrderSearch(""); setOrderDate(""); }} className="font-semibold text-accent-2 hover:opacity-80">Clear</button>
+              <button onClick={() => { setOrderSearch(""); setOrderDate(localScheduleDate(new Date())); }} className="font-semibold text-accent-2 hover:opacity-80">Clear</button>
             )}
           </div>
           <button
-            onClick={addTodaysOrders}
-            disabled={todaysOrdersForRun.length === 0}
+            onClick={addMatchingStops}
+            disabled={!orderDate || matchingStopsForRun.length === 0}
             className="w-full px-3 py-2 bg-navy text-white rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
           >
-            Add all of today's orders ({todaysOrdersForRun.length})
+            {orderDate
+              ? `Add all delivery stops for ${new Date(`${orderDate}T00:00:00`).toLocaleDateString("en-PH")} (${matchingStopsForRun.length})`
+              : "Choose a date to add delivery stops"}
           </button>
-          {otherAgentTodayCount > 0 && (
-            <p className="text-xs text-muted">{otherAgentTodayCount} more of today's orders belong to other agents and need a separate run.</p>
+          {otherMatchingAgentCount > 0 && (
+            <p className="text-xs text-muted">{otherMatchingAgentCount} matching orders belong to other agents and need a separate run.</p>
           )}
         </div>
 
