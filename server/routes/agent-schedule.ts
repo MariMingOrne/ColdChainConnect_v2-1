@@ -47,6 +47,14 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
                   with: {
                     order_pallets: {
                       columns: { id: true, order_id: true, status: true },
+                      with: {
+                        items: {
+                          columns: { id: true, qty_units: true },
+                          with: {
+                            product: { columns: { id: true, name: true, sku: true } },
+                          },
+                        },
+                      },
                     },
                   },
                 },
