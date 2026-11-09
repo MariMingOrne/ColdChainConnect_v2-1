@@ -73,7 +73,7 @@ export const createDelivery: RequestHandler = async (
   req: AuthRequest,
   res
 ) => {
-  const { truck_id, destinations, driver_id, scheduled_date } = req.body;
+  const { truck_id, destinations, driver_id, scheduled_date, scheduled_time } = req.body;
 
   if (!truck_id || !Array.isArray(destinations) || destinations.length === 0) {
     return res.status(400).json({
@@ -83,6 +83,9 @@ export const createDelivery: RequestHandler = async (
 
   if (scheduled_date !== undefined && (typeof scheduled_date !== "string" || !isIsoDate(scheduled_date))) {
     return res.status(400).json({ error: "scheduled_date must be YYYY-MM-DD" });
+  }
+  if (scheduled_time !== undefined && (typeof scheduled_time !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(scheduled_time))) {
+    return res.status(400).json({ error: "scheduled_time must be HH:MM" });
   }
 
   try {
@@ -139,6 +142,7 @@ export const createDelivery: RequestHandler = async (
       driver_id: driver_id ?? truck.driver_id ?? null,
       agent_id: resolvedAgentId,
       scheduled_date: scheduled_date ?? todayIsoDate(),
+      scheduled_time: scheduled_time ?? null,
       status: "pending",
     });
 

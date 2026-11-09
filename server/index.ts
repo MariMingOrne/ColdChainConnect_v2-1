@@ -111,6 +111,7 @@ import {
   suggestBatches,
 } from "./routes/pallets";
 import { getSalesForecast } from "./routes/forecast";
+import { postSalesForecastChat } from "./routes/sales-forecast-chat";
 import { getCustomerReport, getSalesReport, getStockReport } from "./routes/reports";
 import { authMiddleware, requireRole } from "./middleware/auth";
 
@@ -208,6 +209,7 @@ export function createServer() {
 
   // Sales forecast routes
   app.get("/api/sales/forecast", authMiddleware, getSalesForecast);
+  app.post("/api/sales/forecast/chat", authMiddleware, requireRole("admin"), postSalesForecastChat);
 
   // Reports routes
   app.get("/api/reports/sales", authMiddleware, requireRole("admin"), getSalesReport);

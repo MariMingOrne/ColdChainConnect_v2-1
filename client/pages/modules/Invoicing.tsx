@@ -238,7 +238,7 @@ export function Invoicing() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "issued" | "paid">("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "partial" | "unpaid">("all");
   const [dateRangeFilter, setDateRangeFilter] = useState<"all" | "today" | "week" | "month" | "custom">("today");
   const [customDateStart, setCustomDateStart] = useState("");
   const [customDateEnd, setCustomDateEnd] = useState("");
@@ -352,6 +352,7 @@ export function Invoicing() {
             options: [
               { label: "All Payments", value: "all" },
               { label: "Paid",         value: "paid" },
+              { label: "Partially paid", value: "partial" },
               { label: "Unpaid",       value: "unpaid" },
             ],
           },
@@ -471,7 +472,9 @@ export function Invoicing() {
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${
                         inv.payment_status === "paid"
                           ? "bg-green-100 text-green-800"
-                          : "bg-orange-100 text-orange-800"
+                          : inv.payment_status === "partial"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-orange-100 text-orange-800"
                       }`}>
                         {inv.payment_status}
                       </span>

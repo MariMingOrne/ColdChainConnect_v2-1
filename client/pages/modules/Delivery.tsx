@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { localScheduleDate } from "@/lib/agentSchedule";
-import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, Clock3, RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
@@ -46,6 +46,12 @@ function formatRunDate(delivery: Delivery) {
   return new Date(year, month - 1, day).toLocaleDateString("en-PH");
 }
 
+function formatRunTime(value?: string | null) {
+  if (!value) return "Time not set";
+  const [hours, minutes] = value.split(":").map(Number);
+  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
+}
+
 function truckStatusLabel(status: string) {
   return status === "in_transit" ? "In Transit" :
          status === "maintenance" ? "Maintenance" : "Available";
@@ -68,7 +74,6 @@ export function DeliveryDispatch() {
 
   const [selectedTruck,        setSelectedTruck]        = useState<Truck | null>(null);
   const [selectedDelivery,     setSelectedDelivery]     = useState<DeliveryExt | null>(null);
-  const [deliveryView, setDeliveryView] = useState<"active" | "completed">("active");
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
   const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
@@ -147,9 +152,14 @@ export function DeliveryDispatch() {
   const truckDeliveries = selectedTruck
     ? deliveries.filter((d) => d.truck_id === selectedTruck.id)
     : [];
-  const visibleTruckDeliveries = truckDeliveries.filter((delivery) =>
-    deliveryView === "completed" ? delivery.status === "completed" : delivery.status !== "completed"
-  );
+  const scheduledDays = truckDeliveries.reduce((groups, delivery) => {
+    const date = delivery.scheduled_date ?? localScheduleDate(new Date(delivery.created_at));
+    groups.set(date, [...(groups.get(date) ?? []), delivery]);
+    return groups;
+  }, new Map<string, DeliveryExt[]>());
+  const sortedScheduleDays = [...scheduledDays.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, runs]) => [date, [...runs].sort((a, b) => (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? ""))] as const);
 
   const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
     setPaymentItem({ delivery, item });
@@ -188,6 +198,7 @@ export function DeliveryDispatch() {
     destinations: { invoice_id: string; destination_customer_id: string }[],
     driverId: string,
     scheduledDate: string,
+    scheduledTime: string,
   ) => {
     if (!token || !selectedTruck) return;
     try {
@@ -199,6 +210,7 @@ export function DeliveryDispatch() {
           destinations,
           driver_id: driverId || undefined,
           scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -344,34 +356,30 @@ export function DeliveryDispatch() {
         </button>
       </div>
 
-      <div className="flex gap-2 border-b border-border">
-        {([
-          ["active", `Active (${truckDeliveries.filter((delivery) => delivery.status !== "completed").length})`],
-          ["completed", `Completed (${truckDeliveries.filter((delivery) => delivery.status === "completed").length})`],
-        ] as const).map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => setDeliveryView(view)}
-            className={`border-b-2 px-3 py-2 text-sm font-semibold ${deliveryView === view ? "border-accent-2 text-accent-2" : "border-transparent text-muted"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {visibleTruckDeliveries.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
-          {deliveryView === "active" ? "No active deliveries for this truck." : "No completed deliveries for this truck yet."}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-rajdhani text-xl font-bold text-navy">Truck Schedule</h2>
+          <span className="text-xs text-muted">{truckDeliveries.length} scheduled run{truckDeliveries.length === 1 ? "" : "s"}</span>
         </div>
-      ) : (
-        visibleTruckDeliveries.map((delivery) => (
-          <div
-            key={delivery.id}
-            className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
-              selectedDelivery?.id === delivery.id ? "border-accent-2" : "border-border"
-            }`}
-          >
+
+        {sortedScheduleDays.length === 0 ? (
+          <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
+            No deliveries scheduled for this truck.
+          </div>
+        ) : (
+          sortedScheduleDays.map(([date, dayDeliveries]) => (
+            <section key={date} className="space-y-3">
+              <h3 className="flex items-center gap-2 font-semibold text-navy">
+                <CalendarDays size={16} />
+                {formatRunDate(dayDeliveries[0])}
+              </h3>
+              {dayDeliveries.map((delivery) => (
+                <div
+                  key={delivery.id}
+                  className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
+                    selectedDelivery?.id === delivery.id ? "border-accent-2" : "border-border"
+                  }`}
+                >
             {/* Delivery header */}
             <div
               className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-off-white/50 transition-colors"
@@ -386,7 +394,7 @@ export function DeliveryDispatch() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                 <span className="text-xs text-muted hidden sm:block">
-                  {formatRunDate(delivery)}
+                  {formatRunDate(delivery)} · {formatRunTime(delivery.scheduled_time)}
                 </span>
                 {selectedDelivery?.id === delivery.id
                   ? <ChevronUp size={14} className="text-muted" />
@@ -570,8 +578,11 @@ export function DeliveryDispatch() {
               </div>
             )}
           </div>
-        ))
-      )}
+              ))}
+            </section>
+          ))
+        )}
+      </div>
     </div>
   );
 
@@ -618,7 +629,6 @@ export function DeliveryDispatch() {
             ) : (
               trucks.map((truck) => {
                 const td = deliveries.filter((d) => d.truck_id === truck.id);
-                const active = td.filter((d) => d.status !== "completed").length;
                 return (
                   <div
                     key={truck.id}
@@ -632,7 +642,7 @@ export function DeliveryDispatch() {
                       <div>
                         <p className="font-rajdhani font-bold text-navy">{truck.license_plate}</p>
                         <p className="text-xs text-muted">{truck.district}</p>
-                        <p className="text-xs text-muted mt-0.5">{active} active · {td.length} total</p>
+                        <p className="text-xs text-muted mt-0.5">{td.length} scheduled run{td.length === 1 ? "" : "s"}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -661,7 +671,6 @@ export function DeliveryDispatch() {
           ) : (
             trucks.map((truck) => {
               const td = deliveries.filter((d) => d.truck_id === truck.id);
-              const active = td.filter((d) => d.status !== "completed").length;
               const isSelected = selectedTruck?.id === truck.id;
               return (
                 <div
@@ -681,7 +690,7 @@ export function DeliveryDispatch() {
                     </span>
                   </div>
                   <p className="text-xs text-muted mt-2">
-                    {active} active · {td.length} total
+                    {td.length} scheduled run{td.length === 1 ? "" : "s"}
                   </p>
                 </div>
               );
@@ -979,16 +988,14 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   agents: Agent[];
   drivers: Driver[];
   onClose: () => void;
-  onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string) => Promise<void>;
+  onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string, scheduledTime: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [orderSearch, setOrderSearch] = useState("");
-  const [orderDate, setOrderDate] = useState("");
+  const [orderDate, setOrderDate] = useState(() => localScheduleDate(new Date()));
   const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
-  const [scheduledDate, setScheduledDate] = useState(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  });
+  const [scheduledDate, setScheduledDate] = useState(() => localScheduleDate(new Date()));
+  const [scheduledTime, setScheduledTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
 
   function customerFor(inv: Invoice): Customer | undefined {
@@ -1056,34 +1063,44 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
     (!orderDate || orderDateOf(inv) === orderDate) &&
     (!normalizedOrderSearch || normalizedOrderSearch.split(/\s+/).every((term) => orderSearchText(inv).includes(term)))
   );
-  const todayDate = localScheduleDate(new Date());
-  const todaysOrders = districtInvoices.filter((inv) => orderDateOf(inv) === todayDate && !pickedIds.has(inv.id));
-  const todayAgentId = saleOwnerId ?? todaysOrders[0]?.agent_id;
-  const todaysOrdersForRun = todaysOrders.filter((inv) => inv.agent_id === todayAgentId);
-  const otherAgentTodayCount = todaysOrders.length - todaysOrdersForRun.length;
-  const addTodaysOrders = () => setStops((current) => [
+  const matchingStops = orderDate ? pickerInvoices.filter((inv) => !pickedIds.has(inv.id)) : [];
+  const matchingAgentId = saleOwnerId ?? matchingStops[0]?.agent_id;
+  const matchingStopsForRun = matchingStops.filter((inv) => inv.agent_id === matchingAgentId);
+  const otherMatchingAgentCount = matchingStops.length - matchingStopsForRun.length;
+  const addMatchingStops = () => setStops((current) => [
     ...current.filter((stop) => stop.invoice_id),
-    ...todaysOrdersForRun.map((inv) => ({ invoice_id: inv.id })),
+    ...matchingStopsForRun.map((inv) => ({ invoice_id: inv.id })),
   ]);
 
   const handleSave = async () => {
-    if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
+    if (!valid || !scheduledDate || !scheduledTime) { alert("Choose a scheduled date and time and valid order stops."); return; }
     setSaving(true);
-    try { await onSave(buildPayload(), selectedDriverId, scheduledDate); }
+    try { await onSave(buildPayload(), selectedDriverId, scheduledDate, scheduledTime); }
     finally { setSaving(false); }
   };
 
   return (
     <ModalShell title={`Add Delivery — ${truck.license_plate}`} onClose={onClose}>
       <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Scheduled Date *</label>
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(event) => setScheduledDate(event.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-navy">
+            Scheduled Date *
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(event) => setScheduledDate(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+            />
+          </label>
+          <label className="block text-xs font-semibold text-navy">
+            Scheduled Time *
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(event) => setScheduledTime(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+            />
+          </label>
         </div>
         <div className="rounded-lg bg-off-white px-3 py-2.5">
           <p className="text-xs font-semibold text-muted">Sale owner · automatically assigned</p>
@@ -1127,18 +1144,20 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
           <div className="flex items-center justify-between text-xs text-muted">
             <span>Showing {pickerInvoices.length} of {districtInvoices.length} orders</span>
             {(orderSearch || orderDate) && (
-              <button onClick={() => { setOrderSearch(""); setOrderDate(""); }} className="font-semibold text-accent-2 hover:opacity-80">Clear</button>
+              <button onClick={() => { setOrderSearch(""); setOrderDate(localScheduleDate(new Date())); }} className="font-semibold text-accent-2 hover:opacity-80">Clear</button>
             )}
           </div>
           <button
-            onClick={addTodaysOrders}
-            disabled={todaysOrdersForRun.length === 0}
+            onClick={addMatchingStops}
+            disabled={!orderDate || matchingStopsForRun.length === 0}
             className="w-full px-3 py-2 bg-navy text-white rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
           >
-            Add all of today's orders ({todaysOrdersForRun.length})
+            {orderDate
+              ? `Add all delivery stops for ${new Date(`${orderDate}T00:00:00`).toLocaleDateString("en-PH")} (${matchingStopsForRun.length})`
+              : "Choose a date to add delivery stops"}
           </button>
-          {otherAgentTodayCount > 0 && (
-            <p className="text-xs text-muted">{otherAgentTodayCount} more of today's orders belong to other agents and need a separate run.</p>
+          {otherMatchingAgentCount > 0 && (
+            <p className="text-xs text-muted">{otherMatchingAgentCount} matching orders belong to other agents and need a separate run.</p>
           )}
         </div>
 

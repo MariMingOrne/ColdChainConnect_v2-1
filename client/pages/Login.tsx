@@ -42,8 +42,10 @@ export function Login() {
         setSetupInfo(await setupMfa(next.challenge_token));
       }
       setChallenge(next);
-    } catch {
-      setError("Invalid username or password");
+    } catch (err) {
+      setError(err instanceof Error && /^Sign-in expired\./i.test(err.message)
+        ? "Your sign-in expired. Please enter your credentials again."
+        : "Invalid username or password");
     } finally {
       setIsLoading(false);
     }
@@ -56,10 +58,22 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await verifyMfa({ challenge_token: challenge.challenge_token, code });
-      navigate("/");
+      const user = await verifyMfa({ challenge_token: challenge.challenge_token, code });
+      const destination = user.role === "agent"
+        ? "/booking-dispatch/order-summary"
+        : user.role === "driver"
+          ? "/driver-schedule"
+          : "/";
+      navigate(destination, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
+      const message = err instanceof Error ? err.message : "Verification failed";
+      if (/^Sign-in expired\./i.test(message)) {
+        setChallenge(null);
+        setSetupInfo(null);
+        setError("Your sign-in expired. Please enter your credentials again.");
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
     }

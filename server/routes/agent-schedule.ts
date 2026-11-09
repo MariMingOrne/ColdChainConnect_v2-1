@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { RequestHandler } from "express";
 import { db } from "../db";
-import { agents, deliveries } from "../db/schema";
+import { accounts_receivable, agents, deliveries } from "../db/schema";
 import { AuthRequest } from "../middleware/auth";
 
 export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) => {
@@ -36,6 +36,10 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
         },
         delivery_items: {
           with: {
+            accounts_receivable: {
+              where: eq(accounts_receivable.status, "outstanding"),
+              columns: { amount_due: true },
+            },
             destination_customer: true,
             invoice: {
               columns: { id: true, booking_id: true, receipt_number: true, total_amount: true, agent_id: true },
@@ -65,23 +69,27 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
       },
     });
 
-    const schedule = assignedDeliveries.map((delivery) => ({
-      ...delivery,
-      driver: delivery.driver ?? delivery.truck?.driver ?? null,
-      delivery_items: delivery.delivery_items.map((stop) => ({
-        ...stop,
-        invoice: stop.invoice
-          ? {
-              id: stop.invoice.id,
-              booking_id: stop.invoice.booking_id,
-              receipt_number: stop.invoice.receipt_number,
-              total_amount: stop.invoice.total_amount,
-            }
-          : null,
-        sale_agent: stop.invoice?.agent ?? null,
-        pallets: stop.invoice?.booking?.order_pallets ?? [],
-      })),
-    }));
+    const schedule = assignedDeliveries
+      .filter((delivery) => delivery.delivery_items.length > 0)
+      .map((delivery) => ({
+        ...delivery,
+        driver: delivery.driver ?? delivery.truck?.driver ?? null,
+        delivery_items: delivery.delivery_items.map((stop) => ({
+          ...stop,
+          outstanding_amount: stop.accounts_receivable.reduce((sum, record) => sum + Number(record.amount_due), 0),
+          invoice: stop.invoice
+            ? {
+                id: stop.invoice.id,
+                booking_id: stop.invoice.booking_id,
+                receipt_number: stop.invoice.receipt_number,
+                total_amount: stop.invoice.total_amount,
+              }
+            : null,
+          sale_agent: stop.invoice?.agent ?? null,
+          pallets: stop.invoice?.booking?.order_pallets ?? [],
+          accounts_receivable: undefined,
+        })),
+      }));
 
     res.json({ deliveries: schedule });
   } catch (error) {
