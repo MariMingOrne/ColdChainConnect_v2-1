@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { localScheduleDate } from "@/lib/agentSchedule";
-import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
@@ -68,7 +68,6 @@ export function DeliveryDispatch() {
 
   const [selectedTruck,        setSelectedTruck]        = useState<Truck | null>(null);
   const [selectedDelivery,     setSelectedDelivery]     = useState<DeliveryExt | null>(null);
-  const [deliveryView, setDeliveryView] = useState<"active" | "completed">("active");
   const [showAddTruckModal,    setShowAddTruckModal]    = useState(false);
   const [showEditTruckModal,   setShowEditTruckModal]   = useState(false);
   const [showAddDeliveryModal, setShowAddDeliveryModal] = useState(false);
@@ -147,9 +146,12 @@ export function DeliveryDispatch() {
   const truckDeliveries = selectedTruck
     ? deliveries.filter((d) => d.truck_id === selectedTruck.id)
     : [];
-  const visibleTruckDeliveries = truckDeliveries.filter((delivery) =>
-    deliveryView === "completed" ? delivery.status === "completed" : delivery.status !== "completed"
-  );
+  const scheduledDays = truckDeliveries.reduce((groups, delivery) => {
+    const date = delivery.scheduled_date ?? localScheduleDate(new Date(delivery.created_at));
+    groups.set(date, [...(groups.get(date) ?? []), delivery]);
+    return groups;
+  }, new Map<string, DeliveryExt[]>());
+  const sortedScheduleDays = [...scheduledDays.entries()].sort(([a], [b]) => a.localeCompare(b));
 
   const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
     setPaymentItem({ delivery, item });
@@ -344,34 +346,30 @@ export function DeliveryDispatch() {
         </button>
       </div>
 
-      <div className="flex gap-2 border-b border-border">
-        {([
-          ["active", `Active (${truckDeliveries.filter((delivery) => delivery.status !== "completed").length})`],
-          ["completed", `Completed (${truckDeliveries.filter((delivery) => delivery.status === "completed").length})`],
-        ] as const).map(([view, label]) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => setDeliveryView(view)}
-            className={`border-b-2 px-3 py-2 text-sm font-semibold ${deliveryView === view ? "border-accent-2 text-accent-2" : "border-transparent text-muted"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {visibleTruckDeliveries.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
-          {deliveryView === "active" ? "No active deliveries for this truck." : "No completed deliveries for this truck yet."}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-rajdhani text-xl font-bold text-navy">Truck Schedule</h2>
+          <span className="text-xs text-muted">{truckDeliveries.length} scheduled run{truckDeliveries.length === 1 ? "" : "s"}</span>
         </div>
-      ) : (
-        visibleTruckDeliveries.map((delivery) => (
-          <div
-            key={delivery.id}
-            className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
-              selectedDelivery?.id === delivery.id ? "border-accent-2" : "border-border"
-            }`}
-          >
+
+        {sortedScheduleDays.length === 0 ? (
+          <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
+            No deliveries scheduled for this truck.
+          </div>
+        ) : (
+          sortedScheduleDays.map(([date, dayDeliveries]) => (
+            <section key={date} className="space-y-3">
+              <h3 className="flex items-center gap-2 font-semibold text-navy">
+                <CalendarDays size={16} />
+                {formatRunDate(dayDeliveries[0])}
+              </h3>
+              {dayDeliveries.map((delivery) => (
+                <div
+                  key={delivery.id}
+                  className={`bg-white rounded-xl border-2 overflow-hidden transition-all ${
+                    selectedDelivery?.id === delivery.id ? "border-accent-2" : "border-border"
+                  }`}
+                >
             {/* Delivery header */}
             <div
               className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-off-white/50 transition-colors"
@@ -570,8 +568,11 @@ export function DeliveryDispatch() {
               </div>
             )}
           </div>
-        ))
-      )}
+              ))}
+            </section>
+          ))
+        )}
+      </div>
     </div>
   );
 
@@ -618,7 +619,6 @@ export function DeliveryDispatch() {
             ) : (
               trucks.map((truck) => {
                 const td = deliveries.filter((d) => d.truck_id === truck.id);
-                const active = td.filter((d) => d.status !== "completed").length;
                 return (
                   <div
                     key={truck.id}
@@ -632,7 +632,7 @@ export function DeliveryDispatch() {
                       <div>
                         <p className="font-rajdhani font-bold text-navy">{truck.license_plate}</p>
                         <p className="text-xs text-muted">{truck.district}</p>
-                        <p className="text-xs text-muted mt-0.5">{active} active · {td.length} total</p>
+                        <p className="text-xs text-muted mt-0.5">{td.length} scheduled run{td.length === 1 ? "" : "s"}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -661,7 +661,6 @@ export function DeliveryDispatch() {
           ) : (
             trucks.map((truck) => {
               const td = deliveries.filter((d) => d.truck_id === truck.id);
-              const active = td.filter((d) => d.status !== "completed").length;
               const isSelected = selectedTruck?.id === truck.id;
               return (
                 <div
@@ -681,7 +680,7 @@ export function DeliveryDispatch() {
                     </span>
                   </div>
                   <p className="text-xs text-muted mt-2">
-                    {active} active · {td.length} total
+                    {td.length} scheduled run{td.length === 1 ? "" : "s"}
                   </p>
                 </div>
               );

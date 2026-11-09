@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { AgentStopRow } from "@/components/AgentStopRow";
-import { CalendarDays, RefreshCw, Truck as TruckIcon, UserRound } from "lucide-react";
+import { CalendarDays, RefreshCw, Search, Truck as TruckIcon, UserRound } from "lucide-react";
 import type { AgentScheduleDelivery, AgentScheduleResponse, AgentScheduleStop } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ export function AgentDeliverySchedule() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [view, setView] = useState<"current" | "history">("current");
+  const [historySearch, setHistorySearch] = useState("");
   const [paymentStop, setPaymentStop] = useState<{ delivery: AgentScheduleDelivery; stop: AgentScheduleStop; mode: "confirm" | "payment" } | null>(null);
   const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
@@ -67,7 +68,33 @@ export function AgentDeliverySchedule() {
 
   const currentDeliveries = deliveries.filter((delivery) => delivery.status !== "completed");
   const historyDeliveries = deliveries.filter((delivery) => delivery.status === "completed");
-  const visibleDeliveries = view === "current" ? currentDeliveries : historyDeliveries;
+  const filteredHistoryDeliveries = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    if (!query) return historyDeliveries;
+
+    return historyDeliveries.flatMap((delivery) => {
+      const date = delivery.scheduled_date ?? delivery.created_at.slice(0, 10);
+      const runDetails = [
+        date,
+        formatScheduleDate(date),
+        delivery.truck?.license_plate,
+        delivery.truck?.district,
+        delivery.agent?.full_name,
+        delivery.driver?.full_name,
+        delivery.status,
+      ].join(" ").toLowerCase();
+      if (runDetails.includes(query)) return [delivery];
+
+      const matchingStops = (delivery.delivery_items ?? []).filter((stop) => [
+        stop.destination_customer?.store_name,
+        stop.invoice?.receipt_number,
+        stop.invoice_id,
+        stop.status,
+      ].join(" ").toLowerCase().includes(query));
+      return matchingStops.length ? [{ ...delivery, delivery_items: matchingStops }] : [];
+    });
+  }, [historyDeliveries, historySearch]);
+  const visibleDeliveries = view === "current" ? currentDeliveries : filteredHistoryDeliveries;
   const scheduledDays = useMemo(() => {
     const groups = new Map<string, AgentScheduleDelivery[]>();
     for (const delivery of visibleDeliveries) {
@@ -159,11 +186,25 @@ export function AgentDeliverySchedule() {
 
       {error && <div role="alert" className="rounded-lg border border-red/30 bg-red/10 px-4 py-3 text-sm text-red">{error}</div>}
 
+      {view === "history" && (
+        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-white px-3 text-muted focus-within:border-accent-2">
+          <Search size={17} aria-hidden="true" />
+          <input
+            type="search"
+            value={historySearch}
+            onChange={(event) => setHistorySearch(event.target.value)}
+            placeholder="Search by date, truck, agent, store, or invoice…"
+            aria-label="Search delivery history"
+            className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-muted"
+          />
+        </label>
+      )}
+
       {visibleDeliveries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center">
           <CalendarDays size={32} className="mx-auto mb-3 text-muted opacity-50" />
-          <h2 className="font-semibold text-navy">{view === "current" ? "No current deliveries" : "No delivery history yet"}</h2>
-          <p className="mt-1 text-sm text-muted">{view === "current" ? "Your active assigned runs will appear here." : "Completed delivery runs will be saved here."}</p>
+          <h2 className="font-semibold text-navy">{view === "current" ? "No current deliveries" : historyDeliveries.length && historySearch.trim() ? "No matching deliveries" : "No delivery history yet"}</h2>
+          <p className="mt-1 text-sm text-muted">{view === "current" ? "Your active assigned runs will appear here." : historyDeliveries.length && historySearch.trim() ? "Try another date, truck, agent, store, or invoice." : "Completed delivery runs will be saved here."}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
