@@ -101,7 +101,11 @@ async function seedMockOrders() {
   await db.delete(receipts).where(like(receipts.id, `${MOCK_PREFIX}%`));
   await db.delete(delivery_items).where(like(delivery_items.id, `${MOCK_PREFIX}%`));
   await db.delete(deliveries).where(like(deliveries.id, `${MOCK_PREFIX}%`));
+  await db.delete(order_pallet_items).where(like(order_pallet_items.id, `${MOCK_PREFIX}%`));
+  await db.delete(order_pallets).where(like(order_pallets.id, `${MOCK_PREFIX}%`));
+  await db.delete(invoice_items).where(like(invoice_items.id, `${MOCK_PREFIX}%`));
   await db.delete(invoices).where(like(invoices.id, `${MOCK_PREFIX}%`));
+  await db.delete(booking_items).where(like(booking_items.id, `${MOCK_PREFIX}%`));
   await db.delete(bookings).where(like(bookings.id, `${MOCK_PREFIX}%`));
 
   for (const d of districtSetup) {
