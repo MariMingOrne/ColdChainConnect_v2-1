@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { localScheduleDate } from "@/lib/agentSchedule";
-import { CalendarDays, RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { CalendarDays, Clock3, RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
@@ -44,6 +44,12 @@ function formatRunDate(delivery: Delivery) {
   if (!delivery.scheduled_date) return new Date(delivery.created_at).toLocaleDateString("en-PH");
   const [year, month, day] = delivery.scheduled_date.split("-").map(Number);
   return new Date(year, month - 1, day).toLocaleDateString("en-PH");
+}
+
+function formatRunTime(value?: string | null) {
+  if (!value) return "Time not set";
+  const [hours, minutes] = value.split(":").map(Number);
+  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
 }
 
 function truckStatusLabel(status: string) {
@@ -151,7 +157,9 @@ export function DeliveryDispatch() {
     groups.set(date, [...(groups.get(date) ?? []), delivery]);
     return groups;
   }, new Map<string, DeliveryExt[]>());
-  const sortedScheduleDays = [...scheduledDays.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const sortedScheduleDays = [...scheduledDays.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, runs]) => [date, [...runs].sort((a, b) => (a.scheduled_time ?? "").localeCompare(b.scheduled_time ?? ""))] as const);
 
   const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
     setPaymentItem({ delivery, item });
@@ -190,6 +198,7 @@ export function DeliveryDispatch() {
     destinations: { invoice_id: string; destination_customer_id: string }[],
     driverId: string,
     scheduledDate: string,
+    scheduledTime: string,
   ) => {
     if (!token || !selectedTruck) return;
     try {
@@ -201,6 +210,7 @@ export function DeliveryDispatch() {
           destinations,
           driver_id: driverId || undefined,
           scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -384,7 +394,7 @@ export function DeliveryDispatch() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                 <span className="text-xs text-muted hidden sm:block">
-                  {formatRunDate(delivery)}
+                  {formatRunDate(delivery)} · {formatRunTime(delivery.scheduled_time)}
                 </span>
                 {selectedDelivery?.id === delivery.id
                   ? <ChevronUp size={14} className="text-muted" />
@@ -978,16 +988,14 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   agents: Agent[];
   drivers: Driver[];
   onClose: () => void;
-  onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string) => Promise<void>;
+  onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string, scheduledTime: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
   const [orderSearch, setOrderSearch] = useState("");
   const [orderDate, setOrderDate] = useState(() => localScheduleDate(new Date()));
   const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
-  const [scheduledDate, setScheduledDate] = useState(() => {
-    const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  });
+  const [scheduledDate, setScheduledDate] = useState(() => localScheduleDate(new Date()));
+  const [scheduledTime, setScheduledTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
 
   function customerFor(inv: Invoice): Customer | undefined {
@@ -1065,23 +1073,34 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   ]);
 
   const handleSave = async () => {
-    if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
+    if (!valid || !scheduledDate || !scheduledTime) { alert("Choose a scheduled date and time and valid order stops."); return; }
     setSaving(true);
-    try { await onSave(buildPayload(), selectedDriverId, scheduledDate); }
+    try { await onSave(buildPayload(), selectedDriverId, scheduledDate, scheduledTime); }
     finally { setSaving(false); }
   };
 
   return (
     <ModalShell title={`Add Delivery — ${truck.license_plate}`} onClose={onClose}>
       <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-semibold text-navy mb-1">Scheduled Date *</label>
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(event) => setScheduledDate(event.target.value)}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-xs font-semibold text-navy">
+            Scheduled Date *
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(event) => setScheduledDate(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+            />
+          </label>
+          <label className="block text-xs font-semibold text-navy">
+            Scheduled Time *
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(event) => setScheduledTime(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-navy focus:outline-none focus:border-accent-2"
+            />
+          </label>
         </div>
         <div className="rounded-lg bg-off-white px-3 py-2.5">
           <p className="text-xs font-semibold text-muted">Sale owner · automatically assigned</p>

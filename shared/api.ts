@@ -487,6 +487,7 @@ export interface Delivery {
   agent?: Agent | null;
   status: "pending" | "in_transit" | "completed";
   scheduled_date?: string | null;
+  scheduled_time?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -543,6 +544,8 @@ export const CreateDeliverySchema = z.object({
   truck_id: z.string().min(1, "Truck ID is required"),
   items: z.array(CreateDeliveryItemSchema).min(1, "At least one delivery item is required"),
   driver_id: z.string().optional().nullable(),
+  scheduled_date: z.string().optional(),
+  scheduled_time: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).optional(),
 });
 
 export const UpdateDeliveryStatusSchema = z.object({

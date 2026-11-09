@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { AgentStopRow } from "@/components/AgentStopRow";
-import { CalendarDays, RefreshCw, Search, Truck as TruckIcon, UserRound } from "lucide-react";
+import { CalendarDays, Clock3, History, RefreshCw, Search, Truck as TruckIcon, UserRound } from "lucide-react";
 import type { AgentScheduleDelivery, AgentScheduleResponse, AgentScheduleStop } from "@shared/api";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { optimizeRouteOrder } from "@/lib/routeOrder";
-import { statusClasses } from "@/lib/agentSchedule";
+import { localScheduleDate, statusClasses } from "@/lib/agentSchedule";
 import { DeliveryRouteMap, type MapFocus } from "@/components/DeliveryRouteMap";
 
 function formatScheduleDate(value: string) {
@@ -17,6 +17,32 @@ function formatScheduleDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(year, month - 1, day));
+}
+
+function formatScheduleTime(value?: string | null) {
+  if (!value) return "Time not set";
+  const [hours, minutes] = value.split(":").map(Number);
+  return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
+}
+
+function filterRuns(deliveries: AgentScheduleDelivery[], dateFilter: string, fromTime: string, search: string) {
+  const query = search.trim().toLowerCase();
+  return deliveries.flatMap((delivery) => {
+    const date = delivery.scheduled_date ?? localScheduleDate(new Date(delivery.created_at));
+    if (dateFilter && date !== dateFilter) return [];
+    if (fromTime && (!delivery.scheduled_time || delivery.scheduled_time < fromTime)) return [];
+
+    const runDetails = [date, formatScheduleDate(date), delivery.scheduled_time, formatScheduleTime(delivery.scheduled_time), delivery.truck?.license_plate, delivery.truck?.district, delivery.agent?.full_name, delivery.driver?.full_name, delivery.status].join(" ").toLowerCase();
+    if (!query || runDetails.includes(query)) return [delivery];
+
+    const matchingStops = (delivery.delivery_items ?? []).filter((stop) => [
+      stop.destination_customer?.store_name,
+      stop.invoice?.receipt_number,
+      stop.invoice_id,
+      stop.status,
+    ].join(" ").toLowerCase().includes(query));
+    return matchingStops.length ? [{ ...delivery, delivery_items: matchingStops }] : [];
+  });
 }
 
 function orderRunStops(stops: AgentScheduleStop[]) {
@@ -36,8 +62,12 @@ export function AgentDeliverySchedule() {
   const [deliveries, setDeliveries] = useState<AgentScheduleDelivery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [view, setView] = useState<"current" | "history">("current");
-  const [historySearch, setHistorySearch] = useState("");
+  const [view, setView] = useState<"today" | "history">("today");
+  const [search, setSearch] = useState("");
+  const [scheduleDate, setScheduleDate] = useState(() => localScheduleDate(new Date()));
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [historyDate, setHistoryDate] = useState("");
+  const [historyTime, setHistoryTime] = useState("");
   const [paymentStop, setPaymentStop] = useState<{ delivery: AgentScheduleDelivery; stop: AgentScheduleStop; mode: "confirm" | "payment" } | null>(null);
   const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
@@ -66,42 +96,30 @@ export function AgentDeliverySchedule() {
     void fetchSchedule();
   }, [token]);
 
+  const today = localScheduleDate(new Date());
   const currentDeliveries = deliveries.filter((delivery) => delivery.status !== "completed");
+  const todayDeliveries = currentDeliveries.filter((delivery) =>
+    (delivery.scheduled_date ?? localScheduleDate(new Date(delivery.created_at))) === today
+  );
   const historyDeliveries = deliveries.filter((delivery) => delivery.status === "completed");
-  const filteredHistoryDeliveries = useMemo(() => {
-    const query = historySearch.trim().toLowerCase();
-    if (!query) return historyDeliveries;
-
-    return historyDeliveries.flatMap((delivery) => {
-      const date = delivery.scheduled_date ?? delivery.created_at.slice(0, 10);
-      const runDetails = [
-        date,
-        formatScheduleDate(date),
-        delivery.truck?.license_plate,
-        delivery.truck?.district,
-        delivery.agent?.full_name,
-        delivery.driver?.full_name,
-        delivery.status,
-      ].join(" ").toLowerCase();
-      if (runDetails.includes(query)) return [delivery];
-
-      const matchingStops = (delivery.delivery_items ?? []).filter((stop) => [
-        stop.destination_customer?.store_name,
-        stop.invoice?.receipt_number,
-        stop.invoice_id,
-        stop.status,
-      ].join(" ").toLowerCase().includes(query));
-      return matchingStops.length ? [{ ...delivery, delivery_items: matchingStops }] : [];
-    });
-  }, [historyDeliveries, historySearch]);
-  const visibleDeliveries = view === "current" ? currentDeliveries : filteredHistoryDeliveries;
+  const filteredTodayDeliveries = useMemo(
+    () => filterRuns(currentDeliveries, scheduleDate, scheduleTime, search),
+    [deliveries, scheduleDate, scheduleTime, search],
+  );
+  const filteredHistoryDeliveries = useMemo(
+    () => filterRuns(historyDeliveries, historyDate, historyTime, search),
+    [deliveries, historyDate, historyTime, search],
+  );
+  const visibleDeliveries = view === "today" ? filteredTodayDeliveries : filteredHistoryDeliveries;
   const scheduledDays = useMemo(() => {
     const groups = new Map<string, AgentScheduleDelivery[]>();
     for (const delivery of visibleDeliveries) {
-      const date = delivery.scheduled_date ?? delivery.created_at.slice(0, 10);
+      const date = delivery.scheduled_date ?? localScheduleDate(new Date(delivery.created_at));
       groups.set(date, [...(groups.get(date) ?? []), delivery]);
     }
-    return [...groups.entries()].sort(([a], [b]) => view === "current" ? a.localeCompare(b) : b.localeCompare(a));
+    return [...groups.entries()]
+      .sort(([a], [b]) => view === "today" ? a.localeCompare(b) : b.localeCompare(a))
+      .map(([date, runs]) => [date, [...runs].sort((a, b) => (a.scheduled_time ?? "99:99").localeCompare(b.scheduled_time ?? "99:99"))] as const);
   }, [view, visibleDeliveries]);
 
   const stopCount = currentDeliveries.reduce((total, delivery) => total + (delivery.delivery_items?.length ?? 0), 0);
@@ -171,40 +189,87 @@ export function AgentDeliverySchedule() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-border">
-        {([ ["current", `Current schedule (${currentDeliveries.length})`], ["history", `History (${historyDeliveries.length})`] ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setView(value)}
-            className={`border-b-2 px-3 py-2 text-sm font-semibold ${view === value ? "border-accent-2 text-accent-2" : "border-transparent text-muted"}`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          aria-pressed={view === "today"}
+          onClick={() => setView("today")}
+          className={`rounded-xl border p-3 text-left transition ${view === "today" ? "border-accent-2 bg-accent-2/5 shadow-sm" : "border-border bg-white hover:border-accent-2/50"}`}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-navy"><CalendarDays size={17} /> Today</span>
+          <span className="mt-1 block text-xs text-muted">{todayDeliveries.length} scheduled runs</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={view === "history"}
+          onClick={() => setView("history")}
+          className={`rounded-xl border p-3 text-left transition ${view === "history" ? "border-accent-2 bg-accent-2/5 shadow-sm" : "border-border bg-white hover:border-accent-2/50"}`}
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-navy"><History size={17} /> History</span>
+          <span className="mt-1 block text-xs text-muted">{historyDeliveries.length} completed runs</span>
+        </button>
       </div>
 
       {error && <div role="alert" className="rounded-lg border border-red/30 bg-red/10 px-4 py-3 text-sm text-red">{error}</div>}
 
-      {view === "history" && (
-        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-white px-3 text-muted focus-within:border-accent-2">
-          <Search size={17} aria-hidden="true" />
-          <input
-            type="search"
-            value={historySearch}
-            onChange={(event) => setHistorySearch(event.target.value)}
-            placeholder="Search by date, truck, agent, store, or invoice…"
-            aria-label="Search delivery history"
-            className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-muted"
-          />
-        </label>
-      )}
+      <div className="rounded-xl border border-border bg-white p-3 shadow-sm">
+        <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted">
+          <Search size={15} /> Search and filter {view === "today" ? "schedule" : "history"}
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(150px,auto)_minmax(130px,auto)]">
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-muted focus-within:border-accent-2">
+            <Search size={16} aria-hidden="true" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Truck, agent, store, or invoice"
+              aria-label={`Search delivery ${view}`}
+              className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-muted"
+            />
+          </label>
+          <label className="flex flex-col justify-center rounded-lg border border-border px-3 py-1 text-[10px] font-semibold text-muted focus-within:border-accent-2">
+            {view === "today" ? "Schedule date" : "History date"}
+            <input
+              type="date"
+              value={view === "today" ? scheduleDate : historyDate}
+              onChange={(event) => view === "today" ? setScheduleDate(event.target.value || today) : setHistoryDate(event.target.value)}
+              aria-label={view === "today" ? "Filter schedule by date" : "Filter history by scheduled date"}
+              className="w-full bg-transparent text-sm font-normal text-navy outline-none"
+            />
+          </label>
+          <label className="flex flex-col justify-center rounded-lg border border-border px-3 py-1 text-[10px] font-semibold text-muted focus-within:border-accent-2">
+            <span className="flex items-center gap-1"><Clock3 size={12} /> From time</span>
+            <input
+              type="time"
+              value={view === "today" ? scheduleTime : historyTime}
+              onChange={(event) => view === "today" ? setScheduleTime(event.target.value) : setHistoryTime(event.target.value)}
+              aria-label={`Filter delivery ${view} from time`}
+              className="w-full bg-transparent text-sm font-normal text-navy outline-none"
+            />
+          </label>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
+          <span>{view === "history" && !historyDate ? "History date is optional; time filters show runs scheduled at or after that time." : "Time filters show runs scheduled at or after the selected time."} Runs without a saved time will not match a time filter.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSearch("");
+              if (view === "today") { setScheduleDate(today); setScheduleTime(""); }
+              else { setHistoryDate(""); setHistoryTime(""); }
+            }}
+            className="shrink-0 font-semibold text-accent-2 hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
 
       {visibleDeliveries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center">
           <CalendarDays size={32} className="mx-auto mb-3 text-muted opacity-50" />
-          <h2 className="font-semibold text-navy">{view === "current" ? "No current deliveries" : historyDeliveries.length && historySearch.trim() ? "No matching deliveries" : "No delivery history yet"}</h2>
-          <p className="mt-1 text-sm text-muted">{view === "current" ? "Your active assigned runs will appear here." : historyDeliveries.length && historySearch.trim() ? "Try another date, truck, agent, store, or invoice." : "Completed delivery runs will be saved here."}</p>
+          <h2 className="font-semibold text-navy">{view === "today" ? "No matching runs" : historyDeliveries.length ? "No matching history" : "No delivery history yet"}</h2>
+          <p className="mt-1 text-sm text-muted">{view === "today" ? "Adjust the date, time, or search to find scheduled runs." : historyDeliveries.length ? "Adjust the date, time, or search to find completed runs." : "Completed delivery runs will be saved here."}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
@@ -224,6 +289,7 @@ export function AgentDeliverySchedule() {
                           <TruckIcon size={17} />
                           {delivery.truck?.license_plate ?? "Truck not assigned"}
                         </span>
+                        <span className="inline-flex items-center gap-1 text-muted"><Clock3 size={14} /> {formatScheduleTime(delivery.scheduled_time)}</span>
                         {delivery.truck?.district && <span className="text-muted">{delivery.truck.district}</span>}
                         {delivery.agent && (
                           <span className="inline-flex items-center gap-1 text-muted">
@@ -241,7 +307,7 @@ export function AgentDeliverySchedule() {
                       </span>
                     </div>
 
-                    {view === "current" && (
+                    {view === "today" && (
                       <DeliveryRouteMap
                         key={delivery.id}
                         deliveryId={delivery.id}
@@ -256,7 +322,7 @@ export function AgentDeliverySchedule() {
                           key={stop.id}
                           index={index}
                           stop={stop}
-                          showMapAction={view === "current"}
+                          showMapAction={view === "today"}
                           isConfirming={confirmingStopId === stop.id}
                           onShowOnMap={(stopId) => showStopOnMap(delivery.id, stopId)}
                           onConfirmPayment={() => setPaymentStop({ delivery, stop, mode: "confirm" })}

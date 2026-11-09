@@ -287,7 +287,8 @@ export const deliveries = pgTable("deliveries", {
   driver_id: text("driver_id").references(() => drivers.id, { onDelete: "set null" }),
   // agent who manages/owns this delivery; auto-locked when an agent creates the delivery
   agent_id: text("agent_id").references(() => agents.id, { onDelete: "set null" }),
-  scheduled_date: text("scheduled_date"), // YYYY-MM-DD the run is scheduled for
+  scheduled_date: text("scheduled_date"),
+  scheduled_time: text("scheduled_time"),
   status: deliveryStatusEnum("status").default("pending").notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
