@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp, Search, Send } from "lucide-react";
 import { localScheduleDate } from "@/lib/agentSchedule";
+import { RefreshCw, ChevronLeft, Truck as TruckIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { Delivery, DeliveryItem, Truck, Invoice, Customer, Driver, Agent, formatCustomerAddress } from "@shared/api";
 
 // ─── Extended types ────────────────────────────────────────────────────────────
@@ -51,42 +51,6 @@ function truckStatusLabel(status: string) {
          status === "maintenance" ? "Maintenance" : "Available";
 }
 
-async function startRun(token: string, deliveryId: string) {
-  const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
-    method: "PATCH",
-    headers: authHeaders(token),
-    body: JSON.stringify({ status: "in_transit" }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-}
-
-function runDateOf(delivery: Delivery) {
-  return delivery.scheduled_date ?? delivery.created_at.slice(0, 10);
-}
-
-function stopSearchText(item: DeliveryItemExt) {
-  return [
-    item.customer?.store_name,
-    item.customer && formatCustomerAddress(item.customer),
-    item.invoice_id,
-    item.receipt_number,
-    item.invoice?.receipt_number,
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function runSearchText(delivery: DeliveryExt) {
-  return [
-    delivery.truck?.license_plate,
-    delivery.agent?.full_name,
-    delivery.driver?.full_name,
-    ...delivery.delivery_items.map(stopSearchText),
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function matchesSearch(text: string, normalizedSearch: string) {
-  return normalizedSearch.split(/\s+/).every((term) => text.includes(term));
-}
-
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function DeliveryDispatch() {
@@ -115,9 +79,6 @@ export function DeliveryDispatch() {
 
   // Mobile: track which "panel" is visible — "trucks" | "detail"
   const [mobileView, setMobileView] = useState<"trucks" | "detail">("trucks");
-  const [stopSearch, setStopSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [dispatchingToday, setDispatchingToday] = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -186,19 +147,9 @@ export function DeliveryDispatch() {
   const truckDeliveries = selectedTruck
     ? deliveries.filter((d) => d.truck_id === selectedTruck.id)
     : [];
-  const normalizedSearch = stopSearch.trim().toLowerCase();
   const visibleTruckDeliveries = truckDeliveries.filter((delivery) =>
-    (deliveryView === "completed" ? delivery.status === "completed" : delivery.status !== "completed") &&
-    (!dateFilter || runDateOf(delivery) === dateFilter) &&
-    (!normalizedSearch || matchesSearch(runSearchText(delivery), normalizedSearch))
+    deliveryView === "completed" ? delivery.status === "completed" : delivery.status !== "completed"
   );
-  const stopsToShow = (delivery: DeliveryExt) => {
-    if (!normalizedSearch) return delivery.delivery_items;
-    const matching = delivery.delivery_items.filter((item) => matchesSearch(stopSearchText(item), normalizedSearch));
-    return matching.length > 0 ? matching : delivery.delivery_items;
-  };
-  const todayDate = localScheduleDate(new Date());
-  const todayPendingRuns = deliveries.filter((delivery) => delivery.status === "pending" && runDateOf(delivery) === todayDate);
 
   const handleConfirm = (delivery: DeliveryExt, item: DeliveryItemExt) => {
     setPaymentItem({ delivery, item });
@@ -276,25 +227,15 @@ export function DeliveryDispatch() {
   const handleStartRun = async (deliveryId: string) => {
     if (!token) return;
     try {
-      await startRun(token, deliveryId);
+      const res = await fetch(`/api/deliveries/${deliveryId}/status`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ status: "in_transit" }),
+      });
+      if (!res.ok) throw new Error(await res.text());
       await fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start this run.");
-    }
-  };
-
-  const handleDispatchToday = async () => {
-    if (!token || todayPendingRuns.length === 0) return;
-    const count = todayPendingRuns.length;
-    if (!window.confirm(`Start ${count} pending run${count === 1 ? "" : "s"} scheduled for today?`)) return;
-    setDispatchingToday(true);
-    try {
-      const results = await Promise.allSettled(todayPendingRuns.map((delivery) => startRun(token, delivery.id)));
-      const failed = results.filter((result) => result.status === "rejected").length;
-      await fetchAll();
-      if (failed > 0) setError(`${failed} of ${count} runs could not be started.`);
-    } finally {
-      setDispatchingToday(false);
     }
   };
 
@@ -419,41 +360,9 @@ export function DeliveryDispatch() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="search"
-            value={stopSearch}
-            onChange={(event) => setStopSearch(event.target.value)}
-            aria-label="Search runs and stops"
-            placeholder="Search customer, address, invoice, agent, driver"
-            className="w-full rounded-lg border border-border bg-white py-2 pl-8 pr-3 text-xs text-navy"
-          />
-        </div>
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(event) => setDateFilter(event.target.value)}
-          aria-label="Filter runs by scheduled date"
-          className="rounded-lg border border-border bg-white px-2 py-2 text-xs text-navy"
-        />
-        {(stopSearch || dateFilter) && (
-          <button
-            type="button"
-            onClick={() => { setStopSearch(""); setDateFilter(""); }}
-            className="text-xs font-semibold text-accent-2 hover:opacity-70"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
-
       {visibleTruckDeliveries.length === 0 ? (
         <div className="bg-white rounded-xl border border-border p-6 text-center text-sm text-muted">
-          {normalizedSearch || dateFilter
-            ? "No runs match these filters."
-            : deliveryView === "active" ? "No active deliveries for this truck." : "No completed deliveries for this truck yet."}
+          {deliveryView === "active" ? "No active deliveries for this truck." : "No completed deliveries for this truck yet."}
         </div>
       ) : (
         visibleTruckDeliveries.map((delivery) => (
@@ -525,7 +434,7 @@ export function DeliveryDispatch() {
                   <>
                     {/* Mobile: card per stop */}
                     <div className="md:hidden divide-y divide-border">
-                      {stopsToShow(delivery).map((item) => (
+                      {delivery.delivery_items.map((item) => (
                         <div key={item.id} className="p-4 space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-navy text-sm">
@@ -595,7 +504,7 @@ export function DeliveryDispatch() {
                           </tr>
                         </thead>
                         <tbody>
-                          {stopsToShow(delivery).map((item) => (
+                          {delivery.delivery_items.map((item) => (
                             <tr key={item.id} className="border-b border-border hover:bg-off-white/40 transition-colors">
                               <td className="px-3 py-3 font-mono text-navy">
                                 {item.invoice_id.slice(0, 8)}…
@@ -675,15 +584,7 @@ export function DeliveryDispatch() {
           <h1 className="font-rajdhani text-2xl md:text-3xl font-bold text-navy">Truck Dispatch</h1>
           <p className="text-xs text-muted mt-0.5">Assign receipts to trucks and track each stop</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => void handleDispatchToday()}
-            disabled={dispatchingToday || todayPendingRuns.length === 0}
-            className="px-3 py-2 bg-green text-white rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-          >
-            <Send size={15} />
-            {dispatchingToday ? "Dispatching…" : `Dispatch today's runs (${todayPendingRuns.length})`}
-          </button>
+        <div className="flex gap-2">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
@@ -1081,6 +982,8 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   onSave: (d: { invoice_id: string; destination_customer_id: string }[], driverId: string, scheduledDate: string) => Promise<void>;
 }) {
   const [stops, setStops] = useState([{ invoice_id: "" }]);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderDate, setOrderDate] = useState("");
   const [selectedDriverId, setSelectedDriverId] = useState(truck.driver_id ?? "");
   const [scheduledDate, setScheduledDate] = useState(() => {
     const today = new Date();
@@ -1136,6 +1039,33 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
   // Already-picked invoice ids (to prevent duplicates within modal)
   const pickedIds = new Set(stops.map((s) => s.invoice_id).filter(Boolean));
 
+  const normalizedOrderSearch = orderSearch.trim().toLowerCase();
+  const orderSearchText = (inv: Invoice) => {
+    const customer = customerFor(inv);
+    return [
+      inv.customer_name,
+      customer?.store_name,
+      customer?.contact_person,
+      customer && formatCustomerAddress(customer),
+      inv.customer_address,
+      inv.receipt_number,
+    ].filter(Boolean).join(" ").toLowerCase();
+  };
+  const orderDateOf = (inv: Invoice) => localScheduleDate(new Date(inv.created_at));
+  const pickerInvoices = districtInvoices.filter((inv) =>
+    (!orderDate || orderDateOf(inv) === orderDate) &&
+    (!normalizedOrderSearch || normalizedOrderSearch.split(/\s+/).every((term) => orderSearchText(inv).includes(term)))
+  );
+  const todayDate = localScheduleDate(new Date());
+  const todaysOrders = districtInvoices.filter((inv) => orderDateOf(inv) === todayDate && !pickedIds.has(inv.id));
+  const todayAgentId = saleOwnerId ?? todaysOrders[0]?.agent_id;
+  const todaysOrdersForRun = todaysOrders.filter((inv) => inv.agent_id === todayAgentId);
+  const otherAgentTodayCount = todaysOrders.length - todaysOrdersForRun.length;
+  const addTodaysOrders = () => setStops((current) => [
+    ...current.filter((stop) => stop.invoice_id),
+    ...todaysOrdersForRun.map((inv) => ({ invoice_id: inv.id })),
+  ]);
+
   const handleSave = async () => {
     if (!valid || !scheduledDate) { alert("Choose a scheduled date and valid order stops."); return; }
     setSaving(true);
@@ -1176,6 +1106,42 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
           </select>
         </div>
 
+        <div className="rounded-lg border border-border bg-white p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={orderSearch}
+              onChange={(event) => setOrderSearch(event.target.value)}
+              aria-label="Search orders"
+              placeholder="Search store, contact, address, receipt"
+              className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-xs text-navy focus:outline-none focus:border-accent-2"
+            />
+            <input
+              type="date"
+              value={orderDate}
+              onChange={(event) => setOrderDate(event.target.value)}
+              aria-label="Filter orders by date"
+              className="rounded-lg border border-border px-3 py-2 text-xs text-navy focus:outline-none focus:border-accent-2"
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>Showing {pickerInvoices.length} of {districtInvoices.length} orders</span>
+            {(orderSearch || orderDate) && (
+              <button onClick={() => { setOrderSearch(""); setOrderDate(""); }} className="font-semibold text-accent-2 hover:opacity-80">Clear</button>
+            )}
+          </div>
+          <button
+            onClick={addTodaysOrders}
+            disabled={todaysOrdersForRun.length === 0}
+            className="w-full px-3 py-2 bg-navy text-white rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+          >
+            Add all of today's orders ({todaysOrdersForRun.length})
+          </button>
+          {otherAgentTodayCount > 0 && (
+            <p className="text-xs text-muted">{otherAgentTodayCount} more of today's orders belong to other agents and need a separate run.</p>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold text-navy">Delivery Stops *</label>
           <button onClick={addStop} className="text-xs text-accent-2 font-semibold hover:opacity-80">+ Add Stop</button>
@@ -1183,6 +1149,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
         {stops.map((stop, i) => {
           const selectedInv = districtInvoices.find((inv) => inv.id === stop.invoice_id);
           const resolvedCustomer = selectedInv ? customerFor(selectedInv) : null;
+          const stopOptions = selectedInv && !pickerInvoices.includes(selectedInv) ? [selectedInv, ...pickerInvoices] : pickerInvoices;
           return (
             <div key={i} className="bg-off-white rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between">
@@ -1200,7 +1167,7 @@ function AddDeliveryModal({ truck, eligibleInvoices, customers, agents, drivers,
                   className="w-full px-3 py-2 border border-border rounded-lg text-xs focus:outline-none focus:border-accent-2 bg-white"
                 >
                   <option value="">Select order…</option>
-                  {districtInvoices.map((inv) => {
+                  {stopOptions.map((inv) => {
                     const disabled = pickedIds.has(inv.id) && inv.id !== stop.invoice_id;
                     return (
                       <option key={inv.id} value={inv.id} disabled={disabled}>
