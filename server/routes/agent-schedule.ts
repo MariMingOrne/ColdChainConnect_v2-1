@@ -69,25 +69,27 @@ export const getAgentSchedule: RequestHandler = async (req: AuthRequest, res) =>
       },
     });
 
-    const schedule = assignedDeliveries.map((delivery) => ({
-      ...delivery,
-      driver: delivery.driver ?? delivery.truck?.driver ?? null,
-      delivery_items: delivery.delivery_items.map((stop) => ({
-        ...stop,
-        outstanding_amount: stop.accounts_receivable.reduce((sum, record) => sum + Number(record.amount_due), 0),
-        invoice: stop.invoice
-          ? {
-              id: stop.invoice.id,
-              booking_id: stop.invoice.booking_id,
-              receipt_number: stop.invoice.receipt_number,
-              total_amount: stop.invoice.total_amount,
-            }
-          : null,
-        sale_agent: stop.invoice?.agent ?? null,
-        pallets: stop.invoice?.booking?.order_pallets ?? [],
-        accounts_receivable: undefined,
-      })),
-    }));
+    const schedule = assignedDeliveries
+      .filter((delivery) => delivery.delivery_items.length > 0)
+      .map((delivery) => ({
+        ...delivery,
+        driver: delivery.driver ?? delivery.truck?.driver ?? null,
+        delivery_items: delivery.delivery_items.map((stop) => ({
+          ...stop,
+          outstanding_amount: stop.accounts_receivable.reduce((sum, record) => sum + Number(record.amount_due), 0),
+          invoice: stop.invoice
+            ? {
+                id: stop.invoice.id,
+                booking_id: stop.invoice.booking_id,
+                receipt_number: stop.invoice.receipt_number,
+                total_amount: stop.invoice.total_amount,
+              }
+            : null,
+          sale_agent: stop.invoice?.agent ?? null,
+          pallets: stop.invoice?.booking?.order_pallets ?? [],
+          accounts_receivable: undefined,
+        })),
+      }));
 
     res.json({ deliveries: schedule });
   } catch (error) {
