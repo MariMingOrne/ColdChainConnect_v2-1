@@ -239,3 +239,124 @@ export const confirmDeliveryItem: RequestHandler = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// ─── POST /api/deliveries/:id/items/:itemId/payment ───────────────────────────
+// Records payment for a stop that was confirmed as unpaid.
+// Side-effects:
+//   1. Sets delivery_item.is_paid = true with payment method, reference and paid_at
+//   2. Marks the outstanding accounts_receivable entry for this stop as paid
+//   3. Sets invoice.status = "paid", payment_status = "paid"
+
+export const recordDeliveryItemPayment: RequestHandler = async (
+  req: AuthRequest,
+  res
+) => {
+  const { id: deliveryId, itemId } = req.params;
+  const { payment_method, payment_reference } = req.body ?? {};
+
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ error: "Database not configured" });
+  }
+  if (!payment_method) {
+    return res.status(400).json({ error: "Payment method is required" });
+  }
+
+  try {
+    const item = await db.query.delivery_items.findFirst({
+      where: and(
+        eq(delivery_items.id, itemId),
+        eq(delivery_items.delivery_id, deliveryId)
+      ),
+    });
+
+    if (!item) {
+      return res.status(404).json({ error: "Delivery item not found" });
+    }
+    if (item.status !== "completed") {
+      return res.status(409).json({ error: "Confirm the delivery before recording payment" });
+    }
+    if (item.is_paid) {
+      return res.status(409).json({ error: "Payment is already recorded for this delivery item" });
+    }
+
+    const delivery = await db.query.deliveries.findFirst({
+      where: eq(deliveries.id, deliveryId),
+      with: { truck: { columns: { driver_id: true } } },
+    });
+
+    if (!delivery) {
+      return res.status(404).json({ error: "Delivery not found" });
+    }
+
+    if (req.user?.role === "agent") {
+      const profile = await db.query.agents.findFirst({
+        where: eq(agents.user_id, req.user.userId),
+        columns: { id: true },
+      });
+      if (!profile || delivery.agent_id !== profile.id) {
+        return res.status(403).json({ error: "Only the assigned agent can record payment for this delivery" });
+      }
+    } else if (req.user?.role === "driver") {
+      const profile = await db.query.drivers.findFirst({
+        where: eq(drivers.user_id, req.user.userId),
+        columns: { id: true },
+      });
+      if (!profile || (delivery.driver_id ?? delivery.truck?.driver_id) !== profile.id) {
+        return res.status(403).json({ error: "Only the assigned driver can record payment for this delivery" });
+      }
+    } else if (req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Not authorized to record payment for this delivery" });
+    }
+
+    const now = new Date();
+
+    await db
+      .update(delivery_items)
+      .set({
+        is_paid: true,
+        payment_method,
+        payment_reference: payment_reference ?? null,
+        paid_at: now,
+        updated_at: now,
+      })
+      .where(eq(delivery_items.id, itemId));
+
+    await db
+      .update(receipts)
+      .set({ payment_reference: payment_reference ?? null })
+      .where(eq(receipts.delivery_item_id, itemId));
+
+    await db
+      .update(accounts_receivable)
+      .set({ status: "paid", updated_at: now })
+      .where(and(
+        eq(accounts_receivable.delivery_item_id, itemId),
+        eq(accounts_receivable.status, "outstanding")
+      ));
+
+    await db
+      .update(invoices)
+      .set({ status: "paid", payment_status: "paid", updated_at: now })
+      .where(eq(invoices.id, item.invoice_id));
+
+    if (req.user) {
+      await logAction(
+        req.user.userId,
+        "record_payment",
+        "delivery_item",
+        itemId,
+        { is_paid: false },
+        { is_paid: true, payment_method }
+      );
+    }
+
+    const updated = await db.query.delivery_items.findFirst({
+      where: eq(delivery_items.id, itemId),
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error recording delivery payment:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

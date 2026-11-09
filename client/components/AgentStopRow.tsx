@@ -13,9 +13,10 @@ interface AgentStopRowProps {
   isConfirming: boolean;
   onShowOnMap: (stopId: string) => void;
   onConfirmPayment: () => void;
+  onRecordPayment: () => void;
 }
 
-export function AgentStopRow({ index, stop, showMapAction, isConfirming, onShowOnMap, onConfirmPayment }: AgentStopRowProps) {
+export function AgentStopRow({ index, stop, showMapAction, isConfirming, onShowOnMap, onConfirmPayment, onRecordPayment }: AgentStopRowProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const customer = stop.destination_customer;
   const address = customer ? formatCustomerAddress(customer) : "Address unavailable";
@@ -65,10 +66,20 @@ export function AgentStopRow({ index, stop, showMapAction, isConfirming, onShowO
             Track pallets
           </Link>
         )}
-        {stop.status === "completed" ? (
-          <p className={`text-xs font-semibold ${stop.is_paid ? "text-green" : "text-amber-700"}`}>
-            {stop.is_paid ? "Paid" : "Not paid · recorded in Accounts Receivable"}
-          </p>
+        {stop.status === "completed" && stop.is_paid ? (
+          <p className="text-xs font-semibold text-green">Paid</p>
+        ) : stop.status === "completed" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold text-amber-700">Not paid · recorded in Accounts Receivable</p>
+            <button
+              type="button"
+              onClick={onRecordPayment}
+              disabled={isConfirming}
+              className="min-h-10 rounded-lg bg-green px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+            >
+              Record payment
+            </button>
+          </div>
         ) : allShipped ? (
           <button
             type="button"

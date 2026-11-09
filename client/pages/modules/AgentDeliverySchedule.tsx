@@ -37,7 +37,7 @@ export function AgentDeliverySchedule() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [view, setView] = useState<"current" | "history">("current");
-  const [paymentStop, setPaymentStop] = useState<{ delivery: AgentScheduleDelivery; stop: AgentScheduleStop } | null>(null);
+  const [paymentStop, setPaymentStop] = useState<{ delivery: AgentScheduleDelivery; stop: AgentScheduleStop; mode: "confirm" | "payment" } | null>(null);
   const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null);
   const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
 
@@ -85,12 +85,15 @@ export function AgentDeliverySchedule() {
 
   const confirmDelivery = async (isPaid: boolean, paymentMethod?: string, paymentReference?: string) => {
     if (!token || !paymentStop) return;
-    setConfirmingStopId(paymentStop.stop.id);
+    const { delivery, stop, mode } = paymentStop;
+    setConfirmingStopId(stop.id);
     try {
-      const response = await fetch(`/api/deliveries/${paymentStop.delivery.id}/items/${paymentStop.stop.id}/confirm`, {
+      const response = await fetch(`/api/deliveries/${delivery.id}/items/${stop.id}/${mode === "payment" ? "payment" : "confirm"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ is_paid: isPaid, payment_method: paymentMethod, payment_reference: paymentReference }),
+        body: JSON.stringify(mode === "payment"
+          ? { payment_method: paymentMethod, payment_reference: paymentReference }
+          : { is_paid: isPaid, payment_method: paymentMethod, payment_reference: paymentReference }),
       });
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
@@ -212,7 +215,8 @@ export function AgentDeliverySchedule() {
                           showMapAction={view === "current"}
                           isConfirming={confirmingStopId === stop.id}
                           onShowOnMap={(stopId) => showStopOnMap(delivery.id, stopId)}
-                          onConfirmPayment={() => setPaymentStop({ delivery, stop })}
+                          onConfirmPayment={() => setPaymentStop({ delivery, stop, mode: "confirm" })}
+                          onRecordPayment={() => setPaymentStop({ delivery, stop, mode: "payment" })}
                         />
                       ))}
                     </ol>
@@ -226,6 +230,7 @@ export function AgentDeliverySchedule() {
       {paymentStop && (
         <DeliveryPaymentPrompt
           stop={paymentStop.stop}
+          mode={paymentStop.mode}
           isConfirming={confirmingStopId === paymentStop.stop.id}
           onClose={() => setPaymentStop(null)}
           onConfirm={confirmDelivery}
@@ -235,13 +240,15 @@ export function AgentDeliverySchedule() {
   );
 }
 
-function DeliveryPaymentPrompt({ stop, isConfirming, onClose, onConfirm }: {
+function DeliveryPaymentPrompt({ stop, mode, isConfirming, onClose, onConfirm }: {
   stop: AgentScheduleStop;
+  mode: "confirm" | "payment";
   isConfirming: boolean;
   onClose: () => void;
   onConfirm: (isPaid: boolean, paymentMethod?: string, paymentReference?: string) => Promise<void>;
 }) {
-  const [isPaid, setIsPaid] = useState(false);
+  const isRecordingPayment = mode === "payment";
+  const [isPaid, setIsPaid] = useState(isRecordingPayment);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const paymentMethods = [
@@ -254,17 +261,23 @@ function DeliveryPaymentPrompt({ stop, isConfirming, onClose, onConfirm }: {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="delivery-payment-title" className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 sm:max-w-lg sm:rounded-2xl">
-        <h2 id="delivery-payment-title" className="font-rajdhani text-xl font-bold text-navy">Confirm delivery</h2>
-        <p className="mt-2 text-sm text-muted">Was payment received from {stop.destination_customer.store_name}?</p>
+        <h2 id="delivery-payment-title" className="font-rajdhani text-xl font-bold text-navy">{isRecordingPayment ? "Record payment" : "Confirm delivery"}</h2>
+        <p className="mt-2 text-sm text-muted">
+          {isRecordingPayment
+            ? `Has ${stop.destination_customer.store_name} paid this invoice?`
+            : `Was payment received from ${stop.destination_customer.store_name}?`}
+        </p>
         {stop.invoice && (
           <p className="mt-2 text-sm font-semibold text-navy">
             Invoice {stop.invoice.receipt_number || stop.invoice.id.slice(0, 8)} · Amount due ₱{Number(stop.invoice.total_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         )}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setIsPaid(true)} className={`min-h-12 rounded-lg border-2 font-semibold ${isPaid ? "border-green bg-green/10 text-green" : "border-border text-navy"}`}>Paid</button>
-          <button type="button" onClick={() => setIsPaid(false)} className={`min-h-12 rounded-lg border-2 font-semibold ${!isPaid ? "border-accent-2 bg-blue-50 text-accent-2" : "border-border text-navy"}`}>Not paid</button>
-        </div>
+        {!isRecordingPayment && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setIsPaid(true)} className={`min-h-12 rounded-lg border-2 font-semibold ${isPaid ? "border-green bg-green/10 text-green" : "border-border text-navy"}`}>Paid</button>
+            <button type="button" onClick={() => setIsPaid(false)} className={`min-h-12 rounded-lg border-2 font-semibold ${!isPaid ? "border-accent-2 bg-blue-50 text-accent-2" : "border-border text-navy"}`}>Not paid</button>
+          </div>
+        )}
         {isPaid ? (
           <div className="mt-4 space-y-3 rounded-lg bg-green-50 p-4">
             <label className="block text-xs font-semibold text-navy">
@@ -283,7 +296,7 @@ function DeliveryPaymentPrompt({ stop, isConfirming, onClose, onConfirm }: {
         )}
         <div className="mt-5 flex gap-2 border-t border-border pt-4">
           <button type="button" onClick={onClose} disabled={isConfirming} className="min-h-11 flex-1 rounded-lg border border-border px-4 text-sm font-semibold text-navy disabled:opacity-50">Cancel</button>
-          <button type="button" onClick={() => void onConfirm(isPaid, isPaid ? paymentMethod : undefined, isPaid ? paymentReference : undefined)} disabled={isConfirming} className="min-h-11 flex-1 rounded-lg bg-green px-4 text-sm font-bold text-white disabled:opacity-50">{isConfirming ? "Saving…" : "Confirm delivery"}</button>
+          <button type="button" onClick={() => void onConfirm(isPaid, isPaid ? paymentMethod : undefined, isPaid ? paymentReference : undefined)} disabled={isConfirming} className="min-h-11 flex-1 rounded-lg bg-green px-4 text-sm font-bold text-white disabled:opacity-50">{isConfirming ? "Saving…" : isRecordingPayment ? "Save payment" : "Confirm delivery"}</button>
         </div>
       </section>
     </div>
