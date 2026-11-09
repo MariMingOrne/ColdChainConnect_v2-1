@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import JsBarcode from "jsbarcode";
 import { Printer, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import type { Booking, InventoryBatch, Pallet } from "@shared/api";
 
 interface DeliverySheetProps {
@@ -60,7 +61,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
     : "Not scheduled";
   const storeName = order.customer?.store_name ?? "Customer";
 
-  return (
+  return createPortal(
     <div className="delivery-sheet-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="delivery-sheet-dialog flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white">
         <div className="no-print flex items-center justify-between bg-navy-mid px-6 py-4">
@@ -93,12 +94,11 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
                 size: ${cardMode ? "5in 3in" : "letter"};
                 margin: ${cardMode ? "0.15in" : "0.35in"};
               }
-              html, body, #root { height: auto !important; overflow: visible !important; }
-              body * { visibility: hidden; }
-              #delivery-sheet, #delivery-sheet * { visibility: visible; }
+              html, body { height: auto !important; overflow: visible !important; }
+              body > *:not(.delivery-sheet-overlay) { display: none !important; }
               .delivery-sheet-overlay {
-                position: absolute !important;
-                inset: 0 auto auto 0 !important;
+                position: static !important;
+                inset: auto !important;
                 display: block !important;
                 width: 100% !important;
                 padding: 0 !important;
@@ -186,6 +186,7 @@ export function DeliverySheet({ order, pallets, batches, onClose }: DeliveryShee
           </section>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
